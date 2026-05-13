@@ -13,6 +13,8 @@ const firebaseConfig = {
     measurementId: "G-NPCJGVC37D"
 };
 
+import { getFunctions } from "firebase/functions";
+
 const app = initializeApp(firebaseConfig);
 
 export const auth = initializeAuth(app, {
@@ -22,5 +24,7 @@ export const auth = initializeAuth(app, {
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
 });
+
+export const functions = getFunctions(app);
 
 export default app;

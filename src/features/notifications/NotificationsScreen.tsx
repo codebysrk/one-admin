@@ -1,150 +1,109 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, Modal, TextInput } from 'react-native';
+import { collection, onSnapshot, doc, deleteDoc, addDoc, query, orderBy } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import { COLORS, SPACING } from '../../core/theme';
-import { Send, Bell, Info, AlertCircle } from 'lucide-react-native';
+import { COLORS } from '../../core/theme';
+import { Bell, Plus, Trash2, Megaphone, Info, AlertTriangle, Bus } from 'lucide-react-native';
+
+const NOTIFICATION_TYPES = [
+  { id: 'general', label: 'General', icon: <Bell size={18} color="#6B7280" /> },
+  { id: 'alert', label: 'Alert', icon: <AlertTriangle size={18} color="#EF4444" /> },
+  { id: 'info', label: 'Info', icon: <Info size={18} color="#3B82F6" /> },
+  { id: 'bus', label: 'Bus', icon: <Bus size={18} color="#10B981" /> },
+  { id: 'announcement', label: 'Promo', icon: <Megaphone size={18} color="#F59E0B" /> },
+];
 
 export const NotificationsScreen = () => {
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [modalVisible, setModalVisible] = useState(false);
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [type, setType] = useState('general');
+
+  useEffect(() => {
+    const q = query(collection(db, 'notifications'), orderBy('timestamp', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setNotifications(data);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleSend = async () => {
-    if (!title || !message) {
-      Alert.alert("Error", "Please fill in all fields");
-      return;
-    }
-
-    setLoading(true);
+    if (!title || !message) return Alert.alert("Error", "Required fields empty");
     try {
-      await addDoc(collection(db, 'notifications'), {
-        title,
-        message,
-        timestamp: Date.now(), // or serverTimestamp()
-        status: 'SENT',
-        targetRoute: 'ALL',
-        readBy: {}
-      });
+      await addDoc(collection(db, 'notifications'), { title, message, type, timestamp: Date.now() });
+      setModalVisible(false); setTitle(''); setMessage(''); setType('general');
+    } catch (error) { Alert.alert("Error", "Failed to send"); }
+  };
 
-      Alert.alert("Success", "Notification sent to all users!");
-      setTitle('');
-      setMessage('');
-    } catch (error) {
-      Alert.alert("Error", "Failed to send notification");
-    } finally {
-      setLoading(false);
-    }
+  const confirmDelete = (id: string) => {
+    Alert.alert("Delete", "Remove for all?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: () => deleteDoc(doc(db, 'notifications', id)) }
+    ]);
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Broadcast Center</Text>
-        <Text style={styles.headerSubtitle}>Send updates to all One Delhi users</Text>
+        <Text style={styles.headerTitle}>Notifications</Text>
+        <TouchableOpacity style={styles.addBtn} onPress={() => setModalVisible(true)}><Plus size={20} color="white" /></TouchableOpacity>
       </View>
-
-      <View style={styles.form}>
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Notification Title</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. Route 434 Delayed"
-            value={title}
-            onChangeText={setTitle}
-          />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Message Body</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            placeholder="Describe the update in detail..."
-            value={message}
-            onChangeText={setMessage}
-            multiline={true}
-            numberOfLines={4}
-            textAlignVertical="top"
-          />
-        </View>
-
-        <TouchableOpacity 
-          style={[styles.sendButton, loading && styles.disabledButton]} 
-          onPress={handleSend}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <>
-              <Send size={20} color="white" />
-              <Text style={styles.sendButtonText}>Send Broadcast</Text>
-            </>
+      {loading ? <ActivityIndicator color={COLORS.primary} style={{ flex: 1 }} /> : (
+        <FlatList
+          data={notifications}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.notifCard}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.notifTitle}>{item.title}</Text>
+                <TouchableOpacity onPress={() => confirmDelete(item.id)}><Trash2 size={16} color="#EF4444" /></TouchableOpacity>
+              </View>
+              <Text style={styles.notifMessage}>{item.message}</Text>
+            </View>
           )}
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.infoBox}>
-        <Info size={18} color="#0284C7" />
-        <Text style={styles.infoText}>
-          Notifications will appear in the user app immediately after sending.
-        </Text>
-      </View>
-    </ScrollView>
+          contentContainerStyle={styles.listContent}
+        />
+      )}
+      <Modal visible={modalVisible} transparent animationType="fade">
+        <View style={styles.overlay}>
+          <View style={styles.modalContent}>
+            <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Title" />
+            <TextInput style={[styles.input, { height: 80 }]} value={message} onChangeText={setMessage} placeholder="Message" multiline />
+            <View style={styles.typeSelector}>
+              {NOTIFICATION_TYPES.map(t => (
+                <TouchableOpacity key={t.id} style={[styles.typeBtn, type === t.id && { backgroundColor: COLORS.primary }]} onPress={() => setType(t.id)}>
+                  <Text style={[styles.typeBtnText, type === t.id && { color: 'white' }]}>{t.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity style={styles.sendBtn} onPress={handleSend}><Text style={{ color: 'white' }}>Send</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setModalVisible(false)} style={{ marginTop: 10, alignSelf: 'center' }}><Text>Close</Text></TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
-  header: { 
-    padding: 24, 
-    backgroundColor: 'white', 
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    paddingTop: 60
-  },
+  header: { padding: 24, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingTop: 60, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.primary },
-  headerSubtitle: { fontSize: 13, color: COLORS.textMuted, marginTop: 4 },
-  form: { padding: 24, gap: 20 },
-  inputGroup: { gap: 8 },
-  label: { fontSize: 14, fontWeight: '600', color: COLORS.text },
-  input: { 
-    backgroundColor: 'white', 
-    borderWidth: 1, 
-    borderColor: '#E2E8F0', 
-    borderRadius: 8, 
-    padding: 12, 
-    fontSize: 16,
-    color: COLORS.text
-  },
-  textArea: { height: 120 },
-  sendButton: { 
-    backgroundColor: COLORS.primary, 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    padding: 16, 
-    borderRadius: 12, 
-    gap: 8,
-    marginTop: 10,
-    elevation: 4,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8
-  },
-  disabledButton: { opacity: 0.7 },
-  sendButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
-  infoBox: { 
-    margin: 24, 
-    padding: 16, 
-    backgroundColor: '#F0F9FF', 
-    borderRadius: 12, 
-    flexDirection: 'row', 
-    gap: 12, 
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#BAE6FD'
-  },
-  infoText: { flex: 1, fontSize: 12, color: '#0369A1', lineHeight: 18 }
+  addBtn: { backgroundColor: COLORS.primary, padding: 8, borderRadius: 8 },
+  listContent: { padding: 16 },
+  notifCard: { backgroundColor: 'white', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#E2E8F0' },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between' },
+  notifTitle: { fontWeight: 'bold', fontSize: 15 },
+  notifMessage: { color: '#666', marginTop: 4 },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+  modalContent: { backgroundColor: 'white', borderRadius: 16, padding: 20 },
+  input: { borderWidth: 1, borderColor: '#DDD', borderRadius: 8, padding: 10, marginBottom: 10 },
+  typeSelector: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 15 },
+  typeBtn: { padding: 6, backgroundColor: '#EEE', borderRadius: 5 },
+  typeBtnText: { fontSize: 11 },
+  sendBtn: { backgroundColor: COLORS.primary, padding: 15, borderRadius: 8, alignItems: 'center' }
 });

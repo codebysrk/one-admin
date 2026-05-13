@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '../../services/firebase';
 import { loginAdmin } from '../../services/authService';
 import { useAdminStore } from '../../store/useAdminStore';
 import { COLORS, SPACING } from '../../core/theme';
-import { Lock, Mail, ShieldCheck } from 'lucide-react-native';
+import { Lock, Mail, ShieldCheck, Eye, EyeOff } from 'lucide-react-native';
 
 export const LoginScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const setAdmin = useAdminStore((state) => state.setAdmin);
   
@@ -30,6 +33,19 @@ export const LoginScreen = () => {
       setAdmin(result.userData);
     } else {
       Alert.alert('Login Failed', result.error);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      Alert.alert('Email Required', 'Please enter your admin email first to receive a reset link.');
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      Alert.alert('Reset Link Sent', `A password reset link has been sent to ${email}`);
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
     }
   };
 
@@ -61,9 +77,16 @@ export const LoginScreen = () => {
             placeholder="Password"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
+            secureTextEntry={!showPassword}
           />
+          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+            {showPassword ? <EyeOff size={20} color={COLORS.textMuted} /> : <Eye size={20} color={COLORS.textMuted} />}
+          </TouchableOpacity>
         </View>
+
+        <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotBtn}>
+          <Text style={styles.forgotText}>Forgot Password?</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity 
           style={[styles.button, loading && styles.buttonDisabled]} 
@@ -115,4 +138,6 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.7 },
   buttonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+  forgotBtn: { alignSelf: 'flex-end', marginBottom: 20 },
+  forgotText: { color: COLORS.accent, fontSize: 14, fontWeight: '600' }
 });

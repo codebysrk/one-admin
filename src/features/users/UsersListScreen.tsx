@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, Switch } from 'react-native';
-import { collection, onSnapshot, updateDoc, doc, query, orderBy } from 'firebase/firestore';
-import { db } from '../../services/firebase';
+import { collection, onSnapshot, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '../../services/firebase';
 import { COLORS, SPACING } from '../../core/theme';
-import { User, Shield, ShieldAlert, Mail, Phone, Calendar } from 'lucide-react-native';
+import { User, Shield, ShieldAlert, Mail, Phone, Calendar, Trash2 } from 'lucide-react-native';
 
 export const UsersListScreen = () => {
   const [users, setUsers] = useState<any[]>([]);
@@ -69,9 +70,57 @@ export const UsersListScreen = () => {
             <Text style={styles.detailText}>{item.phone}</Text>
           </View>
         )}
+        <TouchableOpacity 
+          style={styles.deleteBtn} 
+          onPress={() => confirmDelete(item)}
+        >
+          <Trash2 size={16} color="#EF4444" />
+          <Text style={styles.deleteText}>Delete User Account</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
+
+  const confirmDelete = (user: any) => {
+    Alert.alert(
+      "Delete User",
+      `Are you sure you want to PERMANENTLY delete ${user.name}? This action cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive", 
+          onPress: () => handleDelete(user) 
+        }
+      ]
+    );
+  };
+
+  const handleDelete = async (user: any) => {
+    setLoading(true);
+    try {
+      const { id: uid, email, name } = user;
+      
+      // 1. Record in 'deleted_users' for manual Auth cleanup
+      await setDoc(doc(db, 'deleted_users', uid), {
+        uid,
+        email,
+        name,
+        deletedAt: Date.now(),
+        status: 'PENDING_AUTH_DELETION'
+      });
+
+      // 2. Delete Firestore User Doc
+      await deleteDoc(doc(db, 'users', uid));
+      
+      Alert.alert("Success", "User data removed from Firestore and logged for Auth cleanup.");
+    } catch (error: any) {
+      console.error("Delete Error:", error);
+      Alert.alert("Error", "Could not remove user data.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -125,5 +174,15 @@ const styles = StyleSheet.create({
   userDetails: { borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 12, gap: 8 },
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   detailText: { fontSize: 13, color: COLORS.textMuted },
+  deleteBtn: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 8, 
+    marginTop: 16, 
+    paddingTop: 16, 
+    borderTopWidth: 1, 
+    borderTopColor: '#F1F5F9' 
+  },
+  deleteText: { fontSize: 13, color: '#EF4444', fontWeight: '600' },
   emptyText: { textAlign: 'center', marginTop: 40, color: COLORS.textMuted }
 });

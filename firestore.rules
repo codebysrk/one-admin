@@ -1,0 +1,200 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =====================================
+    // HELPER FUNCTIONS
+    // =====================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    function isNotBanned() {
+      return isAuthenticated() &&
+        (
+          !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status != "BANNED"
+        );
+    }
+
+    // =====================================
+    // USERS
+    // =====================================
+
+    match /users/{userId} {
+
+      // Admin can read all users
+      allow read: if isAdmin();
+
+      // Admin can create users/admins
+      allow create: if isAdmin();
+
+      // Admin can update ONLY role/status
+      allow update: if isAdmin() &&
+        request.resource.data.name == resource.data.name &&
+        request.resource.data.email == resource.data.email &&
+        request.resource.data.phone == resource.data.phone &&
+        request.resource.data.createdAt == resource.data.createdAt;
+
+      // No direct delete
+      allow delete: if false;
+
+      // =====================================
+      // USER SELF ACCESS
+      // =====================================
+
+      // User signup
+      allow create: if
+        request.auth.uid == userId;
+
+      // User read own profile
+      allow read: if
+        request.auth.uid == userId &&
+        isNotBanned();
+
+      // User update own profile
+      allow update: if
+        request.auth.uid == userId &&
+        isNotBanned();
+    }
+
+    // =====================================
+    // DEVICES
+    // =====================================
+
+    match /devices/{deviceId} {
+
+      // Admin full access
+      allow read, write: if isAdmin();
+
+      // User create own device
+      allow create: if
+        isAuthenticated() &&
+        isNotBanned() &&
+        request.resource.data.userId == request.auth.uid;
+
+      // User read own devices
+      allow read: if
+        isAuthenticated() &&
+        resource.data.userId == request.auth.uid &&
+        isNotBanned();
+
+      // User update own device
+      allow update: if
+        isAuthenticated() &&
+        resource.data.userId == request.auth.uid &&
+        isNotBanned();
+
+      // No delete
+      allow delete: if false;
+    }
+
+    // =====================================
+    // TICKETS
+    // =====================================
+
+    match /tickets/{ticketId} {
+
+      // Admin full access
+      allow read, write: if isAdmin();
+
+      // User create own ticket
+      allow create: if
+        isAuthenticated() &&
+        isNotBanned() &&
+        request.resource.data.userId == request.auth.uid;
+
+      // User read own tickets
+      allow read: if
+        isAuthenticated() &&
+        resource.data.userId == request.auth.uid &&
+        isNotBanned();
+
+      // No update/delete
+      allow update, delete: if false;
+    }
+
+    // =====================================
+    // NOTIFICATIONS
+    // =====================================
+
+    match /notifications/{notificationId} {
+
+      // Users read only
+      allow read: if
+        isAuthenticated() &&
+        isNotBanned();
+
+      // Admin manage
+      allow write: if isAdmin();
+    }
+
+    // =====================================
+    // ROUTES
+    // =====================================
+
+    match /routes/{routeId} {
+
+      // Users can read
+      allow read: if
+        isAuthenticated() &&
+        isNotBanned();
+
+      // Admin manage
+      allow write: if isAdmin();
+    }
+
+    // =====================================
+    // STOPS
+    // =====================================
+
+    match /stops/{stopId} {
+
+      // Users can read
+      allow read: if
+        isAuthenticated() &&
+        isNotBanned();
+
+      // Admin manage
+      allow write: if isAdmin();
+    }
+
+    // =====================================
+    // LOGS
+    // =====================================
+
+    match /logs/{logId} {
+
+      // App create logs
+      allow create: if
+        isAuthenticated() &&
+        isNotBanned();
+
+      // Admin only
+      allow read, update, delete: if isAdmin();
+    }
+
+    // =====================================
+    // METADATA
+    // =====================================
+
+    match /metadata/{documentId} {
+
+      // Users can read
+      allow read: if
+        isAuthenticated() &&
+        isNotBanned();
+
+      // Admin manage
+      allow write: if isAdmin(); 
+    }
+  }
+}

@@ -6,8 +6,10 @@ export interface AdminProfile {
   uid: string;
   email: string;
   name: string;
+  phone: string;
   role: 'admin';
   status: 'ACTIVE';
+  createdAt: number;
 }
 
 export const loginAdmin = async (email: string, password: string) => {
