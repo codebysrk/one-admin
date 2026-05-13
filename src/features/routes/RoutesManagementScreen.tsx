@@ -107,7 +107,7 @@ export const RoutesManagementScreen = () => {
           <Bus size={22} color={COLORS.white} />
         </View>
         <View style={styles.routeMeta}>
-          <Text style={styles.routeTitle}>Route {item.route}</Text>
+          <Text style={styles.routeTitle}>{item.route}</Text>
           <Text style={styles.stopInfo}>{item.directions?.up?.totalStops || 0} stops • 2-way</Text>
         </View>
         <TouchableOpacity onPress={() => setReasonModal({ visible: true, title: `Delete Route ${item.id}`, type: 'DELETE_ROUTE', data: item.id })} style={styles.miniBtn}>
