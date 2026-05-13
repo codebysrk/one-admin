@@ -215,21 +215,23 @@ export const LogsScreen = () => {
         title="Security Audit"
         subtitle="Real-time system activity feed"
         action={(
-          <IconButton
-            tone="neutral"
-            accessibilityLabel="System Maintenance"
-            onPress={() => setShowCleanupModal(true)}
-            style={{ marginRight: 8 }}
-          >
-            <Settings size={18} color={COLORS.text} />
-          </IconButton>
-          <IconButton
-            tone="success"
-            accessibilityLabel="Export activity logs"
-            onPress={() => exportToCSV(logs, `security_audit_${new Date().getTime()}`)}
-          >
-            <Download size={18} color={COLORS.white} />
-          </IconButton>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <IconButton
+              tone="neutral"
+              accessibilityLabel="System Maintenance"
+              onPress={() => setShowCleanupModal(true)}
+              style={{ marginRight: 8 }}
+            >
+              <Settings size={18} color={COLORS.text} />
+            </IconButton>
+            <IconButton
+              tone="success"
+              accessibilityLabel="Export activity logs"
+              onPress={() => exportToCSV(logs, `security_audit_${new Date().getTime()}`)}
+            >
+              <Download size={18} color={COLORS.white} />
+            </IconButton>
+          </View>
         )}
       />
 
