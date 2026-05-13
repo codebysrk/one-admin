@@ -10,12 +10,14 @@ import {
   Text,
   TextInput,
   TextInputProps,
+  TouchableOpacity,
   View,
   ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Search, X } from 'lucide-react-native';
+import { Search, X, MessageSquare, AlertCircle } from 'lucide-react-native';
+import { Modal } from 'react-native';
 import { COLORS, RADIUS, SHADOWS, SPACING, TYPOGRAPHY } from '../core/theme';
 
 type ScreenProps = {
@@ -104,13 +106,13 @@ export const AdminScreen = ({ children, style }: ScreenProps) => (
 );
 
 export const AdminHeader = ({ title, subtitle, action, compact }: HeaderProps) => (
-  <LinearGradient colors={['#101A2E', '#0B1220']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.headerShell}>
+  <LinearGradient colors={['#4F46E5', '#3730A3']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.headerShell}>
     <StatusBar barStyle="light-content" />
     <SafeAreaView edges={['top']}>
       <View style={[styles.header, compact && styles.headerCompact]}>
         <View style={styles.headerCopy}>
           <View style={styles.eyebrowPill}>
-            <Text style={styles.eyebrow}>Admin Console</Text>
+            <Text style={styles.eyebrow}>One Delhi • Admin System</Text>
           </View>
           <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
           {subtitle ? <Text style={styles.headerSubtitle} numberOfLines={2}>{subtitle}</Text> : null}
@@ -348,6 +350,74 @@ export const LoadingState = ({
   </View>
 );
 
+export const ReasonModal = ({ 
+  visible, 
+  onClose, 
+  onSubmit, 
+  title, 
+  placeholder = "Enter reason for this action..." 
+}: { 
+  visible: boolean; 
+  onClose: () => void; 
+  onSubmit: (reason: string) => void; 
+  title: string;
+  placeholder?: string;
+}) => {
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState(false);
+
+  const handleConfirm = () => {
+    if (!reason.trim()) {
+      setError(true);
+      return;
+    }
+    onSubmit(reason.trim());
+    setReason('');
+    onClose();
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
+          <View style={styles.modalHeader}>
+            <View style={styles.modalIconBox}>
+              <MessageSquare size={20} color={COLORS.primary} />
+            </View>
+            <Text style={styles.modalTitle}>{title}</Text>
+          </View>
+          
+          <View style={styles.modalBody}>
+            <Text style={styles.modalLabel}>Provide Justification</Text>
+            <TextInput
+              style={[styles.modalInput, error && styles.modalInputError]}
+              placeholder={placeholder}
+              placeholderTextColor={COLORS.textSubtle}
+              multiline
+              numberOfLines={4}
+              value={reason}
+              onChangeText={(txt) => {
+                setReason(txt);
+                setError(false);
+              }}
+            />
+            {error && <Text style={styles.modalError}>A reason is required to proceed.</Text>}
+          </View>
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity style={styles.modalCancel} onPress={onClose}>
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalConfirm} onPress={handleConfirm}>
+              <Text style={styles.modalConfirmText}>Confirm Action</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 export const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -394,22 +464,22 @@ export const styles = StyleSheet.create({
     marginBottom: 10,
   },
   eyebrow: {
-    color: '#CBD5E1',
-    fontSize: 10,
-    fontWeight: '800',
+    color: '#E0E7FF',
+    fontSize: 9,
+    fontWeight: '900',
     textTransform: 'uppercase',
-    letterSpacing: 0,
+    letterSpacing: 1,
   },
   headerTitle: {
-    color: COLORS.textOnDark,
-    fontSize: TYPOGRAPHY.title,
-    lineHeight: 28,
+    color: COLORS.white,
+    fontSize: 24,
+    lineHeight: 30,
     fontWeight: '800',
   },
   headerSubtitle: {
-    color: '#CBD5E1',
-    fontSize: TYPOGRAPHY.bodySmall,
-    lineHeight: 19,
+    color: '#C7D2FE',
+    fontSize: 12,
+    lineHeight: 18,
     fontWeight: '600',
     marginTop: 4,
   },
@@ -704,4 +774,19 @@ export const styles = StyleSheet.create({
     width: '72%',
     height: 12,
   },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.65)', justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
+  modalCard: { width: '100%', backgroundColor: COLORS.surface, borderRadius: RADIUS.lg, padding: SPACING.xl, ...SHADOWS.floating },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+  modalIconBox: { width: 40, height: 40, borderRadius: 12, backgroundColor: COLORS.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  modalTitle: { fontSize: 17, fontWeight: '800', color: COLORS.text, flex: 1 },
+  modalBody: { marginBottom: 24 },
+  modalLabel: { fontSize: 11, fontWeight: '800', color: COLORS.textMuted, textTransform: 'uppercase', marginBottom: 8 },
+  modalInput: { backgroundColor: COLORS.surfaceMuted, borderRadius: RADIUS.md, padding: 12, fontSize: 14, color: COLORS.text, minHeight: 100, textAlignVertical: 'top', borderWidth: 1, borderColor: COLORS.border },
+  modalInputError: { borderColor: COLORS.error, backgroundColor: COLORS.errorSoft },
+  modalError: { color: COLORS.error, fontSize: 11, fontWeight: '700', marginTop: 6 },
+  modalActions: { flexDirection: 'row', gap: 12 },
+  modalCancel: { flex: 1, height: 48, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surfaceMuted },
+  modalCancelText: { fontSize: 14, fontWeight: '700', color: COLORS.textMuted },
+  modalConfirm: { flex: 2, height: 48, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primary },
+  modalConfirmText: { fontSize: 14, fontWeight: '800', color: COLORS.white },
 });

@@ -1,23 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
-import { collection, onSnapshot, doc, deleteDoc, addDoc, query, orderBy } from 'firebase/firestore';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Modal, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { collection, onSnapshot, doc, deleteDoc, addDoc, query, orderBy, getCountFromServer } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
-import { Bell, Plus, Trash2, Megaphone, Info, AlertTriangle, Bus, X } from 'lucide-react-native';
-import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, StatusBadge } from '../../components/AdminUI';
+import { Bell, Plus, Trash2, Megaphone, Info, AlertTriangle, Bus, X, Users, Send } from 'lucide-react-native';
+import { AdminHeader, AdminScreen, EmptyState, LoadingState, StatusBadge } from '../../components/AdminUI';
+import { logActivity } from '../../services/logService';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const NOTIFICATION_TYPES = [
-  { id: 'general', label: 'General', icon: Bell, tone: 'neutral' as const },
-  { id: 'alert', label: 'Alert', icon: AlertTriangle, tone: 'error' as const },
-  { id: 'info', label: 'Info', icon: Info, tone: 'info' as const },
-  { id: 'bus', label: 'Bus', icon: Bus, tone: 'success' as const },
-  { id: 'announcement', label: 'Promo', icon: Megaphone, tone: 'warning' as const },
+  { id: 'general', label: 'General', icon: Bell, tone: '#6366F1', bg: '#EEF2FF' },
+  { id: 'alert', label: 'Alert', icon: AlertTriangle, tone: '#EF4444', bg: '#FEF2F2' },
+  { id: 'info', label: 'Info', icon: Info, tone: '#3B82F6', bg: '#EFF6FF' },
+  { id: 'bus', label: 'Bus', icon: Bus, tone: '#10B981', bg: '#ECFDF5' },
+  { id: 'promo', label: 'Promo', icon: Megaphone, tone: '#F59E0B', bg: '#FFFBEB' },
 ];
 
 export const NotificationsScreen = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
+  const [sending, setSending] = useState(false);
+
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [type, setType] = useState('general');
@@ -29,146 +34,185 @@ export const NotificationsScreen = () => {
       setNotifications(data);
       setLoading(false);
     });
+
+    const fetchUserCount = async () => {
+      const snap = await getCountFromServer(collection(db, 'users'));
+      setTotalUsers(snap.data().count);
+    };
+
+    fetchUserCount();
     return () => unsubscribe();
   }, []);
 
-  const handleSend = async () => {
-    if (!title.trim() || !message.trim()) return Alert.alert('Missing content', 'Title and message are required.');
+  const handleBroadcast = async () => {
+    if (!title.trim() || !message.trim()) {
+      Alert.alert('Required', 'Provide title & message.');
+      return;
+    }
+
+    setSending(true);
     try {
-      await addDoc(collection(db, 'notifications'), { title: title.trim(), message: message.trim(), type, timestamp: Date.now() });
+      const payload = {
+        title: title.trim(),
+        message: message.trim(),
+        type,
+        timestamp: Date.now(),
+        isBroadcast: true,
+        sentBy: 'Admin Hub',
+        targetCount: totalUsers
+      };
+
+      await addDoc(collection(db, 'notifications'), payload);
       setModalVisible(false);
       setTitle('');
       setMessage('');
       setType('general');
     } catch (error) {
-      Alert.alert('Error', 'Failed to send notification');
+      Alert.alert('Error', 'Failed to dispatch');
+    } finally {
+      setSending(false);
     }
-  };
-
-  const confirmDelete = (id: string) => {
-    Alert.alert('Delete Notification', 'Remove this notification for all users?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteDoc(doc(db, 'notifications', id)) },
-    ]);
   };
 
   const renderNotification = ({ item }: any) => {
     const typeInfo = NOTIFICATION_TYPES.find(t => t.id === item.type) || NOTIFICATION_TYPES[0];
-    const Icon = typeInfo.icon;
-
     return (
       <View style={styles.notifCard}>
         <View style={styles.cardHeader}>
           <View style={styles.typeInfo}>
-            <View style={styles.typeIcon}>
-              <Icon size={17} color={COLORS.accent} />
+            <View style={[styles.typeIcon, { backgroundColor: typeInfo.bg }]}>
+              <typeInfo.icon size={14} color={typeInfo.tone} />
             </View>
-            <StatusBadge label={typeInfo.label} tone={typeInfo.tone} />
+            <Text style={styles.dateText}>{new Date(item.timestamp).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</Text>
           </View>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Delete ${item.title}`} onPress={() => confirmDelete(item.id)} style={styles.deleteBtn} activeOpacity={0.82}>
-            <Trash2 size={16} color={COLORS.error} />
+          <TouchableOpacity onPress={() => deleteDoc(doc(db, 'notifications', item.id))} style={styles.deleteBtn}>
+            <Trash2 size={14} color={COLORS.error} />
           </TouchableOpacity>
         </View>
-        <Text style={styles.notifTitle}>{item.title}</Text>
-        <Text style={styles.notifMessage}>{item.message}</Text>
+        <Text style={styles.notifTitle} numberOfLines={1}>{item.title}</Text>
+        <Text style={styles.notifMessage} numberOfLines={1}>{item.message}</Text>
       </View>
     );
   };
 
+  const selectedType = NOTIFICATION_TYPES.find(t => t.id === type) || NOTIFICATION_TYPES[0];
+
   return (
     <AdminScreen>
-      <AdminHeader
-        title="Notifications"
-        subtitle={`${notifications.length} active announcements`}
-        action={(
-          <IconButton accessibilityLabel="Create notification" onPress={() => setModalVisible(true)}>
-            <Plus size={20} color={COLORS.white} />
-          </IconButton>
+      <AdminHeader title="Broadcast" subtitle={`${totalUsers} active users`} />
+
+      <FlatList
+        data={notifications}
+        keyExtractor={(item) => item.id}
+        renderItem={renderNotification}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={(
+          <TouchableOpacity style={styles.mainAction} onPress={() => setModalVisible(true)}>
+             <LinearGradient colors={['#4F46E5', '#6366F1']} style={styles.actionGrad}>
+                <Megaphone size={20} color={COLORS.white} />
+                <View style={styles.actionCopy}>
+                   <Text style={styles.actionTitle}>New Broadcast</Text>
+                   <Text style={styles.actionSub}>Global alert system</Text>
+                </View>
+                <Plus size={20} color={COLORS.white} />
+             </LinearGradient>
+          </TouchableOpacity>
         )}
+        ListEmptyComponent={loading ? <LoadingState label="Loading..." compact /> : <EmptyState title="No history" />}
       />
 
-      {loading ? (
-        <LoadingState label="Loading notifications..." />
-      ) : (
-        <FlatList
-          data={notifications}
-          keyExtractor={(item) => item.id}
-          renderItem={renderNotification}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={<EmptyState icon={<Bell size={30} color={COLORS.textSubtle} />} title="No notifications" message="Create an announcement to reach app users." />}
-        />
-      )}
-
-      <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.overlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>Send Notification</Text>
-                <Text style={styles.modalSubtitle}>Publish a concise update to users.</Text>
-              </View>
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close notification modal" onPress={() => setModalVisible(false)} style={styles.closeBtn}>
-                <X size={18} color={COLORS.textMuted} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.label}>Type</Text>
-            <View style={styles.typeSelector}>
-              {NOTIFICATION_TYPES.map(t => (
-                <TouchableOpacity key={t.id} style={[styles.typeBtn, type === t.id && styles.typeBtnActive]} onPress={() => setType(t.id)} activeOpacity={0.82}>
-                  <Text style={[styles.typeBtnText, type === t.id && styles.typeBtnTextActive]}>{t.label}</Text>
+      <Modal visible={modalVisible} transparent animationType="slide">
+        <View style={styles.overlay}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboard}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <View>
+                  <Text style={styles.modalTitle}>Dispatch Hub</Text>
+                  <Text style={styles.modalSubtitle}>Configure system-wide announcement</Text>
+                </View>
+                <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}>
+                  <X size={20} color={COLORS.textMuted} />
                 </TouchableOpacity>
-              ))}
+              </View>
+
+              <View style={styles.formBody}>
+                <Text style={styles.label}>Broadcast Category</Text>
+                <View style={styles.categoryGrid}>
+                   {NOTIFICATION_TYPES.map(t => (
+                     <TouchableOpacity key={t.id} style={[styles.catBtn, type === t.id && { borderColor: t.tone, backgroundColor: t.bg }]} onPress={() => setType(t.id)}>
+                        <t.icon size={16} color={type === t.id ? t.tone : COLORS.textMuted} />
+                        <Text style={[styles.catLabel, type === t.id && { color: t.tone }]}>{t.label}</Text>
+                     </TouchableOpacity>
+                   ))}
+                </View>
+
+                <View style={styles.inputSection}>
+                  <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Headline (e.g., Schedule Update)" placeholderTextColor={COLORS.textSubtle} maxLength={45} />
+                  <TextInput style={[styles.input, styles.area]} value={message} onChangeText={setMessage} multiline numberOfLines={3} placeholder="Describe the announcement..." placeholderTextColor={COLORS.textSubtle} />
+                </View>
+
+                <View style={styles.previewCard}>
+                   <View style={styles.previewHeader}>
+                      <View style={[styles.previewIcon, { backgroundColor: selectedType.bg }]}><selectedType.icon size={12} color={selectedType.tone} /></View>
+                      <Text style={styles.previewType}>{selectedType.label} Announcement • Now</Text>
+                   </View>
+                   <Text style={styles.previewTitle} numberOfLines={1}>{title || 'Headline'}</Text>
+                   <Text style={styles.previewText} numberOfLines={1}>{message || 'Message content...'}</Text>
+                </View>
+
+                <TouchableOpacity style={styles.sendBtn} onPress={handleBroadcast} disabled={sending}>
+                   <LinearGradient colors={['#4F46E5', '#3730A3']} start={{x:0, y:0}} end={{x:1, y:0}} style={styles.sendGrad}>
+                      {sending ? <ActivityIndicator color="white" size="small" /> : <Text style={styles.sendText}>Dispatch to {totalUsers} Users</Text>}
+                   </LinearGradient>
+                </TouchableOpacity>
+              </View>
             </View>
-
-            <Text style={styles.label}>Title</Text>
-            <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Traffic alert" placeholderTextColor={COLORS.textSubtle} selectionColor={COLORS.accent} />
-
-            <Text style={styles.label}>Message</Text>
-            <TextInput
-              style={[styles.input, styles.messageInput]}
-              value={message}
-              onChangeText={setMessage}
-              placeholder="Enter message details..."
-              placeholderTextColor={COLORS.textSubtle}
-              multiline
-              textAlignVertical="top"
-              selectionColor={COLORS.accent}
-            />
-
-            <TouchableOpacity style={styles.sendBtn} onPress={handleSend} activeOpacity={0.86}>
-              <Text style={styles.sendBtnText}>Send Now</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
+            <View style={styles.bottomBleed} />
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
     </AdminScreen>
   );
 };
 
 const styles = StyleSheet.create({
-  listContent: { padding: SPACING.xl, paddingBottom: 40 },
-  notifCard: { backgroundColor: COLORS.surface, borderRadius: RADIUS.md, padding: SPACING.lg, marginBottom: SPACING.lg, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 12 },
-  typeInfo: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
-  typeIcon: { width: 34, height: 34, borderRadius: RADIUS.md, backgroundColor: COLORS.accentSoft, alignItems: 'center', justifyContent: 'center' },
-  deleteBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.md, backgroundColor: COLORS.errorSoft },
-  notifTitle: { fontSize: 16, lineHeight: 21, color: COLORS.text, fontWeight: '800', marginBottom: 6 },
-  notifMessage: { color: COLORS.textMuted, marginTop: 2, fontSize: 13, lineHeight: 19, fontWeight: '600' },
-  overlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: 'center', padding: SPACING.xl },
-  modalContent: { backgroundColor: COLORS.surface, borderRadius: RADIUS.xxl, padding: SPACING.xxl, ...SHADOWS.floating },
-  modalHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 12 },
-  modalTitle: { color: COLORS.text, fontSize: 20, lineHeight: 25, fontWeight: '800' },
-  modalSubtitle: { color: COLORS.textMuted, fontSize: 12, fontWeight: '600', marginTop: 3 },
-  closeBtn: { width: 38, height: 38, borderRadius: RADIUS.md, backgroundColor: COLORS.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
-  label: { fontSize: 11, fontWeight: '800', color: COLORS.textMuted, marginBottom: 7, textTransform: 'uppercase', letterSpacing: 0 },
-  input: { minHeight: 50, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, paddingHorizontal: 14, paddingVertical: 11, marginBottom: 16, fontSize: 14, color: COLORS.text, fontWeight: '700', backgroundColor: COLORS.surface },
-  messageInput: { height: 104, lineHeight: 20 },
-  typeSelector: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  typeBtn: { paddingHorizontal: 12, paddingVertical: 9, borderRadius: 999, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border },
-  typeBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  typeBtnText: { fontSize: 11, color: COLORS.textMuted, fontWeight: '800' },
-  typeBtnTextActive: { color: COLORS.white },
-  sendBtn: { backgroundColor: COLORS.accent, minHeight: 52, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', ...SHADOWS.accent },
-  sendBtnText: { color: COLORS.white, fontSize: 15, fontWeight: '800' },
+  listContent: { padding: 20, paddingBottom: 60 },
+  mainAction: { marginBottom: 16, borderRadius: 16, overflow: 'hidden', ...SHADOWS.card },
+  actionGrad: { padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  actionCopy: { flex: 1 },
+  actionTitle: { color: COLORS.white, fontSize: 17, fontWeight: '800' },
+  actionSub: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '600' },
+  notifCard: { backgroundColor: COLORS.surface, borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  typeInfo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  typeIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  dateText: { fontSize: 10, color: COLORS.textSubtle, fontWeight: '700' },
+  deleteBtn: { padding: 6, backgroundColor: COLORS.errorSoft, borderRadius: 6 },
+  notifTitle: { fontSize: 14, fontWeight: '800', color: COLORS.text, marginBottom: 2 },
+  notifMessage: { fontSize: 12, color: COLORS.textMuted, fontWeight: '600' },
+  overlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'flex-end' },
+  keyboard: { width: '100%', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: COLORS.surface, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 24, paddingTop: 30, paddingBottom: 40, maxHeight: '98%' },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },
+  modalTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text },
+  modalSubtitle: { fontSize: 13, color: COLORS.textMuted, fontWeight: '600', marginTop: 4 },
+  closeBtn: { padding: 6, backgroundColor: COLORS.surfaceMuted, borderRadius: 10 },
+  formBody: { gap: 14 },
+  label: { fontSize: 12, fontWeight: '800', color: COLORS.textMuted, textTransform: 'uppercase', marginBottom: 4 },
+  categoryGrid: { flexDirection: 'row', gap: 10 },
+  catBtn: { flex: 1, paddingVertical: 12, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center', gap: 6 },
+  catLabel: { fontSize: 11, fontWeight: '800', color: COLORS.textMuted },
+  inputSection: { gap: 12 },
+  input: { backgroundColor: COLORS.surfaceMuted, borderRadius: 14, padding: 16, fontSize: 15, fontWeight: '700', color: COLORS.text, borderWidth: 1, borderColor: COLORS.border },
+  area: { height: 110, textAlignVertical: 'top' },
+  previewCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 18, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
+  previewHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10 },
+  previewIcon: { width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  previewType: { fontSize: 12, fontWeight: '800', color: COLORS.textMuted, flex: 1 },
+  previewTitle: { fontSize: 15, fontWeight: '800', color: COLORS.text, marginBottom: 6 },
+  previewText: { fontSize: 13, color: COLORS.textMuted, fontWeight: '500', lineHeight: 18 },
+  sendBtn: { borderRadius: 16, overflow: 'hidden', marginTop: 8, ...SHADOWS.accent },
+  sendGrad: { height: 56, alignItems: 'center', justifyContent: 'center' },
+  sendText: { color: COLORS.white, fontSize: 16, fontWeight: '800' },
+  bottomBleed: { position: 'absolute', bottom: -100, left: 0, right: 0, height: 120, backgroundColor: COLORS.surface, zIndex: 1 },
 });

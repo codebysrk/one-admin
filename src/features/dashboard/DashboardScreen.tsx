@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, useWindowDimensions, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { collection, getCountFromServer, limit, onSnapshot, orderBy, query, Timestamp, where } from 'firebase/firestore';
+import { collection, getCountFromServer, limit, onSnapshot, orderBy, query, Timestamp, where, getDocs } from 'firebase/firestore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { LineChart } from 'react-native-chart-kit';
 import {
@@ -17,6 +17,9 @@ import {
   UserCircle,
   UserMinus,
   Users,
+  IndianRupee,
+  MapPin,
+  ArrowUpRight,
 } from 'lucide-react-native';
 import { useAdminStore } from '../../store/useAdminStore';
 import { COLORS, RADIUS, SHADOWS, SPACING, TYPOGRAPHY } from '../../core/theme';
@@ -24,22 +27,21 @@ import { db } from '../../services/firebase';
 import { AdminPressable, Card, EmptyState, LoadingState, SectionHeader } from '../../components/AdminUI';
 
 const statCards = [
-  { key: 'tickets', label: 'Bookings', icon: Ticket, tone: COLORS.success, bg: COLORS.successSoft },
-  { key: 'users', label: 'Users', icon: Users, tone: COLORS.accent, bg: COLORS.accentSoft },
+  { key: 'revenue', label: 'Revenue', icon: IndianRupee, tone: COLORS.success, bg: COLORS.successSoft },
+  { key: 'users', label: 'Active Users', icon: Users, tone: COLORS.accent, bg: COLORS.accentSoft },
   { key: 'routes', label: 'Routes', icon: Bus, tone: COLORS.warning, bg: COLORS.warningSoft },
 ] as const;
 
-const quickActions = [
-  { label: 'Devices', target: 'Devices', icon: Smartphone, tone: COLORS.info, bg: COLORS.infoSoft },
-  { label: 'System Logs', target: 'Logs', icon: Activity, tone: COLORS.success, bg: COLORS.successSoft },
-  { label: 'Cleanup', target: 'Cleanup', icon: UserMinus, tone: COLORS.warning, bg: COLORS.warningSoft },
-  { label: 'Alerts', target: 'Alerts', icon: Bell, tone: COLORS.error, bg: COLORS.errorSoft },
-] as const;
-
 const formatLogTime = (timestamp: any) => {
+  if (!timestamp) return 'Recent';
   const date = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
   if (Number.isNaN(date.getTime())) return 'Recent';
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+
+  return isToday ? `Today, ${timeStr}` : `${date.toLocaleDateString([], { day: '2-digit', month: 'short' })}, ${timeStr}`;
 };
 
 export const DashboardScreen = () => {
@@ -47,76 +49,86 @@ export const DashboardScreen = () => {
   const setActiveTab = useAdminStore((state) => state.setActiveTab);
   const { width } = useWindowDimensions();
 
-  const [stats, setStats] = useState({ users: 0, tickets: 0, routes: 0 });
-  const [weeklyData, setWeeklyData] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
+  const [stats, setStats] = useState({ users: 0, revenue: 0, routes: 0 });
+  const [revenueData, setRevenueData] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
+  const [topRoutes, setTopRoutes] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let unsubscribeTickets: undefined | (() => void);
-
     const fetchStats = async () => {
       try {
         const usersSnap = await getCountFromServer(collection(db, 'users'));
-        const ticketsSnap = await getCountFromServer(collection(db, 'tickets'));
         const routesSnap = await getCountFromServer(collection(db, 'routes'));
+        
+        // Calculate Revenue and Chart Data
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setHours(0,0,0,0);
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+        
+        const qTickets = query(collection(db, 'tickets'), where('timestamp', '>=', Timestamp.fromDate(sevenDaysAgo)));
+        const ticketSnap = await getDocs(qTickets);
+        
+        let totalRev = 0;
+        const dailyRev = [0, 0, 0, 0, 0, 0, 0];
+        const routeCount: Record<string, { count: number, revenue: number }> = {};
+
+        ticketSnap.forEach(doc => {
+          const data = doc.data();
+          const fare = Number(data.fare) || 0;
+          totalRev += fare;
+          
+          // Chart data
+          const date = data.timestamp.toDate();
+          const dayIndex = Math.floor((date.getTime() - sevenDaysAgo.getTime()) / (1000 * 3600 * 24));
+          if (dayIndex >= 0 && dayIndex < 7) {
+            dailyRev[dayIndex] += fare;
+          }
+
+          // Top Routes logic
+          const rName = data.routeName || data.routeId || 'Unknown';
+          if (!routeCount[rName]) routeCount[rName] = { count: 0, revenue: 0 };
+          routeCount[rName].count += 1;
+          routeCount[rName].revenue += fare;
+        });
+
+        // Sort Top Routes
+        const sortedRoutes = Object.entries(routeCount)
+          .map(([name, val]) => ({ name, ...val }))
+          .sort((a, b) => b.revenue - a.revenue)
+          .slice(0, 3);
 
         setStats({
           users: usersSnap.data().count,
-          tickets: ticketsSnap.data().count,
+          revenue: totalRev,
           routes: routesSnap.data().count,
         });
-
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        const qTickets = query(collection(db, 'tickets'), where('timestamp', '>=', Timestamp.fromDate(sevenDaysAgo)));
-
-        unsubscribeTickets = onSnapshot(qTickets, (snapshot) => {
-          const counts = [0, 0, 0, 0, 0, 0, 0];
-          snapshot.docs.forEach(doc => {
-            const date = doc.data().timestamp.toDate();
-            const diffDays = Math.floor((new Date().getTime() - date.getTime()) / (1000 * 3600 * 24));
-            if (diffDays >= 0 && diffDays < 7) counts[6 - diffDays]++;
-          });
-          setWeeklyData(counts);
-        });
+        setRevenueData(dailyRev);
+        setTopRoutes(sortedRoutes);
       } catch (error) {
         console.error(error);
       }
     };
 
-    const qLogs = query(collection(db, 'logs'), orderBy('timestamp', 'desc'), limit(6));
+    const qLogs = query(collection(db, 'logs'), orderBy('timestamp', 'desc'), limit(5));
     const unsubscribeLogs = onSnapshot(qLogs, (snapshot) => {
       setActivities(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
     });
 
     fetchStats();
-
-    return () => {
-      unsubscribeLogs();
-      unsubscribeTickets?.();
-    };
+    return () => unsubscribeLogs();
   }, []);
-
-  const totalWeeklyBookings = useMemo(() => weeklyData.reduce((sum, value) => sum + value, 0), [weeklyData]);
-
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
-  };
 
   const chartConfig = {
     backgroundColor: COLORS.surface,
     backgroundGradientFrom: COLORS.surface,
     backgroundGradientTo: COLORS.surface,
     decimalPlaces: 0,
-    color: (opacity = 1) => `rgba(37, 99, 235, ${opacity})`,
-    labelColor: (opacity = 1) => `rgba(91, 104, 122, ${opacity})`,
-    propsForDots: { r: '4', strokeWidth: '0', color: COLORS.accent },
-    propsForBackgroundLines: { strokeDasharray: '', stroke: COLORS.border },
+    color: (opacity = 1) => `rgba(99, 102, 241, ${opacity})`,
+    labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`,
+    propsForDots: { r: '4', strokeWidth: '2', stroke: COLORS.white },
+    propsForBackgroundLines: { strokeDasharray: '', stroke: COLORS.border, opacity: 0.5 },
   };
 
   const chartWidth = Math.max(260, width - 64);
@@ -124,27 +136,27 @@ export const DashboardScreen = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      <LinearGradient colors={['#101A2E', '#0B1220']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+      <LinearGradient colors={['#4F46E5', '#3730A3']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
         <SafeAreaView>
           <View style={styles.header}>
             <View style={styles.headerCopy}>
-              <Text style={styles.greeting}>{getGreeting()}</Text>
-              <Text style={styles.adminName} numberOfLines={1}>{admin?.name || 'Admin'}</Text>
-              <Text style={styles.adminSubtitle}>Live operations overview</Text>
+              <Text style={styles.greeting}>One Delhi • Command Center</Text>
+              <Text style={styles.adminName} numberOfLines={1}>{admin?.name || 'Administrator'}</Text>
+              <Text style={styles.adminSubtitle}>Revenue & Operations Intelligence</Text>
             </View>
             <AdminPressable accessibilityRole="button" accessibilityLabel="Open profile settings" onPress={() => setActiveTab('Profile')} style={styles.profileBtn}>
-              <UserCircle size={29} color="#E2E8F0" />
+              <UserCircle size={28} color={COLORS.white} />
             </AdminPressable>
           </View>
 
           <View style={styles.heroPanel}>
             <View>
-              <Text style={styles.heroLabel}>Weekly bookings</Text>
-              <Text style={styles.heroValue}>{totalWeeklyBookings}</Text>
+              <Text style={styles.heroLabel}>Weekly Earnings</Text>
+              <Text style={styles.heroValue}>₹{stats.revenue.toLocaleString('en-IN')}</Text>
             </View>
             <View style={styles.heroSignal}>
-              <TrendingUp size={16} color={COLORS.white} />
-              <Text style={styles.heroSignalText}>7 day trend</Text>
+              <ArrowUpRight size={16} color={COLORS.success} />
+              <Text style={styles.heroSignalText}>Live Stats</Text>
             </View>
           </View>
         </SafeAreaView>
@@ -154,12 +166,13 @@ export const DashboardScreen = () => {
         <View style={styles.statsGrid}>
           {statCards.map((stat) => {
             const Icon = stat.icon;
+            const val = stat.key === 'revenue' ? `₹${stats.revenue > 1000 ? (stats.revenue/1000).toFixed(1) + 'k' : stats.revenue}` : stats[stat.key];
             return (
               <Card key={stat.key} style={styles.statCard}>
                 <View style={[styles.statIcon, { backgroundColor: stat.bg }]}>
                   <Icon size={18} color={stat.tone} />
                 </View>
-                <Text style={styles.statValue}>{stats[stat.key]}</Text>
+                <Text style={styles.statValue}>{val}</Text>
                 <Text style={styles.statLabel}>{stat.label}</Text>
               </Card>
             );
@@ -168,19 +181,18 @@ export const DashboardScreen = () => {
 
         <Card style={styles.chartCard}>
           <SectionHeader
-            icon={<TrendingUp size={17} color={COLORS.accent} />}
-            title="Engagement Overview"
-            caption="Tickets created over the last seven days"
-            action={<Calendar size={16} color={COLORS.textSubtle} />}
+            icon={<TrendingUp size={17} color={COLORS.primary} />}
+            title="Revenue Performance"
+            caption="Earnings (₹) over the last 7 days"
           />
           <View style={styles.chartFrame}>
             <LineChart
               data={{
                 labels: ['6d', '5d', '4d', '3d', '2d', '1d', 'Now'],
-                datasets: [{ data: weeklyData }],
+                datasets: [{ data: revenueData }],
               }}
               width={chartWidth}
-              height={168}
+              height={160}
               chartConfig={chartConfig}
               bezier
               withInnerLines
@@ -191,32 +203,36 @@ export const DashboardScreen = () => {
         </Card>
 
         <SectionHeader
-          icon={<LayoutGrid size={17} color={COLORS.primary} />}
-          title="Quick Management"
-          caption="Frequent controls for live administration"
+          icon={<MapPin size={17} color={COLORS.primary} />}
+          title="Top Performing Routes"
+          caption="Routes generating highest ticket volume"
         />
-
-        <View style={styles.quickGrid}>
-          {quickActions.map((action) => {
-            const Icon = action.icon;
-            return (
-              <AdminPressable key={action.label} style={styles.actionCard} onPress={() => setActiveTab(action.target)} accessibilityRole="button" accessibilityLabel={`Open ${action.label}`}>
-                <View style={[styles.actionIcon, { backgroundColor: action.bg }]}>
-                  <Icon size={19} color={action.tone} />
-                </View>
-                <Text style={styles.actionLabel}>{action.label}</Text>
-                <ChevronRight size={15} color={COLORS.textSubtle} />
-              </AdminPressable>
-            );
-          })}
+        
+        <View style={styles.routesGrid}>
+          {topRoutes.length === 0 ? (
+            <Text style={styles.noData}>Collecting route data...</Text>
+          ) : topRoutes.map((route, idx) => (
+            <View key={route.name} style={styles.routeRow}>
+              <View style={[styles.routeRank, { backgroundColor: idx === 0 ? '#FEF3C7' : COLORS.surfaceMuted }]}>
+                <Text style={[styles.rankText, { color: idx === 0 ? '#D97706' : COLORS.textMuted }]}>{idx + 1}</Text>
+              </View>
+              <View style={styles.routeInfo}>
+                <Text style={styles.routeName}>{route.name}</Text>
+                <Text style={styles.routeVolume}>{route.count} tickets issued</Text>
+              </View>
+              <View style={styles.routeMetrics}>
+                <Text style={styles.routeRev}>₹{route.revenue}</Text>
+              </View>
+            </View>
+          ))}
         </View>
 
         <SectionHeader
           icon={<Bell size={17} color={COLORS.primary} />}
-          title="Recent Activity"
-          caption="Latest admin and system events"
+          title="Security Feed"
+          caption="Latest critical system activities"
           action={(
-            <AdminPressable style={styles.viewAll} onPress={() => setActiveTab('Logs')} accessibilityRole="button" accessibilityLabel="View all activity logs">
+            <AdminPressable style={styles.viewAll} onPress={() => setActiveTab('Logs')}>
               <Text style={styles.viewAllText}>View All</Text>
               <ChevronRight size={14} color={COLORS.accent} />
             </AdminPressable>
@@ -225,15 +241,13 @@ export const DashboardScreen = () => {
 
         <Card style={styles.activityFeed}>
           {loading ? (
-            <LoadingState label="Loading activity..." compact />
-          ) : activities.length === 0 ? (
-            <EmptyState title="No activity yet" message="Recent admin and system events will appear here." />
+            <ActivityIndicator color={COLORS.primary} />
           ) : activities.map((log: any, index) => (
             <View key={log.id} style={[styles.activityRow, index === activities.length - 1 && styles.activityRowLast]}>
-              <View style={styles.activityDot} />
+              <View style={[styles.activityDot, { backgroundColor: log.type === 'ADMIN' ? COLORS.primary : COLORS.info }]} />
               <View style={styles.activityContent}>
                 <Text style={styles.activityTxt} numberOfLines={1}>{log.details || log.action}</Text>
-                <Text style={styles.activityMeta} numberOfLines={1}>{formatLogTime(log.timestamp)}</Text>
+                <Text style={styles.activityMeta}>{formatLogTime(log.timestamp)} • {log.userName || 'System'}</Text>
               </View>
             </View>
           ))}
@@ -245,39 +259,45 @@ export const DashboardScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  hero: { paddingBottom: 34, borderBottomLeftRadius: RADIUS.xxl, borderBottomRightRadius: RADIUS.xxl },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg, gap: SPACING.lg },
-  headerCopy: { flex: 1, minWidth: 0 },
-  greeting: { fontSize: TYPOGRAPHY.bodySmall, color: '#CBD5E1', fontWeight: '700' },
-  adminName: { fontSize: 28, lineHeight: 34, fontWeight: '800', color: COLORS.white, marginTop: 3 },
-  adminSubtitle: { color: '#94A3B8', fontSize: TYPOGRAPHY.bodySmall, lineHeight: 18, fontWeight: '600', marginTop: 3 },
-  profileBtn: { width: 48, height: 48, borderRadius: RADIUS.md, backgroundColor: COLORS.glass, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
-  heroPanel: { marginTop: SPACING.xxl, marginHorizontal: SPACING.xl, padding: SPACING.lg, borderRadius: RADIUS.md, backgroundColor: COLORS.glass, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: SPACING.lg },
-  heroLabel: { color: '#CBD5E1', fontSize: TYPOGRAPHY.caption, fontWeight: '800', textTransform: 'uppercase' },
-  heroValue: { color: COLORS.white, fontSize: 30, lineHeight: 36, fontWeight: '800', marginTop: 3 },
-  heroSignal: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 11, paddingVertical: 8, borderRadius: RADIUS.pill, backgroundColor: 'rgba(255,255,255,0.12)' },
-  heroSignalText: { color: COLORS.white, fontSize: TYPOGRAPHY.caption, fontWeight: '800' },
-  content: { flex: 1, marginTop: -20 },
-  contentInner: { paddingHorizontal: SPACING.lg, paddingBottom: 44 },
-  statsGrid: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.lg },
-  statCard: { flex: 1, marginBottom: 0, padding: SPACING.md },
-  statIcon: { width: 34, height: 34, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.md },
-  statValue: { color: COLORS.text, fontSize: 22, lineHeight: 26, fontWeight: '800' },
-  statLabel: { color: COLORS.textMuted, fontSize: TYPOGRAPHY.caption, lineHeight: 15, fontWeight: '800', textTransform: 'uppercase', marginTop: 2 },
-  chartCard: { padding: SPACING.lg },
-  chartFrame: { overflow: 'hidden', borderRadius: RADIUS.md, backgroundColor: COLORS.surface },
-  chart: { marginLeft: -12, paddingRight: 0 },
-  quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md, marginBottom: SPACING.xxl },
-  actionCard: { width: '47.9%', minHeight: 76, backgroundColor: COLORS.surface, borderRadius: RADIUS.md, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, ...SHADOWS.card },
-  actionIcon: { width: 38, height: 38, borderRadius: RADIUS.md, justifyContent: 'center', alignItems: 'center' },
-  actionLabel: { flex: 1, fontSize: TYPOGRAPHY.bodySmall, lineHeight: 17, fontWeight: '800', color: COLORS.text },
-  viewAll: { minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, borderRadius: RADIUS.md },
-  viewAllText: { fontSize: TYPOGRAPHY.caption, fontWeight: '800', color: COLORS.accent },
+  hero: { paddingBottom: 30, borderBottomLeftRadius: RADIUS.xxl, borderBottomRightRadius: RADIUS.xxl },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg },
+  headerCopy: { flex: 1 },
+  greeting: { fontSize: 10, color: '#E0E7FF', fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
+  adminName: { fontSize: 24, fontWeight: '800', color: COLORS.white, marginTop: 4 },
+  adminSubtitle: { color: '#C7D2FE', fontSize: 12, fontWeight: '600', marginTop: 2 },
+  profileBtn: { width: 44, height: 44, borderRadius: RADIUS.md, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
+  heroPanel: { marginTop: 24, marginHorizontal: SPACING.xl, padding: SPACING.lg, borderRadius: RADIUS.lg, backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  heroLabel: { color: '#E0E7FF', fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
+  heroValue: { color: COLORS.white, fontSize: 32, fontWeight: '800', marginTop: 4 },
+  heroSignal: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: RADIUS.pill, backgroundColor: COLORS.white },
+  heroSignalText: { color: COLORS.primary, fontSize: 10, fontWeight: '800' },
+  content: { flex: 1, marginTop: -15 },
+  contentInner: { paddingHorizontal: SPACING.lg, paddingBottom: 40 },
+  statsGrid: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  statCard: { flex: 1, marginBottom: 0, padding: 12 },
+  statIcon: { width: 32, height: 32, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  statValue: { color: COLORS.text, fontSize: 19, fontWeight: '800' },
+  statLabel: { color: COLORS.textMuted, fontSize: 9, fontWeight: '800', textTransform: 'uppercase', marginTop: 2 },
+  chartCard: { padding: 16, marginBottom: 24 },
+  chartFrame: { marginTop: 16 },
+  chart: { marginLeft: -15 },
+  routesGrid: { backgroundColor: COLORS.surface, borderRadius: RADIUS.lg, padding: 16, marginBottom: 24, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
+  routeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  routeRank: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  rankText: { fontSize: 12, fontWeight: '800' },
+  routeInfo: { flex: 1, marginLeft: 12 },
+  routeName: { fontSize: 14, fontWeight: '800', color: COLORS.text },
+  routeVolume: { fontSize: 11, color: COLORS.textSubtle, marginTop: 2, fontWeight: '600' },
+  routeMetrics: { alignItems: 'flex-end' },
+  routeRev: { fontSize: 14, fontWeight: '800', color: COLORS.success },
+  noData: { textAlign: 'center', color: COLORS.textMuted, fontSize: 12, paddingVertical: 10 },
+  viewAll: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  viewAllText: { fontSize: 11, fontWeight: '800', color: COLORS.accent },
   activityFeed: { padding: 0, overflow: 'hidden' },
-  activityRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.lg, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  activityRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   activityRowLast: { borderBottomWidth: 0 },
-  activityDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.accent, marginRight: 12 },
-  activityContent: { flex: 1, minWidth: 0 },
-  activityTxt: { fontSize: TYPOGRAPHY.bodySmall, color: COLORS.text, fontWeight: '700' },
-  activityMeta: { fontSize: TYPOGRAPHY.caption, color: COLORS.textSubtle, marginTop: 3, fontWeight: '700' },
+  activityDot: { width: 6, height: 6, borderRadius: 3, marginRight: 12 },
+  activityContent: { flex: 1 },
+  activityTxt: { fontSize: 13, color: COLORS.text, fontWeight: '700' },
+  activityMeta: { fontSize: 10, color: COLORS.textSubtle, marginTop: 2, fontWeight: '600' },
 });

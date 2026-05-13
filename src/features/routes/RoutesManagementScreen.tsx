@@ -5,14 +5,18 @@ import { collection, onSnapshot, doc, setDoc, deleteDoc, query, orderBy } from '
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
 import { ArrowLeft, Plus, Trash2, Bus, X } from 'lucide-react-native';
-import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState } from '../../components/AdminUI';
+import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, ReasonModal } from '../../components/AdminUI';
 import { useAdminStore } from '../../store/useAdminStore';
+import { logActivity } from '../../services/logService';
 
 export const RoutesManagementScreen = () => {
   const [routes, setRoutes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingRoute, setEditingRoute] = useState<any>(null);
+  
+  // Reason Modal State
+  const [reasonModal, setReasonModal] = useState({ visible: false, title: '', type: '', data: null as any });
 
   const [routeNumber, setRouteNumber] = useState('');
   const [upFrom, setUpFrom] = useState('');
@@ -65,10 +69,39 @@ export const RoutesManagementScreen = () => {
 
     try {
       await setDoc(doc(db, 'routes', routeNumber.trim()), payload);
+      
+      await logActivity({
+        type: 'ADMIN',
+        action: editingRoute ? 'ROUTE_UPDATED' : 'ROUTE_CREATED',
+        details: `${editingRoute ? 'Modified' : 'Created'} route network for ${routeNumber.trim()}.`,
+        targetId: routeNumber.trim(),
+        targetType: 'ROUTE',
+        oldValue: editingRoute ? 'Existing Config' : null,
+        newValue: 'Updated Config'
+      });
+
       setModalVisible(false);
       resetForm();
     } catch (error) {
       Alert.alert('Error', 'Could not save route');
+    }
+  };
+
+  const handleConfirmedDelete = async (reason: string) => {
+    const id = reasonModal.data;
+    try {
+      await deleteDoc(doc(db, 'routes', id));
+      await logActivity({
+        type: 'ADMIN',
+        action: 'ROUTE_DELETED',
+        details: `Route ${id} was permanently removed from the system.`,
+        targetId: id,
+        targetType: 'ROUTE',
+        notes: reason
+      });
+      setReasonModal({ ...reasonModal, visible: false });
+    } catch (err) {
+      Alert.alert('Error', 'Deletion failed');
     }
   };
 
@@ -96,14 +129,12 @@ export const RoutesManagementScreen = () => {
   };
 
   const confirmDelete = (id: string) => {
-    Alert.alert(
-      'Delete Route',
-      'Are you sure you want to delete this route?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => deleteDoc(doc(db, 'routes', id)) },
-      ]
-    );
+    setReasonModal({
+      visible: true,
+      title: `Delete Route ${id}`,
+      type: 'DELETE_ROUTE',
+      data: id
+    });
   };
 
   const renderRouteItem = ({ item }: any) => (
@@ -224,6 +255,13 @@ export const RoutesManagementScreen = () => {
           </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
+
+      <ReasonModal
+        visible={reasonModal.visible}
+        onClose={() => setReasonModal({ ...reasonModal, visible: false })}
+        title={reasonModal.title}
+        onSubmit={handleConfirmedDelete}
+      />
     </AdminScreen>
   );
 };
