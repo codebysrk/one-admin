@@ -1,18 +1,97 @@
 export const COLORS = {
-  primary: '#1E293B', // Slate Dark
-  accent: '#3B82F6',  // Blue
-  background: '#F8FAFC',
+  primary: '#0B1220',
+  primarySoft: '#E8EEF7',
+  accent: '#2563EB',
+  accentDark: '#1D4ED8',
+  accentSoft: '#EAF2FF',
+  accentMuted: '#DBEAFE',
+  teal: '#0D9488',
+  tealSoft: '#E6FFFB',
+  background: '#F4F7FB',
+  backgroundAlt: '#EDF2F8',
+  surface: '#FFFFFF',
+  surfaceElevated: '#FFFFFF',
+  surfaceMuted: '#F8FAFC',
+  surfacePressed: '#F1F5F9',
+  border: '#E2E8F0',
+  borderStrong: '#CBD5E1',
   text: '#0F172A',
-  textMuted: '#64748B',
-  error: '#EF4444',
-  success: '#10B981',
+  textMuted: '#5B687A',
+  textSubtle: '#8A99AD',
+  textOnDark: '#F8FAFC',
+  error: '#E11D48',
+  errorSoft: '#FFF1F2',
+  success: '#059669',
+  successSoft: '#ECFDF5',
+  warning: '#D97706',
+  warningSoft: '#FFF7ED',
+  info: '#2563EB',
+  infoSoft: '#EFF6FF',
   white: '#FFFFFF',
+  black: '#000000',
+  overlay: 'rgba(15, 23, 42, 0.54)',
+  glass: 'rgba(255,255,255,0.12)',
 };
 
 export const SPACING = {
+  xxs: 2,
   xs: 4,
   sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 24,
+  xxxl: 32,
+  jumbo: 40,
+};
+
+export const RADIUS = {
+  xs: 4,
+  sm: 6,
+  md: 8,
+  lg: 10,
+  xl: 12,
+  xxl: 16,
+  pill: 999,
+};
+
+export const TYPOGRAPHY = {
+  hero: 30,
+  title: 22,
+  section: 17,
+  body: 14,
+  bodySmall: 13,
+  label: 12,
+  caption: 11,
+};
+
+export const SHADOWS = {
+  card: {
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  floating: {
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 7,
+  },
+  accent: {
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 18,
+    elevation: 6,
+  },
+  none: {
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
 };

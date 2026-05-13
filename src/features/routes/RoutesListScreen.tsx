@@ -1,26 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, Modal, TextInput, ScrollView } from 'react-native';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import { COLORS } from '../../core/theme';
-import { Plus, Trash2, Bus } from 'lucide-react-native';
+import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
+import { Bus, Search, Plus, MapPin, ChevronRight, Settings2, Clock } from 'lucide-react-native';
+import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField } from '../../components/AdminUI';
+import { useAdminStore } from '../../store/useAdminStore';
 
 export const RoutesListScreen = () => {
   const [routes, setRoutes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [editingRoute, setEditingRoute] = useState<any>(null);
-
-  const [routeNumber, setRouteNumber] = useState('');
-  const [upFrom, setUpFrom] = useState('');
-  const [upTo, setUpTo] = useState('');
-  const [upStops, setUpStops] = useState('');
-  const [downFrom, setDownFrom] = useState('');
-  const [downTo, setDownTo] = useState('');
-  const [downStops, setDownStops] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const setActiveTab = useAdminStore((state) => state.setActiveTab);
 
   useEffect(() => {
-    const q = query(collection(db, 'routes'), orderBy('route', 'asc'));
+    const q = query(collection(db, 'routes'), orderBy('routeNumber', 'asc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setRoutes(data);
@@ -29,126 +23,95 @@ export const RoutesListScreen = () => {
     return () => unsubscribe();
   }, []);
 
-  const handleSave = async () => {
-    if (!routeNumber) {
-      Alert.alert("Error", "Route number is required");
-      return;
-    }
-    const payload = {
-      route: routeNumber,
-      directions: {
-        up: {
-          from: upFrom, to: upTo,
-          totalStops: upStops.split(',').length,
-          stops: upStops.split(',').map(s => s.trim()).filter(Boolean)
-        },
-        down: {
-          from: downFrom, to: downTo,
-          totalStops: downStops.split(',').length,
-          stops: downStops.split(',').map(s => s.trim()).filter(Boolean)
-        }
-      },
-      updatedAt: Date.now()
-    };
-    try {
-      await setDoc(doc(db, 'routes', routeNumber), payload);
-      setModalVisible(false);
-      resetForm();
-    } catch (error) {
-      Alert.alert("Error", "Could not save route");
-    }
-  };
+  const filteredRoutes = routes.filter(r => r.routeNumber?.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  const resetForm = () => {
-    setRouteNumber(''); setUpFrom(''); setUpTo(''); setUpStops('');
-    setDownFrom(''); setDownTo(''); setDownStops('');
-    setEditingRoute(null);
-  };
-
-  const startEdit = (route: any) => {
-    setEditingRoute(route);
-    setRouteNumber(route.route);
-    setUpFrom(route.directions?.up?.from || '');
-    setUpTo(route.directions?.up?.to || '');
-    setUpStops(route.directions?.up?.stops?.join(', ') || '');
-    setDownFrom(route.directions?.down?.from || '');
-    setDownTo(route.directions?.down?.to || '');
-    setDownStops(route.directions?.down?.stops?.join(', ') || '');
-    setModalVisible(true);
-  };
-
-  const confirmDelete = (id: string) => {
-    Alert.alert("Delete Route", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => deleteDoc(doc(db, 'routes', id)) }
-    ]);
-  };
-
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Route Management</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={() => { resetForm(); setModalVisible(true); }}>
-          <Plus size={20} color="white" />
-          <Text style={styles.addBtnText}>New</Text>
+  const renderRoute = ({ item }: any) => (
+    <TouchableOpacity style={styles.routeCard} activeOpacity={0.82} accessibilityRole="button" onPress={() => setActiveTab('RoutesManage')}>
+      <View style={styles.cardHeader}>
+        <View style={styles.routeIcon}>
+          <Bus size={22} color="white" />
+        </View>
+        <View style={styles.routeMeta}>
+          <Text style={styles.routeNum}>{item.routeNumber}</Text>
+          <Text style={styles.stopCount}>{item.stops?.length || 0} stops configured</Text>
+        </View>
+        <TouchableOpacity style={styles.settingsBtn} onPress={() => setActiveTab('RoutesManage')} accessibilityRole="button" accessibilityLabel={`Manage route ${item.routeNumber}`}>
+          <Settings2 size={18} color={COLORS.textMuted} />
         </TouchableOpacity>
       </View>
-      {loading ? <ActivityIndicator color={COLORS.primary} style={{ flex: 1 }} /> : (
+
+      <View style={styles.pathPreview}>
+        <View style={styles.stopNode}>
+          <MapPin size={12} color={COLORS.success} />
+          <Text style={styles.stopName} numberOfLines={1}>{item.stops?.[0]?.name || 'Start'}</Text>
+        </View>
+        <View style={styles.connector} />
+        <View style={styles.stopNode}>
+          <MapPin size={12} color={COLORS.error} />
+          <Text style={styles.stopName} numberOfLines={1}>{item.stops?.[item.stops?.length - 1]?.name || 'End'}</Text>
+        </View>
+      </View>
+
+      <View style={styles.cardFooter}>
+        <View style={styles.footerInfo}>
+          <Clock size={12} color={COLORS.textSubtle} />
+          <Text style={styles.footerText}>Last sync: Today 10:30 AM</Text>
+        </View>
+        <View style={styles.goBtn}>
+          <Text style={styles.goText}>Manage</Text>
+          <ChevronRight size={14} color={COLORS.accent} />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
+  return (
+    <AdminScreen>
+      <AdminHeader
+        title="Route Network"
+        subtitle={`${filteredRoutes.length} visible routes`}
+        action={(
+          <IconButton accessibilityLabel="Add route" onPress={() => setActiveTab('RoutesManage')}>
+            <Plus size={20} color={COLORS.white} />
+          </IconButton>
+        )}
+      />
+      <View style={styles.searchWrap}>
+        <SearchField placeholder="Find a route..." value={searchQuery} onChangeText={setSearchQuery} />
+      </View>
+
+      {loading ? (
+        <LoadingState label="Loading routes..." />
+      ) : (
         <FlatList
-          data={routes}
+          data={filteredRoutes}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.routeCard} onPress={() => startEdit(item)}>
-              <View style={styles.routeHeader}>
-                <View style={styles.routeInfo}>
-                  <Bus size={20} color={COLORS.primary} />
-                  <Text style={styles.routeTitle}>Route {item.route}</Text>
-                </View>
-                <TouchableOpacity onPress={() => confirmDelete(item.id)}><Trash2 size={18} color="#EF4444" /></TouchableOpacity>
-              </View>
-              <Text style={styles.directionLabel}>{item.directions?.up?.from} → {item.directions?.up?.to}</Text>
-            </TouchableOpacity>
-          )}
-          contentContainerStyle={styles.listContent}
+          renderItem={renderRoute}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={<EmptyState icon={<Search size={30} color={COLORS.textSubtle} />} title="No routes found" message="Try another route number or clear the search." />}
         />
       )}
-      <Modal visible={modalVisible} animationType="slide">
-        <ScrollView style={styles.form}>
-          <Text style={styles.modalTitle}>{editingRoute ? 'Edit' : 'New'} Route</Text>
-          <TextInput style={styles.input} placeholder="Route Number" value={routeNumber} onChangeText={setRouteNumber} editable={!editingRoute} />
-          <Text style={styles.sectionTitle}>UP</Text>
-          <TextInput style={styles.input} placeholder="From" value={upFrom} onChangeText={setUpFrom} />
-          <TextInput style={styles.input} placeholder="To" value={upTo} onChangeText={setUpTo} />
-          <TextInput style={[styles.input, { height: 80 }]} placeholder="Stops (csv)" value={upStops} onChangeText={setUpStops} multiline />
-          <Text style={styles.sectionTitle}>DOWN</Text>
-          <TextInput style={styles.input} placeholder="From" value={downFrom} onChangeText={setDownFrom} />
-          <TextInput style={styles.input} placeholder="To" value={downTo} onChangeText={setDownTo} />
-          <TextInput style={[styles.input, { height: 80 }]} placeholder="Stops (csv)" value={downStops} onChangeText={setDownStops} multiline />
-          <TouchableOpacity style={styles.saveBtn} onPress={handleSave}><Text style={styles.saveBtnText}>Save</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}><Text>Cancel</Text></TouchableOpacity>
-        </ScrollView>
-      </Modal>
-    </View>
+    </AdminScreen>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
-  header: { padding: 24, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingTop: 60, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.primary },
-  addBtn: { backgroundColor: COLORS.primary, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, gap: 4 },
-  addBtnText: { color: 'white', fontWeight: 'bold', fontSize: 12 },
-  listContent: { padding: 16 },
-  routeCard: { backgroundColor: 'white', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#E2E8F0' },
-  routeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  routeInfo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  routeTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.text },
-  directionLabel: { fontSize: 13, color: COLORS.textMuted },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20, marginTop: 40 },
-  form: { padding: 20 },
-  input: { borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 8, padding: 12, marginBottom: 12 },
-  sectionTitle: { fontWeight: 'bold', marginBottom: 8, color: COLORS.primary },
-  saveBtn: { backgroundColor: COLORS.primary, padding: 16, borderRadius: 12, alignItems: 'center' },
-  saveBtnText: { color: 'white', fontWeight: 'bold' },
-  cancelBtn: { padding: 16, alignItems: 'center' }
+  searchWrap: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg },
+  list: { padding: SPACING.xl, paddingBottom: 40 },
+  routeCard: { backgroundColor: COLORS.surface, borderRadius: RADIUS.md, padding: SPACING.lg, marginBottom: SPACING.lg, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  routeIcon: { width: 46, height: 46, borderRadius: RADIUS.md, backgroundColor: COLORS.accent, justifyContent: 'center', alignItems: 'center', ...SHADOWS.accent },
+  routeMeta: { flex: 1, marginLeft: 14 },
+  routeNum: { fontSize: 18, lineHeight: 23, fontWeight: '800', color: COLORS.text },
+  stopCount: { fontSize: 12, color: COLORS.textMuted, marginTop: 2, fontWeight: '600' },
+  settingsBtn: { padding: 8 },
+  pathPreview: { backgroundColor: COLORS.surfaceMuted, padding: SPACING.md, borderRadius: RADIUS.md, marginBottom: 16 },
+  stopNode: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  stopName: { fontSize: 12, color: COLORS.text, fontWeight: '600', flex: 1 },
+  connector: { width: 1, height: 8, backgroundColor: COLORS.border, marginLeft: 5, marginVertical: 2 },
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: COLORS.surfaceMuted, paddingTop: 12, gap: 12 },
+  footerInfo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  footerText: { fontSize: 10, color: COLORS.textSubtle, fontWeight: '700' },
+  goBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  goText: { fontSize: 12, fontWeight: '800', color: COLORS.accent },
 });

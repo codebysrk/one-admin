@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import { COLORS } from '../../core/theme';
-import { ArrowLeft, Ticket, MapPin, Calendar, Clock, Bus } from 'lucide-react-native';
+import { COLORS, RADIUS, SPACING } from '../../core/theme';
+import { ArrowLeft, Ticket } from 'lucide-react-native';
+import { EmptyState, LoadingState } from '../../components/AdminUI';
+import { TicketCard } from '../../components/TicketCard';
 
 export const UserTicketsScreen = ({ navigation, route }: any) => {
   const { userId, userName } = route.params;
@@ -29,108 +32,40 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
     return () => unsubscribe();
   }, [userId]);
 
-  const renderTicket = ({ item }: any) => (
-    <View style={styles.ticketCard}>
-      <View style={styles.cardHeader}>
-        <View style={styles.routeBox}>
-          <Bus size={16} color="white" />
-          <Text style={styles.routeText}>{item.route}</Text>
-        </View>
-        <Text style={styles.fareText}>₹{item.total || item.fare}</Text>
-      </View>
-
-      <View style={styles.pathRow}>
-        <View style={styles.stopInfo}>
-          <MapPin size={14} color="#10B981" />
-          <Text style={styles.stopName} numberOfLines={1}>{item.source}</Text>
-        </View>
-        <View style={styles.connector} />
-        <View style={styles.stopInfo}>
-          <MapPin size={14} color="#EF4444" />
-          <Text style={styles.stopName} numberOfLines={1}>{item.dest}</Text>
-        </View>
-      </View>
-
-      <View style={styles.footer}>
-        <View style={styles.infoItem}>
-          <Calendar size={12} color={COLORS.textMuted} />
-          <Text style={styles.infoText}>{item.date}</Text>
-        </View>
-        <View style={styles.infoItem}>
-          <Clock size={12} color={COLORS.textMuted} />
-          <Text style={styles.infoText}>{item.time}</Text>
-        </View>
-        <View style={styles.infoItem}>
-          <Text style={styles.qtyText}>Qty: {item.qty}</Text>
-        </View>
-      </View>
-      <Text style={styles.tid}>TID: {item.tid}</Text>
-    </View>
-  );
-
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={24} color={COLORS.primary} />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Go back">
+          <ArrowLeft size={20} color={COLORS.primary} />
         </TouchableOpacity>
-        <View>
+        <View style={styles.headerCopy}>
           <Text style={styles.headerTitle}>Tickets History</Text>
-          <Text style={styles.headerSubtitle}>{userName}</Text>
+          <Text style={styles.headerSubtitle} numberOfLines={1}>{userName}</Text>
         </View>
       </View>
 
       {loading ? (
-        <ActivityIndicator color={COLORS.primary} style={{ flex: 1 }} />
+        <LoadingState label="Loading tickets..." />
       ) : (
         <FlatList
           data={tickets}
           keyExtractor={(item) => item.id}
-          renderItem={renderTicket}
+          renderItem={({ item }) => <TicketCard ticket={item} />}
           contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Ticket size={60} color="#E2E8F0" />
-              <Text style={styles.emptyText}>No tickets found for this user.</Text>
-            </View>
-          }
+          ListEmptyComponent={<EmptyState icon={<Ticket size={30} color={COLORS.textSubtle} />} title="No tickets found" message="This user has no booking history yet." />}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
-  header: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    padding: 20, 
-    backgroundColor: 'white', 
-    borderBottomWidth: 1, 
-    borderBottomColor: '#E2E8F0',
-    paddingTop: 60,
-    gap: 15
-  },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.primary },
-  headerSubtitle: { fontSize: 13, color: COLORS.textMuted },
-  listContent: { padding: 16 },
-  ticketCard: { backgroundColor: 'white', borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#E2E8F0' },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  routeBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, gap: 6 },
-  routeText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
-  fareText: { fontSize: 18, fontWeight: 'bold', color: '#10B981' },
-  pathRow: { marginBottom: 15 },
-  stopInfo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  stopName: { fontSize: 13, color: '#1E293B', fontWeight: '500', flex: 1 },
-  connector: { width: 1, height: 10, backgroundColor: '#E2E8F0', marginLeft: 6, marginVertical: 2 },
-  footer: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 12, marginBottom: 8 },
-  infoItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  infoText: { fontSize: 11, color: COLORS.textMuted },
-  qtyText: { fontSize: 11, fontWeight: 'bold', color: COLORS.primary },
-  tid: { fontSize: 9, color: '#CBD5E1', textAlign: 'center', marginTop: 4 },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 100 },
-  emptyText: { marginTop: 16, color: '#94A3B8', fontSize: 14 }
+  container: { flex: 1, backgroundColor: COLORS.background },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.lg, backgroundColor: COLORS.surface, borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 14 },
+  headerCopy: { flex: 1, minWidth: 0 },
+  backBtn: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.md, backgroundColor: COLORS.surfaceMuted },
+  headerTitle: { fontSize: 18, lineHeight: 23, fontWeight: '800', color: COLORS.primary },
+  headerSubtitle: { fontSize: 13, color: COLORS.textMuted, fontWeight: '600', marginTop: 2 },
+  listContent: { padding: SPACING.xl, paddingBottom: 40 },
 });

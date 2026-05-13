@@ -5,6 +5,7 @@ import { LoginScreen } from './src/features/auth/LoginScreen';
 import { useAdminStore } from './src/store/useAdminStore';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AdminNavigator } from './src/navigation/AdminNavigator';
+import { COLORS } from './src/core/theme';
 
 export default function App() {
   const admin = useAdminStore((state) => state.admin);
@@ -22,6 +23,6 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
 });
