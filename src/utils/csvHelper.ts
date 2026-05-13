@@ -18,9 +18,11 @@ export const exportToCSV = async (data: any[], fileName: string) => {
       ...data.map(item => 
         headers.map(header => {
           let val = item[header] || '';
-          // Handle timestamps
-          if (val && typeof val === 'object' && val.toDate) {
+          // Handle timestamps (Firestore object or Milliseconds)
+          if (val && (typeof val === 'object' && val.toDate)) {
             val = val.toDate().toLocaleString();
+          } else if (header.toLowerCase().includes('timestamp') && typeof val === 'number') {
+            val = new Date(val).toLocaleString();
           }
           // Escape quotes and commas
           return `"${String(val).replace(/"/g, '""')}"`;

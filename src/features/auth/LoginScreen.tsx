@@ -8,6 +8,8 @@ import { useAdminStore } from '../../store/useAdminStore';
 import { COLORS, RADIUS, SHADOWS } from '../../core/theme';
 import { Lock, Mail, Eye, EyeOff, ArrowRight, ShieldCheck, X, Send, AlertCircle, Fingerprint } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as LocalAuthentication from 'expo-local-authentication';
+import * as SecureStore from 'expo-secure-store';
 
 const { height } = Dimensions.get('window');
 
@@ -22,6 +24,7 @@ export const LoginScreen = () => {
   const [modalContent, setModalContent] = useState({ title: '', desc: '' });
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
 
   const emailRef = useRef<any>(null);
   const passwordRef = useRef<any>(null);
@@ -29,6 +32,7 @@ export const LoginScreen = () => {
   const setAdmin = useAdminStore((state) => state.setAdmin);
 
   useEffect(() => {
+    checkBiometrics();
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
       setIsKeyboardVisible(true);
     });
@@ -48,6 +52,13 @@ export const LoginScreen = () => {
     setShowResetModal(true);
   };
 
+  const checkBiometrics = async () => {
+    const hasHardware = await LocalAuthentication.hasHardwareAsync();
+    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+    const savedCreds = await SecureStore.getItemAsync('admin_creds');
+    setIsBiometricAvailable(hasHardware && isEnrolled && !!savedCreds);
+  };
+
   const handleLogin = async () => {
     if (!email) return showPremiumModal('ERROR', 'Identification Required', 'Please enter your registered admin email address to initiate the authentication process.');
     if (!password) return showPremiumModal('ERROR', 'Security Key Missing', 'A valid administrative password is required to access the One Delhi Control Center.');
@@ -56,8 +67,32 @@ export const LoginScreen = () => {
     const result = await loginAdmin(email, password);
     setLoading(false);
     
-    if (result.success) setAdmin(result.userData);
-    else showPremiumModal('ERROR', 'Access Denied', result.error);
+    if (result.success) {
+      // Save credentials for future biometric login
+      await SecureStore.setItemAsync('admin_creds', JSON.stringify({ email, password }));
+      setAdmin(result.userData);
+    } else {
+      showPremiumModal('ERROR', 'Access Denied', result.error);
+    }
+  };
+
+  const handleBiometricLogin = async () => {
+    const result = await LocalAuthentication.authenticateAsync({
+      promptMessage: 'Authenticate to access Admin Dashboard',
+      fallbackLabel: 'Use Password',
+    });
+
+    if (result.success) {
+      const savedCreds = await SecureStore.getItemAsync('admin_creds');
+      if (savedCreds) {
+        const { email: savedEmail, password: savedPassword } = JSON.parse(savedCreds);
+        setLoading(true);
+        const loginResult = await loginAdmin(savedEmail, savedPassword);
+        setLoading(false);
+        if (loginResult.success) setAdmin(loginResult.userData);
+        else showPremiumModal('ERROR', 'Session Expired', 'Please login manually once.');
+      }
+    }
   };
 
   const handleForgotPassword = async () => {
@@ -189,9 +224,13 @@ export const LoginScreen = () => {
             <View style={styles.bottomSection}>
               <View style={styles.biometricArea}>
                 <View style={styles.line} />
-                <View style={styles.bioBtn}>
-                  <Fingerprint size={32} color="#E2E8F0" />
-                </View>
+                <TouchableOpacity 
+                  style={[styles.bioBtn, !isBiometricAvailable && styles.bioBtnDisabled]} 
+                  onPress={handleBiometricLogin}
+                  disabled={!isBiometricAvailable}
+                >
+                  <Fingerprint size={32} color={isBiometricAvailable ? COLORS.accent : "#E2E8F0"} />
+                </TouchableOpacity>
                 <View style={styles.line} />
               </View>
               
@@ -364,7 +403,8 @@ const styles = StyleSheet.create({
   bottomSection: { alignItems: 'center', paddingBottom: 10, marginTop: 14 },
   biometricArea: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 24, gap: 15, width: '100%' },
   line: { flex: 1, height: 1, backgroundColor: COLORS.border },
-  bioBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.md, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border },
+  bioBtn: { width: 52, height: 52, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.md, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
+  bioBtnDisabled: { opacity: 0.5 },
   secureBadge: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   secureText: { fontSize: 11, color: COLORS.textSubtle, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0 },
   

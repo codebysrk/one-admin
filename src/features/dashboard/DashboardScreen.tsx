@@ -53,6 +53,8 @@ export const DashboardScreen = () => {
   const [revenueData, setRevenueData] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
   const [topRoutes, setTopRoutes] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
+  const [liveTickets, setLiveTickets] = useState<any[]>([]);
+  const [busStats, setBusStats] = useState({ ac: 0, nonAc: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -79,7 +81,8 @@ export const DashboardScreen = () => {
           totalRev += fare;
           
           // Chart data
-          const date = data.timestamp.toDate();
+          // Safe date conversion
+          const date = data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
           const dayIndex = Math.floor((date.getTime() - sevenDaysAgo.getTime()) / (1000 * 3600 * 24));
           if (dayIndex >= 0 && dayIndex < 7) {
             dailyRev[dayIndex] += fare;
@@ -113,11 +116,26 @@ export const DashboardScreen = () => {
     const qLogs = query(collection(db, 'logs'), orderBy('timestamp', 'desc'), limit(5));
     const unsubscribeLogs = onSnapshot(qLogs, (snapshot) => {
       setActivities(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    const qLiveTickets = query(collection(db, 'tickets'), orderBy('timestamp', 'desc'), limit(5));
+    const unsubscribeTickets = onSnapshot(qLiveTickets, (snapshot) => {
+      const tickets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setLiveTickets(tickets);
+      
+      // Calculate Bus Distribution from latest 50 tickets for a good sample
+      const acCount = tickets.filter(t => t.busType === 'AC').length;
+      const nonAcCount = tickets.length - acCount;
+      setBusStats({ ac: acCount, nonAc: nonAcCount });
+      
       setLoading(false);
     });
 
     fetchStats();
-    return () => unsubscribeLogs();
+    return () => {
+      unsubscribeLogs();
+      unsubscribeTickets();
+    };
   }, []);
 
   const chartConfig = {
@@ -228,6 +246,43 @@ export const DashboardScreen = () => {
         </View>
 
         <SectionHeader
+          icon={<Smartphone size={17} color={COLORS.primary} />}
+          title="Fleet Performance"
+          caption="Ticket distribution by bus type"
+        />
+        
+        <View style={styles.fleetGrid}>
+          <Card style={styles.fleetCard}>
+            <Text style={styles.fleetLabel}>AC BUSES</Text>
+            <Text style={[styles.fleetValue, { color: COLORS.primary }]}>{busStats.ac}</Text>
+          </Card>
+          <Card style={styles.fleetCard}>
+            <Text style={styles.fleetLabel}>NON-AC BUSES</Text>
+            <Text style={[styles.fleetValue, { color: COLORS.warning }]}>{busStats.nonAc}</Text>
+          </Card>
+        </View>
+
+        <SectionHeader
+          icon={<Ticket size={17} color={COLORS.primary} />}
+          title="Live Ticket Feed"
+          caption="Real-time passenger bookings"
+        />
+
+        <Card style={styles.activityFeed}>
+          {liveTickets.length === 0 ? (
+            <Text style={styles.noData}>Waiting for bookings...</Text>
+          ) : liveTickets.map((ticket, index) => (
+            <View key={ticket.id} style={[styles.activityRow, index === liveTickets.length - 1 && styles.activityRowLast]}>
+              <View style={[styles.activityDot, { backgroundColor: ticket.busType === 'AC' ? COLORS.primary : COLORS.warning }]} />
+              <View style={styles.activityContent}>
+                <Text style={styles.activityTxt} numberOfLines={1}>{ticket.route} • {ticket.source} to {ticket.dest}</Text>
+                <Text style={styles.activityMeta}>{formatLogTime(ticket.timestamp)} • ₹{ticket.total} • {ticket.qty} Ticket(s)</Text>
+              </View>
+            </View>
+          ))}
+        </Card>
+
+        <SectionHeader
           icon={<Bell size={17} color={COLORS.primary} />}
           title="Security Feed"
           caption="Latest critical system activities"
@@ -300,4 +355,8 @@ const styles = StyleSheet.create({
   activityContent: { flex: 1 },
   activityTxt: { fontSize: 13, color: COLORS.text, fontWeight: '700' },
   activityMeta: { fontSize: 10, color: COLORS.textSubtle, marginTop: 2, fontWeight: '600' },
+  fleetGrid: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  fleetCard: { flex: 1, padding: 16, alignItems: 'center', justifyContent: 'center' },
+  fleetLabel: { fontSize: 9, fontWeight: '800', color: COLORS.textMuted, letterSpacing: 0.5, marginBottom: 4 },
+  fleetValue: { fontSize: 24, fontWeight: '900' },
 });

@@ -74,6 +74,7 @@ export const LogsScreen = () => {
     if (act.includes('DELETE') || act.includes('BANNED') || act.includes('FAILED')) return { color: COLORS.error, bg: COLORS.errorSoft };
     if (act.includes('ADD') || act.includes('CREATE') || act.includes('LOGIN') || act.includes('SUCCESS')) return { color: COLORS.success, bg: COLORS.successSoft };
     if (act.includes('UPDATE') || act.includes('EDIT')) return { color: COLORS.warning, bg: COLORS.warningSoft };
+    if (act.includes('SEARCH')) return { color: COLORS.info, bg: COLORS.infoSoft };
     return { color: COLORS.accent, bg: COLORS.accentSoft };
   };
 

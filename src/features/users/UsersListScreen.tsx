@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
-import { collection, onSnapshot, doc, updateDoc, query, orderBy, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, query, orderBy, setDoc, deleteDoc, getDocs, where } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
 import { User as UserIcon, Trash2, Search, BadgeCheck, XCircle, Ticket, Filter, ShieldCheck, IndianRupee, Star } from 'lucide-react-native';
@@ -13,6 +13,7 @@ type FilterType = 'ALL' | 'ACTIVE' | 'BANNED' | 'ADMINS';
 export const UsersListScreen = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [userRevenue, setUserRevenue] = useState<Record<string, number>>({});
+  const [userAlerts, setUserAlerts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
@@ -44,9 +45,24 @@ export const UsersListScreen = () => {
       setUserRevenue(revenueMap);
     });
 
+    // Listen for security alerts (screenshots)
+    const qLogs = query(collection(db, 'logs'), where('action', '==', 'SCREENSHOT_ATTEMPT'));
+    const unsubscribeLogs = onSnapshot(qLogs, (snapshot) => {
+      const alertsMap: Record<string, string> = {};
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const uid = data.userId;
+        if (uid) {
+          alertsMap[uid] = data.timestamp?.toDate ? data.timestamp.toDate().toLocaleDateString() : 'Recent';
+        }
+      });
+      setUserAlerts(alertsMap);
+    });
+
     return () => {
       unsubscribeUsers();
       unsubscribeTickets();
+      unsubscribeLogs();
     };
   }, []);
 

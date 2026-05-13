@@ -18,6 +18,8 @@
     "expo-clipboard": "~8.0.8",
     "expo-file-system": "~19.0.22",
     "expo-linear-gradient": "~15.0.8",
+    "expo-local-authentication": "~17.0.8",
+    "expo-secure-store": "~15.0.8",
     "expo-sharing": "~14.0.8",
     "expo-status-bar": "~3.0.9",
     "firebase": "^12.13.0",
