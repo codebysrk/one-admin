@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     borderTopColor: COLORS.border,
     ...SHADOWS.floating,
   },
-  tabBar: { flexDirection: 'row', paddingHorizontal: SPACING.md, alignItems: 'center', gap: SPACING.sm },
+  tabBar: { flexDirection: 'row', paddingHorizontal: SPACING.md, alignItems: 'center', gap: SPACING.sm, flexGrow: 1, justifyContent: 'center' },
   tabItem: { width: 76, minHeight: 60, alignItems: 'center', justifyContent: 'center', gap: 5, borderRadius: RADIUS.md },
   tabItemActive: { backgroundColor: COLORS.accentSoft, borderWidth: 1, borderColor: COLORS.accentMuted },
   iconBox: { width: 36, height: 36, borderRadius: RADIUS.md, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.surfaceMuted },
