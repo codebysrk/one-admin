@@ -20,6 +20,7 @@ import { Search, X, MessageSquare, AlertCircle } from 'lucide-react-native';
 import { Modal } from 'react-native';
 import { COLORS, RADIUS, SHADOWS, SPACING, TYPOGRAPHY } from '../core/theme';
 export { AdminBottomSheet } from './BottomSheet';
+export { ConfirmationModal } from './ConfirmationModal';
 
 type ScreenProps = {
   children: React.ReactNode;

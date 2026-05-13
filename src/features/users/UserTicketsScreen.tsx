@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { collection, query, where, orderBy, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SPACING } from '../../core/theme';
 import { ArrowLeft, Ticket } from 'lucide-react-native';
-import { EmptyState, LoadingState, ReasonModal } from '../../components/AdminUI';
+import { EmptyState, LoadingState, ReasonModal, ConfirmationModal } from '../../components/AdminUI';
 import { logActivity } from '../../services/logService';
 import { TicketCard } from '../../components/TicketCard';
 
@@ -13,6 +13,7 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
   const { userId, userName } = route.params;
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [confirmModal, setConfirmModal] = useState({ visible: false, ticketId: '' });
   const [reasonModal, setReasonModal] = useState({ visible: false, ticketId: '' });
 
   useEffect(() => {
@@ -35,7 +36,7 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
   }, [userId]);
 
   const handleDelete = (id: string) => {
-    setReasonModal({ visible: true, ticketId: id });
+    setConfirmModal({ visible: true, ticketId: id });
   };
 
   const confirmDelete = async (reason: string) => {
@@ -91,6 +92,18 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
         onClose={() => setReasonModal({ visible: false, ticketId: '' })}
         title="Delete Ticket Record"
         onSubmit={confirmDelete}
+      />
+
+      <ConfirmationModal
+        visible={confirmModal.visible}
+        onClose={() => setConfirmModal({ visible: false, ticketId: '' })}
+        onConfirm={() => {
+          const id = confirmModal.ticketId;
+          setConfirmModal({ visible: false, ticketId: '' });
+          setReasonModal({ visible: true, ticketId: id });
+        }}
+        title="Delete Ticket?"
+        message="This will permanently remove this ticket from the user's history and invalidate it."
       />
     </SafeAreaView>
   );

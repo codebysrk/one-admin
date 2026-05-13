@@ -5,7 +5,7 @@ import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
 import { Search, Clock, User, Download, Activity, Shield, Smartphone, ChevronRight, Filter, Calendar, ArrowRight, Trash2, Settings, AlertTriangle, X } from 'lucide-react-native';
 import { exportToCSV } from '../../utils/csvHelper';
-import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField, AdminBottomSheet } from '../../components/AdminUI';
+import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField, AdminBottomSheet, ConfirmationModal } from '../../components/AdminUI';
 import { useAdminStore } from '../../store/useAdminStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -31,6 +31,7 @@ export const LogsScreen = () => {
   const [dateFilter, setDateFilter] = useState<'RECENT' | 'TODAY' | 'WEEK'>('RECENT');
   const [showCleanupModal, setShowCleanupModal] = useState(false);
   const [cleaning, setCleaning] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({ visible: false, days: 0 as number | 'ALL' });
   const setActiveTab = useAdminStore((state) => state.setActiveTab);
 
   useEffect(() => {
@@ -89,53 +90,41 @@ export const LogsScreen = () => {
   };
 
   const handleCleanup = async (days: number | 'ALL') => {
-    const title = days === 'ALL' ? 'Wipe All Logs?' : `Delete logs older than ${days} days?`;
-    const message = days === 'ALL' 
-      ? 'This will permanently delete every log in the system. This cannot be undone.' 
-      : `This will permanently delete audit records older than ${days} days. Proceed?`;
+    setConfirmModal({ visible: true, days });
+  };
 
-    Alert.alert(
-      title,
-      message,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Yes, Delete', 
-          style: 'destructive', 
-          onPress: async () => {
-            setCleaning(true);
-            try {
-              let q;
-              if (days === 'ALL') {
-                q = query(collection(db, 'logs'));
-              } else {
-                const cutOff = new Date();
-                cutOff.setDate(cutOff.getDate() - days);
-                q = query(collection(db, 'logs'), where('timestamp', '<', Timestamp.fromDate(cutOff)));
-              }
+  const executeCleanup = async () => {
+    const days = confirmModal.days;
+    setConfirmModal({ ...confirmModal, visible: false });
+    setCleaning(true);
+    try {
+      let q;
+      if (days === 'ALL') {
+        q = query(collection(db, 'logs'));
+      } else {
+        const cutOff = new Date();
+        cutOff.setDate(cutOff.getDate() - days);
+        q = query(collection(db, 'logs'), where('timestamp', '<', Timestamp.fromDate(cutOff)));
+      }
 
-              const snapshot = await getDocs(q);
-              const batchSize = 100;
-              
-              for (let i = 0; i < snapshot.docs.length; i += batchSize) {
-                const batch = writeBatch(db);
-                const chunk = snapshot.docs.slice(i, i + batchSize);
-                chunk.forEach(d => batch.delete(d.ref));
-                await batch.commit();
-              }
+      const snapshot = await getDocs(q);
+      const batchSize = 100;
+      
+      for (let i = 0; i < snapshot.docs.length; i += batchSize) {
+        const batch = writeBatch(db);
+        const chunk = snapshot.docs.slice(i, i + batchSize);
+        chunk.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+      }
 
-              Alert.alert('Success', `Successfully purged ${snapshot.docs.length} legacy logs.`);
-              setShowCleanupModal(false);
-            } catch (error) {
-              console.error(error);
-              Alert.alert('Error', 'Cleanup process failed.');
-            } finally {
-              setCleaning(false);
-            }
-          }
-        }
-      ]
-    );
+      Alert.alert('Success', `Successfully purged ${snapshot.docs.length} legacy logs.`);
+      setShowCleanupModal(false);
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error', 'Cleanup process failed.');
+    } finally {
+      setCleaning(false);
+    }
   };
 
   const renderLogItem = ({ item, index }: any) => {
@@ -355,6 +344,16 @@ export const LogsScreen = () => {
           </TouchableOpacity>
         </View>
       </AdminBottomSheet>
+
+      <ConfirmationModal
+        visible={confirmModal.visible}
+        onClose={() => setConfirmModal({ ...confirmModal, visible: false })}
+        onConfirm={executeCleanup}
+        title={confirmModal.days === 'ALL' ? 'Wipe Audit History?' : 'Purge Old Logs?'}
+        message={confirmModal.days === 'ALL' 
+          ? 'This will permanently remove every log entry in the system. This action is irreversible.' 
+          : `This will permanently delete audit records older than ${confirmModal.days} days.`}
+      />
     </AdminScreen>
   );
 };

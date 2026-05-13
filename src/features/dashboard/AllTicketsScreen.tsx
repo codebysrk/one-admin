@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList } from 'react-native';
+import { View, StyleSheet, FlatList, Alert } from 'react-native';
 import { collection, onSnapshot, query, orderBy, limit, doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, SPACING } from '../../core/theme';
 import { Ticket, Download } from 'lucide-react-native';
 import { exportToCSV } from '../../utils/csvHelper';
-import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField, ReasonModal } from '../../components/AdminUI';
+import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, ReasonModal, SearchField, ConfirmationModal } from '../../components/AdminUI';
 import { logActivity } from '../../services/logService';
 import { TicketCard } from '../../components/TicketCard';
 
@@ -13,6 +13,7 @@ export const AllTicketsScreen = () => {
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [confirmModal, setConfirmModal] = useState({ visible: false, ticketId: '' });
   const [reasonModal, setReasonModal] = useState({ visible: false, ticketId: '' });
 
   useEffect(() => {
@@ -50,7 +51,7 @@ export const AllTicketsScreen = () => {
   );
 
   const handleDelete = (id: string) => {
-    setReasonModal({ visible: true, ticketId: id });
+    setConfirmModal({ visible: true, ticketId: id });
   };
 
   const confirmDelete = async (reason: string) => {
@@ -118,6 +119,18 @@ export const AllTicketsScreen = () => {
         onClose={() => setReasonModal({ visible: false, ticketId: '' })}
         title="Delete Ticket Record"
         onSubmit={confirmDelete}
+      />
+
+      <ConfirmationModal
+        visible={confirmModal.visible}
+        onClose={() => setConfirmModal({ visible: false, ticketId: '' })}
+        onConfirm={() => {
+          const id = confirmModal.ticketId;
+          setConfirmModal({ visible: false, ticketId: '' });
+          setReasonModal({ visible: true, ticketId: id });
+        }}
+        title="Void Ticket?"
+        message="This will permanently mark this ticket as invalid and remove it from the system audit."
       />
     </AdminScreen>
   );

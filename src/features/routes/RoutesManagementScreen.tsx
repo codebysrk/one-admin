@@ -5,13 +5,14 @@ import { collection, onSnapshot, doc, setDoc, deleteDoc, query, orderBy } from '
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
 import { Plus, Trash2, Bus, X, Search, MapPin, ChevronRight, Edit3, Navigation, Map, Hash, ArrowRightLeft, Info } from 'lucide-react-native';
-import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, ReasonModal, SearchField, AdminBottomSheet } from '../../components/AdminUI';
+import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, ReasonModal, SearchField, AdminBottomSheet, ConfirmationModal } from '../../components/AdminUI';
 import { logActivity } from '../../services/logService';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export const RoutesManagementScreen = () => {
   const [routes, setRoutes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [confirmModal, setConfirmModal] = useState({ visible: false, routeId: '' });
   const [searchQuery, setSearchQuery] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [editingRoute, setEditingRoute] = useState<any>(null);
@@ -110,7 +111,10 @@ export const RoutesManagementScreen = () => {
           <Text style={styles.routeTitle}>{item.route}</Text>
           <Text style={styles.stopInfo}>{item.directions?.up?.totalStops || 0} stops • 2-way</Text>
         </View>
-        <TouchableOpacity onPress={() => setReasonModal({ visible: true, title: `Delete Route ${item.id}`, type: 'DELETE_ROUTE', data: item.id })} style={styles.miniBtn}>
+        <TouchableOpacity 
+          onPress={() => setConfirmModal({ visible: true, routeId: item.id })} 
+          style={styles.miniBtn}
+        >
           <Trash2 size={16} color={COLORS.error} />
         </TouchableOpacity>
       </View>
@@ -286,6 +290,18 @@ export const RoutesManagementScreen = () => {
         onClose={() => setReasonModal({ ...reasonModal, visible: false })}
         title={reasonModal.title}
         onSubmit={handleConfirmedDelete}
+      />
+
+      <ConfirmationModal
+        visible={confirmModal.visible}
+        onClose={() => setConfirmModal({ visible: false, routeId: '' })}
+        onConfirm={() => {
+          const id = confirmModal.routeId;
+          setConfirmModal({ visible: false, routeId: '' });
+          setReasonModal({ visible: true, title: `Delete Route ${id}`, type: 'DELETE_ROUTE', data: id });
+        }}
+        title="Delete Bus Line?"
+        message={`This will permanently remove Route ${confirmModal.routeId} and all its stop configurations from the network.`}
       />
     </AdminScreen>
   );
