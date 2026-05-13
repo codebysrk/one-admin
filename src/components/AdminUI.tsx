@@ -355,7 +355,7 @@ export const ReasonModal = ({
   onClose, 
   onSubmit, 
   title, 
-  placeholder = "Enter reason for this action..." 
+  placeholder = "Provide additional details..." 
 }: { 
   visible: boolean; 
   onClose: () => void; 
@@ -363,21 +363,38 @@ export const ReasonModal = ({
   title: string;
   placeholder?: string;
 }) => {
+  const PRESET_REASONS = [
+    "Test Data / Debugging",
+    "Duplicate Record",
+    "Incorrect Route / Fare",
+    "User Requested",
+    "Security Policy Violation",
+    "Other"
+  ];
+
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [reason, setReason] = useState('');
   const [error, setError] = useState(false);
 
   const handleConfirm = () => {
-    if (!reason.trim()) {
+    const finalReason = selectedPreset === 'Other' ? reason.trim() : selectedPreset;
+    if (!finalReason) {
       setError(true);
       return;
     }
-    onSubmit(reason.trim());
-    setReason('');
+    onSubmit(finalReason);
+    reset();
     onClose();
   };
 
+  const reset = () => {
+    setReason('');
+    setSelectedPreset(null);
+    setError(false);
+  };
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => { reset(); onClose(); }}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
           <View style={styles.modalHeader}>
@@ -388,27 +405,58 @@ export const ReasonModal = ({
           </View>
           
           <View style={styles.modalBody}>
-            <Text style={styles.modalLabel}>Provide Justification</Text>
-            <TextInput
-              style={[styles.modalInput, error && styles.modalInputError]}
-              placeholder={placeholder}
-              placeholderTextColor={COLORS.textSubtle}
-              multiline
-              numberOfLines={4}
-              value={reason}
-              onChangeText={(txt) => {
-                setReason(txt);
-                setError(false);
-              }}
-            />
-            {error && <Text style={styles.modalError}>A reason is required to proceed.</Text>}
+            <Text style={styles.modalLabel}>Select Reason</Text>
+            <View style={styles.chipGrid}>
+              {PRESET_REASONS.map((preset) => (
+                <TouchableOpacity 
+                  key={preset}
+                  onPress={() => {
+                    setSelectedPreset(preset);
+                    setError(false);
+                  }}
+                  style={[
+                    styles.reasonChip,
+                    selectedPreset === preset && styles.reasonChipActive
+                  ]}
+                >
+                  <Text style={[
+                    styles.reasonChipText,
+                    selectedPreset === preset && styles.reasonChipTextActive
+                  ]}>{preset}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {selectedPreset === 'Other' && (
+              <View style={{ marginTop: 16 }}>
+                <Text style={styles.modalLabel}>Details</Text>
+                <TextInput
+                  style={[styles.modalInput, error && styles.modalInputError]}
+                  placeholder={placeholder}
+                  placeholderTextColor={COLORS.textSubtle}
+                  multiline
+                  numberOfLines={3}
+                  value={reason}
+                  onChangeText={(txt) => {
+                    setReason(txt);
+                    setError(false);
+                  }}
+                />
+              </View>
+            )}
+            
+            {error && <Text style={styles.modalError}>Please select or provide a reason.</Text>}
           </View>
 
           <View style={styles.modalActions}>
-            <TouchableOpacity style={styles.modalCancel} onPress={onClose}>
+            <TouchableOpacity style={styles.modalCancel} onPress={() => { reset(); onClose(); }}>
               <Text style={styles.modalCancelText}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.modalConfirm} onPress={handleConfirm}>
+            <TouchableOpacity 
+              style={[styles.modalConfirm, (!selectedPreset || (selectedPreset === 'Other' && !reason.trim())) && { opacity: 0.5 }]} 
+              onPress={handleConfirm}
+              disabled={!selectedPreset || (selectedPreset === 'Other' && !reason.trim())}
+            >
               <Text style={styles.modalConfirmText}>Confirm Action</Text>
             </TouchableOpacity>
           </View>
@@ -789,4 +837,9 @@ export const styles = StyleSheet.create({
   modalCancelText: { fontSize: 14, fontWeight: '700', color: COLORS.textMuted },
   modalConfirm: { flex: 2, height: 48, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primary },
   modalConfirmText: { fontSize: 14, fontWeight: '800', color: COLORS.white },
+  chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  reasonChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: RADIUS.md, backgroundColor: COLORS.surfaceMuted, borderWidth: 1, borderColor: COLORS.border },
+  reasonChipActive: { backgroundColor: COLORS.primarySoft, borderColor: COLORS.primary },
+  reasonChipText: { fontSize: 12, fontWeight: '700', color: COLORS.textMuted },
+  reasonChipTextActive: { color: COLORS.primary },
 });

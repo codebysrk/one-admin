@@ -43,7 +43,9 @@ export const AllTicketsScreen = () => {
     });
     return () => unsubscribe();
   }, []);
-
+  const filteredTickets = tickets.filter(t =>
+    t.userName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    t.route?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.tid?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
