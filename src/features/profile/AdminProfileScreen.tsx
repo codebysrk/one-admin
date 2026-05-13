@@ -23,7 +23,7 @@ export const AdminProfileScreen = () => {
     if (!name.trim()) return Alert.alert('Error', 'Name cannot be empty');
     setLoading(true);
     try {
-      await updateDoc(doc(db, 'users', admin.id), { name: name.trim() });
+      await updateDoc(doc(db, 'users', admin.uid), { name: name.trim() });
       if (auth.currentUser) await updateProfile(auth.currentUser, { displayName: name.trim() });
       setAdmin({ ...admin, name: name.trim() });
       Alert.alert('Success', 'Profile updated');
@@ -44,7 +44,7 @@ export const AdminProfileScreen = () => {
       await reauthenticateWithCredential(user, credential);
       if (email !== admin.email) {
         await updateEmail(user, email);
-        await updateDoc(doc(db, 'users', admin.id), { email });
+        await updateDoc(doc(db, 'users', admin.uid), { email });
         setAdmin({ ...admin, email });
       }
       if (newPassword) await updatePassword(user, newPassword);
@@ -113,7 +113,7 @@ export const AdminProfileScreen = () => {
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Admin ID</Text>
                   <View style={[styles.inputWrapper, styles.readOnlyWrapper]}>
-                    <Text style={styles.readOnlyText} numberOfLines={1}>{admin?.id}</Text>
+                    <Text style={styles.readOnlyText} numberOfLines={1}>{admin?.uid}</Text>
                   </View>
                 </View>
                 <TouchableOpacity style={styles.mainBtn} onPress={handleUpdateProfile} disabled={loading} activeOpacity={0.86}>

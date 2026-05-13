@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
 import { DashboardScreen } from '../features/dashboard/DashboardScreen';
-import { RoutesListScreen } from '../features/routes/RoutesListScreen';
 import { RoutesManagementScreen } from '../features/routes/RoutesManagementScreen';
 import { UsersListScreen } from '../features/users/UsersListScreen';
 import { NotificationsScreen } from '../features/notifications/NotificationsScreen';
@@ -17,8 +16,7 @@ import { AdminPressable } from '../components/AdminUI';
 
 const tabs = [
   { key: 'Dashboard', label: 'Home', icon: LayoutDashboard, screen: DashboardScreen },
-  { key: 'Routes', label: 'Routes', icon: Bus, screen: RoutesListScreen },
-  { key: 'RoutesManage', label: 'Route Ops', icon: Bus, screen: RoutesManagementScreen, hidden: true },
+  { key: 'Routes', label: 'Routes', icon: Bus, screen: RoutesManagementScreen },
   { key: 'Users', label: 'Users', icon: Users, screen: UsersListScreen },
   { key: 'Tickets', label: 'Tickets', icon: Ticket, screen: AllTicketsScreen },
   { key: 'Devices', label: 'Devices', icon: Smartphone, screen: DevicesListScreen },
