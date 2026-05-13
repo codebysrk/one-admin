@@ -167,10 +167,10 @@ export const RoutesManagementScreen = () => {
         onClose={() => setModalVisible(false)}
         title={editingRoute ? 'Edit Line' : 'Create Line'}
         subtitle="Configure your transit network"
-        contentStyle={{ paddingHorizontal: 0 }} // We want internal scroll padding
+        contentStyle={{ paddingHorizontal: 0 }}
       >
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.formScroll}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.formScroll}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
                 <View style={styles.idSection}>
                    <View style={styles.idInputBox}>
                       <Hash size={18} color={COLORS.accent} />
@@ -269,16 +269,16 @@ export const RoutesManagementScreen = () => {
                       />
                    </View>
                 </View>
-          </ScrollView>
+          </KeyboardAvoidingView>
+        </ScrollView>
 
-          <View style={styles.sheetFooter}>
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-               <LinearGradient colors={[COLORS.accent, '#3730A3']} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.saveGrad}>
-                  <Text style={styles.saveText}>Save Configuration</Text>
-               </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
+        <View style={styles.sheetFooter}>
+          <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+             <LinearGradient colors={[COLORS.accent, '#3730A3']} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.saveGrad}>
+                <Text style={styles.saveText}>Save Configuration</Text>
+             </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </AdminBottomSheet>
 
       <ReasonModal

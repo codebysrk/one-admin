@@ -23,6 +23,7 @@ interface BottomSheetProps {
   loadingText?: string;
   headerIcon?: React.ReactNode;
   contentStyle?: StyleProp<ViewStyle>;
+  sheetStyle?: StyleProp<ViewStyle>;
 }
 
 export const AdminBottomSheet = ({
@@ -35,6 +36,7 @@ export const AdminBottomSheet = ({
   loadingText = 'Processing...',
   headerIcon,
   contentStyle,
+  sheetStyle,
 }: BottomSheetProps) => {
   return (
     <Modal
@@ -49,7 +51,7 @@ export const AdminBottomSheet = ({
           activeOpacity={1}
           onPress={() => !loading && onClose()}
         />
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, sheetStyle]}>
           <View style={styles.handle} />
 
           <View style={styles.header}>
@@ -98,7 +100,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
-    padding: 24,
     paddingTop: 12,
     ...SHADOWS.floating,
     maxHeight: '90%',
@@ -114,8 +115,9 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 24,
+    marginBottom: 20,
     gap: 14,
+    paddingHorizontal: 24,
   },
   iconBox: {
     width: 40,
@@ -145,7 +147,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   body: {
-    marginBottom: 10,
+    paddingHorizontal: 24,
+    paddingBottom: 10,
+    flexShrink: 1,
   },
   loadingOverlay: {
     flexDirection: 'row',
