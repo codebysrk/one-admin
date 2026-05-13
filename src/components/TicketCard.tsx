@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Bus, MapPin, Calendar, Clock, Ticket, Users } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Bus, MapPin, Calendar, Clock, Ticket, Users, Trash2 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../core/theme';
 import { StatusBadge } from './AdminUI';
@@ -8,9 +8,10 @@ import { StatusBadge } from './AdminUI';
 interface TicketCardProps {
   ticket: any;
   showUserInfo?: boolean;
+  onDelete?: (id: string) => void;
 }
 
-export const TicketCard = ({ ticket, showUserInfo = false }: TicketCardProps) => {
+export const TicketCard = ({ ticket, showUserInfo = false, onDelete }: TicketCardProps) => {
   return (
     <View style={styles.ticketContainer}>
       <LinearGradient 
@@ -24,7 +25,18 @@ export const TicketCard = ({ ticket, showUserInfo = false }: TicketCardProps) =>
             <Bus size={16} color={COLORS.white} />
             <Text style={styles.routeName}>{ticket.route}</Text>
           </View>
-          <Text style={styles.fareDisplay}>₹{ticket.total || ticket.fare}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Text style={styles.fareDisplay}>₹{ticket.total || ticket.fare}</Text>
+            {onDelete && (
+              <TouchableOpacity 
+                onPress={() => onDelete(ticket.id)} 
+                style={styles.deleteIconBtn}
+                activeOpacity={0.7}
+              >
+                <Trash2 size={16} color={COLORS.white} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </LinearGradient>
 
@@ -123,4 +135,12 @@ const styles = StyleSheet.create({
   tidContainer: { alignItems: 'center', paddingTop: 6, borderTopWidth: 1, borderTopColor: COLORS.surfaceMuted },
   tidLabel: { fontSize: 8, color: COLORS.textSubtle, fontWeight: '600', textTransform: 'uppercase', marginBottom: 2 },
   tidValue: { fontSize: 12, fontWeight: '800', color: COLORS.accent, letterSpacing: 0.5 },
+  deleteIconBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  }
 });

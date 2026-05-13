@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SPACING } from '../../core/theme';
 import { ArrowLeft, Ticket } from 'lucide-react-native';
-import { EmptyState, LoadingState } from '../../components/AdminUI';
+import { EmptyState, LoadingState, ReasonModal } from '../../components/AdminUI';
+import { logActivity } from '../../services/logService';
 import { TicketCard } from '../../components/TicketCard';
 
 export const UserTicketsScreen = ({ navigation, route }: any) => {
   const { userId, userName } = route.params;
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reasonModal, setReasonModal] = useState({ visible: false, ticketId: '' });
 
   useEffect(() => {
     const q = query(
@@ -32,6 +34,28 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
     return () => unsubscribe();
   }, [userId]);
 
+  const handleDelete = (id: string) => {
+    setReasonModal({ visible: true, ticketId: id });
+  };
+
+  const confirmDelete = async (reason: string) => {
+    const id = reasonModal.ticketId;
+    try {
+      await deleteDoc(doc(db, 'tickets', id));
+      await logActivity({
+        type: 'ADMIN',
+        action: 'TICKET_DELETED',
+        details: `Ticket ${id} of user ${userName} was deleted.`,
+        targetId: id,
+        targetType: 'TICKET',
+        notes: reason
+      });
+      setReasonModal({ visible: false, ticketId: '' });
+    } catch (error) {
+      console.error('Error deleting ticket:', error);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" />
@@ -51,11 +75,23 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
         <FlatList
           data={tickets}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <TicketCard ticket={item} />}
+          renderItem={({ item }) => (
+            <TicketCard 
+              ticket={{ ...item, userName }} 
+              onDelete={handleDelete}
+            />
+          )}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={<EmptyState icon={<Ticket size={30} color={COLORS.textSubtle} />} title="No tickets found" message="This user has no booking history yet." />}
         />
       )}
+
+      <ReasonModal
+        visible={reasonModal.visible}
+        onClose={() => setReasonModal({ visible: false, ticketId: '' })}
+        title="Delete Ticket Record"
+        onSubmit={confirmDelete}
+      />
     </SafeAreaView>
   );
 };

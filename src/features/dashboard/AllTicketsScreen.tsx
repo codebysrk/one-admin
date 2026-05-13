@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList } from 'react-native';
-import { collection, onSnapshot, query, orderBy, limit, doc, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit, doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, SPACING } from '../../core/theme';
 import { Ticket, Download } from 'lucide-react-native';
 import { exportToCSV } from '../../utils/csvHelper';
-import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField } from '../../components/AdminUI';
+import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField, ReasonModal } from '../../components/AdminUI';
+import { logActivity } from '../../services/logService';
 import { TicketCard } from '../../components/TicketCard';
 
 export const AllTicketsScreen = () => {
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [reasonModal, setReasonModal] = useState({ visible: false, ticketId: '' });
 
   useEffect(() => {
     const q = query(collection(db, 'tickets'), orderBy('timestamp', 'desc'), limit(100));
@@ -42,11 +44,30 @@ export const AllTicketsScreen = () => {
     return () => unsubscribe();
   }, []);
 
-  const filteredTickets = tickets.filter(t =>
-    t.userName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.route?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.tid?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleDelete = (id: string) => {
+    setReasonModal({ visible: true, ticketId: id });
+  };
+
+  const confirmDelete = async (reason: string) => {
+    const id = reasonModal.ticketId;
+    try {
+      await deleteDoc(doc(db, 'tickets', id));
+      await logActivity({
+        type: 'ADMIN',
+        action: 'TICKET_DELETED',
+        details: `Ticket ${id} was deleted.`,
+        targetId: id,
+        targetType: 'TICKET',
+        notes: reason
+      });
+      setReasonModal({ visible: false, ticketId: '' });
+    } catch (error) {
+      console.error('Error deleting ticket:', error);
+    }
+  };
 
   return (
     <AdminScreen>
@@ -78,11 +99,24 @@ export const AllTicketsScreen = () => {
         <FlatList
           data={filteredTickets}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <TicketCard ticket={item} showUserInfo={true} />}
+          renderItem={({ item }) => (
+            <TicketCard 
+              ticket={item} 
+              showUserInfo={true} 
+              onDelete={handleDelete}
+            />
+          )}
           contentContainerStyle={styles.list}
           ListEmptyComponent={<EmptyState icon={<Ticket size={30} color={COLORS.textSubtle} />} title="No bookings found" message="Try a different route, user, or ticket ID." />}
         />
       )}
+
+      <ReasonModal
+        visible={reasonModal.visible}
+        onClose={() => setReasonModal({ visible: false, ticketId: '' })}
+        title="Delete Ticket Record"
+        onSubmit={confirmDelete}
+      />
     </AdminScreen>
   );
 };
