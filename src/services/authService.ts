@@ -2,6 +2,8 @@ import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "./firebase";
 
+export type AdminPermission = 'MANAGE_ROUTES' | 'MANAGE_TICKETS' | 'MANAGE_LOGS' | 'MANAGE_USERS' | 'MANAGE_ADMINS' | 'FULL_ACCESS';
+
 export interface AdminProfile {
   uid: string;
   email: string;
@@ -9,6 +11,7 @@ export interface AdminProfile {
   phone: string;
   role: 'admin';
   status: 'ACTIVE';
+  permissions: AdminPermission[];
   createdAt: number;
 }
 

@@ -9,6 +9,7 @@ import { PendingDeletionsScreen } from '../features/users/PendingDeletionsScreen
 import { DevicesListScreen } from '../features/users/DevicesListScreen';
 import { LogsScreen } from '../features/dashboard/LogsScreen';
 import { AdminProfileScreen } from '../features/profile/AdminProfileScreen';
+import { AdminsManagementScreen } from '../features/admins/AdminsManagementScreen';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../core/theme';
 import { LayoutDashboard, Bus, Users, Bell, Ticket, UserMinus, Smartphone, Activity, UserCircle } from 'lucide-react-native';
 import { useAdminStore } from '../store/useAdminStore';
@@ -16,12 +17,13 @@ import { AdminPressable } from '../components/AdminUI';
 
 const tabs = [
   { key: 'Dashboard', label: 'Home', icon: LayoutDashboard, screen: DashboardScreen },
-  { key: 'Routes', label: 'Routes', icon: Bus, screen: RoutesManagementScreen },
-  { key: 'Users', label: 'Users', icon: Users, screen: UsersListScreen },
-  { key: 'Tickets', label: 'Tickets', icon: Ticket, screen: AllTicketsScreen },
-  { key: 'Devices', label: 'Devices', icon: Smartphone, screen: DevicesListScreen },
-  { key: 'Logs', label: 'Logs', icon: Activity, screen: LogsScreen },
-  { key: 'Cleanup', label: 'Cleanup', icon: UserMinus, screen: PendingDeletionsScreen },
+  { key: 'Routes', label: 'Routes', icon: Bus, screen: RoutesManagementScreen, requiredPermission: 'MANAGE_ROUTES' },
+  { key: 'Users', label: 'Users', icon: Users, screen: UsersListScreen, requiredPermission: 'MANAGE_USERS' },
+  { key: 'Tickets', label: 'Tickets', icon: Ticket, screen: AllTicketsScreen, requiredPermission: 'MANAGE_TICKETS' },
+  { key: 'Devices', label: 'Devices', icon: Smartphone, screen: DevicesListScreen, requiredPermission: 'MANAGE_USERS' },
+  { key: 'Logs', label: 'Logs', icon: Activity, screen: LogsScreen, requiredPermission: 'MANAGE_LOGS' },
+  { key: 'Cleanup', label: 'Cleanup', icon: UserMinus, screen: PendingDeletionsScreen, requiredPermission: 'MANAGE_USERS' },
+  { key: 'Admins', label: 'Admin Hub', icon: ShieldCheck, screen: AdminsManagementScreen, requiredPermission: 'MANAGE_ADMINS' },
   { key: 'Alerts', label: 'Alerts', icon: Bell, screen: NotificationsScreen },
   { key: 'Profile', label: 'Profile', icon: UserCircle, screen: AdminProfileScreen },
 ];
@@ -40,7 +42,16 @@ export const AdminNavigator = () => {
 
       <View style={styles.tabBarContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
-          {tabs.filter(t => t.key !== 'Profile' && !t.hidden).map((tab) => {
+          {tabs.filter(t => {
+            if (t.key === 'Profile' || t.hidden) return false;
+            // Permission Check
+            if (t.requiredPermission) {
+              const adminPermissions = admin?.permissions || [];
+              const hasFull = adminPermissions.includes('FULL_ACCESS');
+              if (!hasFull && !adminPermissions.includes(t.requiredPermission)) return false;
+            }
+            return true;
+          }).map((tab) => {
             const isActive = activeTab === tab.key;
             const IconComponent = tab.icon;
             return (
