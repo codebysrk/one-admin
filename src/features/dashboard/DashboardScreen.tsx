@@ -50,6 +50,7 @@ export const DashboardScreen = () => {
   const { width } = useWindowDimensions();
 
   const [stats, setStats] = useState({ users: 0, revenue: 0, routes: 0 });
+  const [weeklyRevenue, setWeeklyRevenue] = useState(0);
   const [revenueData, setRevenueData] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
   const [topRoutes, setTopRoutes] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
@@ -68,16 +69,18 @@ export const DashboardScreen = () => {
         sevenDaysAgo.setHours(0,0,0,0);
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
         
-        const qTickets = query(collection(db, 'tickets'), where('timestamp', '>=', Timestamp.fromDate(sevenDaysAgo)));
+        // Fetch ALL tickets for total revenue, but filter for chart
+        const qTickets = query(collection(db, 'tickets'));
         const ticketSnap = await getDocs(qTickets);
         
         let totalRev = 0;
+        let weeklyTotal = 0;
         const dailyRev = [0, 0, 0, 0, 0, 0, 0];
         const routeCount: Record<string, { count: number, revenue: number }> = {};
 
         ticketSnap.forEach(doc => {
           const data = doc.data();
-          const fare = Number(data.total || data.fare || data.totalFare) || 0;
+          const fare = Number(data.fare) || 0;
           totalRev += fare;
           
           // Chart data
@@ -86,6 +89,7 @@ export const DashboardScreen = () => {
           const dayIndex = Math.floor((date.getTime() - sevenDaysAgo.getTime()) / (1000 * 3600 * 24));
           if (dayIndex >= 0 && dayIndex < 7) {
             dailyRev[dayIndex] += fare;
+            weeklyTotal += fare;
           }
 
           // Top Routes logic
@@ -106,6 +110,7 @@ export const DashboardScreen = () => {
           revenue: totalRev,
           routes: routesSnap.data().count,
         });
+        setWeeklyRevenue(weeklyTotal);
         setRevenueData(dailyRev);
         setTopRoutes(sortedRoutes);
       } catch (error) {
@@ -170,7 +175,7 @@ export const DashboardScreen = () => {
           <View style={styles.heroPanel}>
             <View>
               <Text style={styles.heroLabel}>Weekly Earnings</Text>
-              <Text style={styles.heroValue}>₹{stats.revenue.toLocaleString('en-IN')}</Text>
+              <Text style={styles.heroValue}>₹{weeklyRevenue.toLocaleString('en-IN')}</Text>
             </View>
             <View style={styles.heroSignal}>
               <ArrowUpRight size={16} color={COLORS.success} />
