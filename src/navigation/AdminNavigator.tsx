@@ -46,6 +46,9 @@ export const AdminNavigator = () => {
           {tabs.filter(t => {
             if (t.key === 'Profile' || t.hidden) return false;
             
+            // Super Admin Bypass: admin@onedelhi.com always has full access
+            if (admin?.email === 'admin@onedelhi.com') return true;
+            
             // Legacy Admin Support: If no permissions array exists, grant full access
             const adminPermissions = admin?.permissions;
             if (!adminPermissions) return true;

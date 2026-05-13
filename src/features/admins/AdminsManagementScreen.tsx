@@ -128,8 +128,17 @@ export const AdminsManagementScreen = () => {
           <Text style={styles.adminName}>{item.name || 'Admin User'}</Text>
           <Text style={styles.adminEmail}>{item.email}</Text>
         </View>
-        <IconButton tone="neutral" onPress={() => setConfirmModal({ visible: true, adminId: item.id, action: 'REMOVE' })}>
-          <Trash2 size={16} color={COLORS.error} />
+        <IconButton 
+          tone="neutral" 
+          onPress={() => {
+            if (item.email === 'admin@onedelhi.com') {
+              Alert.alert('Restricted', 'Super Admin account cannot be removed.');
+              return;
+            }
+            setConfirmModal({ visible: true, adminId: item.id, action: 'REMOVE' });
+          }}
+        >
+          <Trash2 size={16} color={item.email === 'admin@onedelhi.com' ? COLORS.textMuted : COLORS.error} />
         </IconButton>
       </View>
       
@@ -191,6 +200,12 @@ export const AdminsManagementScreen = () => {
         contentStyle={{ paddingHorizontal: 0 }}
       >
         <ScrollView style={styles.rightsScroll}>
+          {editingAdmin?.email === 'admin@onedelhi.com' && (
+            <View style={styles.superAdminNotice}>
+              <ShieldCheck size={16} color={COLORS.success} />
+              <Text style={styles.superAdminText}>Super Admin has permanent full access.</Text>
+            </View>
+          )}
           <Text style={styles.sheetSection}>ACCESS PERMISSIONS</Text>
           {ALL_PERMISSIONS.map((perm) => {
             const hasPerm = editingAdmin?.permissions?.includes(perm.key);
@@ -211,9 +226,11 @@ export const AdminsManagementScreen = () => {
             );
           })}
 
-          <TouchableOpacity style={styles.saveBtn} onPress={savePermissions}>
-            <Text style={styles.saveBtnText}>Update Access Rights</Text>
-          </TouchableOpacity>
+          {editingAdmin?.email !== 'admin@onedelhi.com' && (
+            <TouchableOpacity style={styles.saveBtn} onPress={savePermissions}>
+              <Text style={styles.saveBtnText}>Update Access Rights</Text>
+            </TouchableOpacity>
+          )}
           <View style={{ height: 40 }} />
         </ScrollView>
       </AdminBottomSheet>
@@ -279,6 +296,9 @@ const styles = StyleSheet.create({
   permDesc: { fontSize: 12, color: COLORS.textMuted, marginTop: 4, lineHeight: 18 },
   saveBtn: { backgroundColor: COLORS.primary, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 20, ...SHADOWS.primary },
   saveBtnText: { color: COLORS.white, fontSize: 14, fontWeight: '800' },
+
+  superAdminNotice: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.successSoft, padding: 12, borderRadius: 12, marginBottom: 20, marginHorizontal: 20 },
+  superAdminText: { fontSize: 12, fontWeight: '700', color: COLORS.success },
 
   inviteBox: { paddingVertical: 10 },
   inputLabel: { fontSize: 10, fontWeight: '800', color: COLORS.textMuted, marginBottom: 12 },
