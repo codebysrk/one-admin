@@ -5,7 +5,7 @@ import { collection, onSnapshot, doc, setDoc, deleteDoc, query, orderBy } from '
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
 import { Plus, Trash2, Bus, X, Search, MapPin, ChevronRight, Edit3, Navigation, Map, Hash, ArrowRightLeft, Info } from 'lucide-react-native';
-import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, ReasonModal, SearchField } from '../../components/AdminUI';
+import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, ReasonModal, SearchField, AdminBottomSheet } from '../../components/AdminUI';
 import { logActivity } from '../../services/logService';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -162,19 +162,15 @@ export const RoutesManagementScreen = () => {
         />
       )}
 
-      <Modal visible={modalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <SafeAreaView style={styles.modalSheet} edges={['top']}>
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-              <View style={styles.sheetHeader}>
-                <View>
-                  <Text style={styles.sheetTitle}>{editingRoute ? 'Edit Line' : 'Create Line'}</Text>
-                  <Text style={styles.sheetSubtitle}>Configure your transit network</Text>
-                </View>
-                <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}><X size={20} color={COLORS.textMuted} /></TouchableOpacity>
-              </View>
-
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.formScroll}>
+      <AdminBottomSheet
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        title={editingRoute ? 'Edit Line' : 'Create Line'}
+        subtitle="Configure your transit network"
+        contentStyle={{ paddingHorizontal: 0 }} // We want internal scroll padding
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.formScroll}>
                 <View style={styles.idSection}>
                    <View style={styles.idInputBox}>
                       <Hash size={18} color={COLORS.accent} />
@@ -273,19 +269,17 @@ export const RoutesManagementScreen = () => {
                       />
                    </View>
                 </View>
-              </ScrollView>
+          </ScrollView>
 
-              <View style={styles.sheetFooter}>
-                <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-                   <LinearGradient colors={[COLORS.accent, '#3730A3']} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.saveGrad}>
-                      <Text style={styles.saveText}>Save Configuration</Text>
-                   </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            </KeyboardAvoidingView>
-          </SafeAreaView>
-        </View>
-      </Modal>
+          <View style={styles.sheetFooter}>
+            <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+               <LinearGradient colors={[COLORS.accent, '#3730A3']} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.saveGrad}>
+                  <Text style={styles.saveText}>Save Configuration</Text>
+               </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </AdminBottomSheet>
 
       <ReasonModal
         visible={reasonModal.visible}
@@ -315,12 +309,10 @@ const styles = StyleSheet.create({
   footerInfo: { fontSize: 11, fontWeight: '700', color: COLORS.accent },
   
   modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.8)' },
-  modalSheet: { flex: 1, backgroundColor: COLORS.background, marginTop: 40, borderTopLeftRadius: 32, borderTopRightRadius: 32 },
-  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 24, borderBottomWidth: 1, borderBottomColor: COLORS.border, backgroundColor: COLORS.surface, borderTopLeftRadius: 32, borderTopRightRadius: 32 },
   sheetTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text },
   sheetSubtitle: { fontSize: 12, color: COLORS.textMuted, fontWeight: '600', marginTop: 4 },
   closeBtn: { padding: 8, backgroundColor: COLORS.surfaceMuted, borderRadius: 10 },
-  formScroll: { padding: 20, paddingBottom: 60 },
+  formScroll: { padding: 20, paddingBottom: 30 },
 
   idSection: { marginBottom: 16 },
   idInputBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: 14, paddingHorizontal: 16, gap: 12 },

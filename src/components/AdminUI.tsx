@@ -19,6 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Search, X, MessageSquare, AlertCircle } from 'lucide-react-native';
 import { Modal } from 'react-native';
 import { COLORS, RADIUS, SHADOWS, SPACING, TYPOGRAPHY } from '../core/theme';
+export { AdminBottomSheet } from './BottomSheet';
 
 type ScreenProps = {
   children: React.ReactNode;

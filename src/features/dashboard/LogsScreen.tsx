@@ -5,7 +5,7 @@ import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
 import { Search, Clock, User, Download, Activity, Shield, Smartphone, ChevronRight, Filter, Calendar, ArrowRight, Trash2, Settings, AlertTriangle, X } from 'lucide-react-native';
 import { exportToCSV } from '../../utils/csvHelper';
-import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField } from '../../components/AdminUI';
+import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField, AdminBottomSheet } from '../../components/AdminUI';
 import { useAdminStore } from '../../store/useAdminStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -311,81 +311,51 @@ export const LogsScreen = () => {
         />
       )}
 
-      {/* Maintenance Bottom Sheet */}
-      <Modal visible={showCleanupModal} transparent animationType="slide" onRequestClose={() => !cleaning && setShowCleanupModal(false)}>
-        <View style={styles.modalOverlay}>
-          <TouchableOpacity 
-            style={{ flex: 1 }} 
-            activeOpacity={1} 
-            onPress={() => !cleaning && setShowCleanupModal(false)} 
-          />
-          <View style={styles.maintenanceSheet}>
-            <View style={styles.sheetHandle} />
-            
-            <View style={styles.maintenanceHeader}>
-               <View style={styles.warnIcon}>
-                  <AlertTriangle size={20} color="#D97706" />
-               </View>
-               <View style={{ flex: 1 }}>
-                  <Text style={styles.maintenanceTitle}>System Maintenance</Text>
-                  <Text style={styles.sheetSubtitle}>Optimize your database performance</Text>
-               </View>
-               <TouchableOpacity 
-                 onPress={() => !cleaning && setShowCleanupModal(false)}
-                 style={styles.sheetCloseBtn}
-               >
-                  <X size={18} color={COLORS.textMuted} />
-               </TouchableOpacity>
-            </View>
-
-            <View style={styles.maintenanceBody}>
-               <View style={styles.alertBox}>
-                  <Text style={styles.maintenanceDesc}>Deleting old logs reduces storage costs and keeps the audit feed responsive.</Text>
-               </View>
-               
-               <View style={styles.cleanupActions}>
-                  <TouchableOpacity 
-                    style={styles.cleanupBtn} 
-                    onPress={() => handleCleanup(7)}
-                    disabled={cleaning}
-                  >
-                    <View style={styles.btnIconBox}><Trash2 size={16} color={COLORS.textMuted} /></View>
-                    <Text style={styles.cleanupBtnText}>Older than 7 Days</Text>
-                    <ChevronRight size={14} color={COLORS.border} />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={styles.cleanupBtn} 
-                    onPress={() => handleCleanup(30)}
-                    disabled={cleaning}
-                  >
-                    <View style={styles.btnIconBox}><Trash2 size={16} color={COLORS.textMuted} /></View>
-                    <Text style={styles.cleanupBtnText}>Older than 30 Days</Text>
-                    <ChevronRight size={14} color={COLORS.border} />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={[styles.cleanupBtn, { borderStyle: 'dashed' }]} 
-                    onPress={() => handleCleanup('ALL')}
-                    disabled={cleaning}
-                  >
-                    <View style={[styles.btnIconBox, { backgroundColor: COLORS.errorSoft }]}><Trash2 size={16} color={COLORS.error} /></View>
-                    <Text style={[styles.cleanupBtnText, { color: COLORS.error }]}>Clear Entire History</Text>
-                    <ChevronRight size={14} color={COLORS.errorSoft} />
-                  </TouchableOpacity>
-               </View>
-            </View>
-
-            {cleaning && (
-               <View style={styles.cleaningOverlay}>
-                  <ActivityIndicator size="small" color={COLORS.primary} />
-                  <Text style={styles.cleaningText}>Pruning Database Records...</Text>
-               </View>
-            )}
-            <SafeAreaView edges={['bottom']} />
-          </View>
+      <AdminBottomSheet
+        visible={showCleanupModal}
+        onClose={() => setShowCleanupModal(false)}
+        title="System Maintenance"
+        subtitle="Optimize your database performance"
+        loading={cleaning}
+        loadingText="Pruning Database Records..."
+        headerIcon={<AlertTriangle size={20} color="#D97706" />}
+      >
+        <View style={styles.alertBox}>
+          <Text style={styles.maintenanceDesc}>Deleting old logs reduces storage costs and keeps the audit feed responsive.</Text>
         </View>
-      </Modal>
+        
+        <View style={styles.cleanupActions}>
+          <TouchableOpacity 
+            style={styles.cleanupBtn} 
+            onPress={() => handleCleanup(7)}
+            disabled={cleaning}
+          >
+            <View style={styles.btnIconBox}><Trash2 size={16} color={COLORS.textMuted} /></View>
+            <Text style={styles.cleanupBtnText}>Older than 7 Days</Text>
+            <ChevronRight size={14} color={COLORS.border} />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.cleanupBtn} 
+            onPress={() => handleCleanup(30)}
+            disabled={cleaning}
+          >
+            <View style={styles.btnIconBox}><Trash2 size={16} color={COLORS.textMuted} /></View>
+            <Text style={styles.cleanupBtnText}>Older than 30 Days</Text>
+            <ChevronRight size={14} color={COLORS.border} />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.cleanupBtn, { borderStyle: 'dashed' }]} 
+            onPress={() => handleCleanup('ALL')}
+            disabled={cleaning}
+          >
+            <View style={[styles.btnIconBox, { backgroundColor: COLORS.errorSoft }]}><Trash2 size={16} color={COLORS.error} /></View>
+            <Text style={[styles.cleanupBtnText, { color: COLORS.error }]}>Clear Entire History</Text>
+            <ChevronRight size={14} color={COLORS.errorSoft} />
+          </TouchableOpacity>
+        </View>
+      </AdminBottomSheet>
     </AdminScreen>
   );
 };
@@ -460,22 +430,6 @@ const styles = StyleSheet.create({
   securityPill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   securityText: { fontSize: 9, fontWeight: '900' },
   versionText: { fontSize: 10, color: COLORS.textSubtle, fontWeight: '600' },
-  maintenanceSheet: { 
-    width: '100%', 
-    backgroundColor: COLORS.surface, 
-    borderTopLeftRadius: 32, 
-    borderTopRightRadius: 32, 
-    padding: 24, 
-    paddingTop: 12,
-    ...SHADOWS.floating 
-  },
-  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: COLORS.border, alignSelf: 'center', marginBottom: 20 },
-  maintenanceHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 24, gap: 14 },
-  warnIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center' },
-  maintenanceTitle: { fontSize: 19, fontWeight: '800', color: COLORS.text },
-  sheetSubtitle: { fontSize: 12, color: COLORS.textMuted, fontWeight: '600', marginTop: 2 },
-  sheetCloseBtn: { padding: 8, backgroundColor: COLORS.surfaceMuted, borderRadius: 10 },
-  maintenanceBody: { marginBottom: 20 },
   alertBox: { backgroundColor: COLORS.surfaceMuted, padding: 16, borderRadius: 16, marginBottom: 24 },
   maintenanceDesc: { fontSize: 13, color: COLORS.textMuted, fontWeight: '600', lineHeight: 20 },
   cleanupActions: { gap: 12 },
@@ -491,11 +445,4 @@ const styles = StyleSheet.create({
   },
   btnIconBox: { width: 36, height: 36, borderRadius: 10, backgroundColor: COLORS.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
   cleanupBtnText: { fontSize: 14, fontWeight: '800', color: COLORS.text, flex: 1 },
-  cleaningOverlay: { marginTop: 10, paddingBottom: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
-  cleaningText: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
-  modalOverlay: { 
-    flex: 1, 
-    backgroundColor: 'rgba(15, 23, 42, 0.6)', 
-    justifyContent: 'flex-end' 
-  },
 });
