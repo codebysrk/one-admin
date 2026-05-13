@@ -11,7 +11,7 @@ import { LogsScreen } from '../features/dashboard/LogsScreen';
 import { AdminProfileScreen } from '../features/profile/AdminProfileScreen';
 import { AdminsManagementScreen } from '../features/admins/AdminsManagementScreen';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../core/theme';
-import { LayoutDashboard, Bus, Users, Bell, Ticket, UserMinus, Smartphone, Activity, UserCircle } from 'lucide-react-native';
+import { LayoutDashboard, Bus, Users, Bell, Ticket, UserMinus, Smartphone, Activity, UserCircle, ShieldCheck } from 'lucide-react-native';
 import { useAdminStore } from '../store/useAdminStore';
 import { AdminPressable } from '../components/AdminUI';
 
@@ -29,6 +29,7 @@ const tabs = [
 ];
 
 export const AdminNavigator = () => {
+  const admin = useAdminStore((state) => state.admin);
   const activeTab = useAdminStore((state) => state.activeTab);
   const setActiveTab = useAdminStore((state) => state.setActiveTab);
 
@@ -44,9 +45,13 @@ export const AdminNavigator = () => {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
           {tabs.filter(t => {
             if (t.key === 'Profile' || t.hidden) return false;
-            // Permission Check
+            
+            // Legacy Admin Support: If no permissions array exists, grant full access
+            const adminPermissions = admin?.permissions;
+            if (!adminPermissions) return true;
+
+            // Permission Check for New Admins
             if (t.requiredPermission) {
-              const adminPermissions = admin?.permissions || [];
               const hasFull = adminPermissions.includes('FULL_ACCESS');
               if (!hasFull && !adminPermissions.includes(t.requiredPermission)) return false;
             }
