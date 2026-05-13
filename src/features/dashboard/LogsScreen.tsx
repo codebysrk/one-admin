@@ -3,10 +3,11 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, useWindowDimensions
 import { collection, onSnapshot, query, orderBy, limit, where, Timestamp, getDocs, deleteDoc, doc, writeBatch } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
-import { Search, Clock, User, Download, Activity, Shield, Smartphone, ChevronRight, Filter, Calendar, ArrowRight, Trash2, Settings, AlertTriangle } from 'lucide-react-native';
+import { Search, Clock, User, Download, Activity, Shield, Smartphone, ChevronRight, Filter, Calendar, ArrowRight, Trash2, Settings, AlertTriangle, X } from 'lucide-react-native';
 import { exportToCSV } from '../../utils/csvHelper';
 import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField } from '../../components/AdminUI';
 import { useAdminStore } from '../../store/useAdminStore';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const formatFullTimestamp = (timestamp: any) => {
   if (!timestamp) return 'Pending';
@@ -88,35 +89,53 @@ export const LogsScreen = () => {
   };
 
   const handleCleanup = async (days: number | 'ALL') => {
-    setCleaning(true);
-    try {
-      let q;
-      if (days === 'ALL') {
-        q = query(collection(db, 'logs'));
-      } else {
-        const cutOff = new Date();
-        cutOff.setDate(cutOff.getDate() - days);
-        q = query(collection(db, 'logs'), where('timestamp', '<', Timestamp.fromDate(cutOff)));
-      }
+    const title = days === 'ALL' ? 'Wipe All Logs?' : `Delete logs older than ${days} days?`;
+    const message = days === 'ALL' 
+      ? 'This will permanently delete every log in the system. This cannot be undone.' 
+      : `This will permanently delete audit records older than ${days} days. Proceed?`;
 
-      const snapshot = await getDocs(q);
-      const batchSize = 100; // Firestore batch limit is 500, we'll be safe
-      
-      for (let i = 0; i < snapshot.docs.length; i += batchSize) {
-        const batch = writeBatch(db);
-        const chunk = snapshot.docs.slice(i, i + batchSize);
-        chunk.forEach(d => batch.delete(d.ref));
-        await batch.commit();
-      }
+    Alert.alert(
+      title,
+      message,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Yes, Delete', 
+          style: 'destructive', 
+          onPress: async () => {
+            setCleaning(true);
+            try {
+              let q;
+              if (days === 'ALL') {
+                q = query(collection(db, 'logs'));
+              } else {
+                const cutOff = new Date();
+                cutOff.setDate(cutOff.getDate() - days);
+                q = query(collection(db, 'logs'), where('timestamp', '<', Timestamp.fromDate(cutOff)));
+              }
 
-      Alert.alert('Success', `Successfully purged ${snapshot.docs.length} legacy logs.`);
-      setShowCleanupModal(false);
-    } catch (error) {
-      console.error(error);
-      Alert.alert('Error', 'Cleanup process failed.');
-    } finally {
-      setCleaning(false);
-    }
+              const snapshot = await getDocs(q);
+              const batchSize = 100;
+              
+              for (let i = 0; i < snapshot.docs.length; i += batchSize) {
+                const batch = writeBatch(db);
+                const chunk = snapshot.docs.slice(i, i + batchSize);
+                chunk.forEach(d => batch.delete(d.ref));
+                await batch.commit();
+              }
+
+              Alert.alert('Success', `Successfully purged ${snapshot.docs.length} legacy logs.`);
+              setShowCleanupModal(false);
+            } catch (error) {
+              console.error(error);
+              Alert.alert('Error', 'Cleanup process failed.');
+            } finally {
+              setCleaning(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const renderLogItem = ({ item, index }: any) => {
@@ -292,23 +311,37 @@ export const LogsScreen = () => {
         />
       )}
 
-      {/* Maintenance Modal */}
-      <Modal visible={showCleanupModal} transparent animationType="slide">
+      {/* Maintenance Bottom Sheet */}
+      <Modal visible={showCleanupModal} transparent animationType="slide" onRequestClose={() => !cleaning && setShowCleanupModal(false)}>
         <View style={styles.modalOverlay}>
-          <View style={styles.maintenanceCard}>
+          <TouchableOpacity 
+            style={{ flex: 1 }} 
+            activeOpacity={1} 
+            onPress={() => !cleaning && setShowCleanupModal(false)} 
+          />
+          <View style={styles.maintenanceSheet}>
+            <View style={styles.sheetHandle} />
+            
             <View style={styles.maintenanceHeader}>
                <View style={styles.warnIcon}>
-                  <AlertTriangle size={24} color="#D97706" />
+                  <AlertTriangle size={20} color="#D97706" />
                </View>
-               <Text style={styles.maintenanceTitle}>System Maintenance</Text>
-               <TouchableOpacity onPress={() => !cleaning && setShowCleanupModal(false)}>
-                  <X size={20} color={COLORS.textMuted} />
+               <View style={{ flex: 1 }}>
+                  <Text style={styles.maintenanceTitle}>System Maintenance</Text>
+                  <Text style={styles.sheetSubtitle}>Optimize your database performance</Text>
+               </View>
+               <TouchableOpacity 
+                 onPress={() => !cleaning && setShowCleanupModal(false)}
+                 style={styles.sheetCloseBtn}
+               >
+                  <X size={18} color={COLORS.textMuted} />
                </TouchableOpacity>
             </View>
 
             <View style={styles.maintenanceBody}>
-               <Text style={styles.maintenanceLabel}>PRUNE AUDIT LOGS</Text>
-               <Text style={styles.maintenanceDesc}>Deleting old logs will reduce your Firestore storage usage and improve audit performance.</Text>
+               <View style={styles.alertBox}>
+                  <Text style={styles.maintenanceDesc}>Deleting old logs reduces storage costs and keeps the audit feed responsive.</Text>
+               </View>
                
                <View style={styles.cleanupActions}>
                   <TouchableOpacity 
@@ -316,8 +349,9 @@ export const LogsScreen = () => {
                     onPress={() => handleCleanup(7)}
                     disabled={cleaning}
                   >
-                    <Trash2 size={16} color={COLORS.error} />
+                    <View style={styles.btnIconBox}><Trash2 size={16} color={COLORS.textMuted} /></View>
                     <Text style={styles.cleanupBtnText}>Older than 7 Days</Text>
+                    <ChevronRight size={14} color={COLORS.border} />
                   </TouchableOpacity>
 
                   <TouchableOpacity 
@@ -325,36 +359,30 @@ export const LogsScreen = () => {
                     onPress={() => handleCleanup(30)}
                     disabled={cleaning}
                   >
-                    <Trash2 size={16} color={COLORS.error} />
+                    <View style={styles.btnIconBox}><Trash2 size={16} color={COLORS.textMuted} /></View>
                     <Text style={styles.cleanupBtnText}>Older than 30 Days</Text>
+                    <ChevronRight size={14} color={COLORS.border} />
                   </TouchableOpacity>
 
                   <TouchableOpacity 
-                    style={[styles.cleanupBtn, { borderColor: COLORS.error, backgroundColor: COLORS.errorSoft }]} 
-                    onPress={() => {
-                      Alert.alert(
-                        'Wipe All Logs?',
-                        'This will permanently delete every log in the system. Proceed with caution.',
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          { text: 'Yes, Wipe All', style: 'destructive', onPress: () => handleCleanup('ALL') }
-                        ]
-                      )
-                    }}
+                    style={[styles.cleanupBtn, { borderStyle: 'dashed' }]} 
+                    onPress={() => handleCleanup('ALL')}
                     disabled={cleaning}
                   >
-                    <Trash2 size={16} color={COLORS.error} />
+                    <View style={[styles.btnIconBox, { backgroundColor: COLORS.errorSoft }]}><Trash2 size={16} color={COLORS.error} /></View>
                     <Text style={[styles.cleanupBtnText, { color: COLORS.error }]}>Clear Entire History</Text>
+                    <ChevronRight size={14} color={COLORS.errorSoft} />
                   </TouchableOpacity>
                </View>
             </View>
 
             {cleaning && (
                <View style={styles.cleaningOverlay}>
-                  <ActivityIndicator size="large" color={COLORS.primary} />
+                  <ActivityIndicator size="small" color={COLORS.primary} />
                   <Text style={styles.cleaningText}>Pruning Database Records...</Text>
                </View>
             )}
+            <SafeAreaView edges={['bottom']} />
           </View>
         </View>
       </Modal>
@@ -432,16 +460,42 @@ const styles = StyleSheet.create({
   securityPill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   securityText: { fontSize: 9, fontWeight: '900' },
   versionText: { fontSize: 10, color: COLORS.textSubtle, fontWeight: '600' },
-  maintenanceCard: { width: '100%', backgroundColor: COLORS.surface, borderRadius: RADIUS.xxl, padding: 24, ...SHADOWS.floating },
-  maintenanceHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 12 },
-  warnIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center' },
-  maintenanceTitle: { fontSize: 18, fontWeight: '800', color: COLORS.text, flex: 1 },
-  maintenanceBody: { marginBottom: 12 },
-  maintenanceLabel: { fontSize: 11, fontWeight: '900', color: COLORS.textSubtle, letterSpacing: 0.5, marginBottom: 8 },
-  maintenanceDesc: { fontSize: 13, color: COLORS.textMuted, fontWeight: '500', lineHeight: 20, marginBottom: 20 },
-  cleanupActions: { gap: 10 },
-  cleanupBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface },
-  cleanupBtnText: { fontSize: 14, fontWeight: '800', color: COLORS.text },
-  cleaningOverlay: { marginTop: 20, alignItems: 'center', gap: 10 },
-  cleaningText: { fontSize: 12, fontWeight: '700', color: COLORS.primary }
+  maintenanceSheet: { 
+    width: '100%', 
+    backgroundColor: COLORS.surface, 
+    borderTopLeftRadius: 32, 
+    borderTopRightRadius: 32, 
+    padding: 24, 
+    paddingTop: 12,
+    ...SHADOWS.floating 
+  },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: COLORS.border, alignSelf: 'center', marginBottom: 20 },
+  maintenanceHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 24, gap: 14 },
+  warnIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center' },
+  maintenanceTitle: { fontSize: 19, fontWeight: '800', color: COLORS.text },
+  sheetSubtitle: { fontSize: 12, color: COLORS.textMuted, fontWeight: '600', marginTop: 2 },
+  sheetCloseBtn: { padding: 8, backgroundColor: COLORS.surfaceMuted, borderRadius: 10 },
+  maintenanceBody: { marginBottom: 20 },
+  alertBox: { backgroundColor: COLORS.surfaceMuted, padding: 16, borderRadius: 16, marginBottom: 24 },
+  maintenanceDesc: { fontSize: 13, color: COLORS.textMuted, fontWeight: '600', lineHeight: 20 },
+  cleanupActions: { gap: 12 },
+  cleanupBtn: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 14, 
+    padding: 16, 
+    borderRadius: 18, 
+    borderWidth: 1, 
+    borderColor: COLORS.border, 
+    backgroundColor: COLORS.surface 
+  },
+  btnIconBox: { width: 36, height: 36, borderRadius: 10, backgroundColor: COLORS.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
+  cleanupBtnText: { fontSize: 14, fontWeight: '800', color: COLORS.text, flex: 1 },
+  cleaningOverlay: { marginTop: 10, paddingBottom: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
+  cleaningText: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
+  modalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(15, 23, 42, 0.6)', 
+    justifyContent: 'flex-end' 
+  },
 });
