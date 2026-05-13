@@ -79,7 +79,9 @@ export const AdminProfileScreen = () => {
             </View>
             <View style={styles.adminCopy}>
               <Text style={styles.adminName} numberOfLines={1}>{admin?.name}</Text>
-              <Text style={styles.adminRole}>Super Administrator</Text>
+              <Text style={styles.adminRole}>
+                {admin?.email === 'admin@onedelhi.com' ? 'Super Administrator' : 'Administrator'}
+              </Text>
             </View>
           </View>
 
@@ -113,7 +115,7 @@ export const AdminProfileScreen = () => {
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Admin ID</Text>
                   <View style={[styles.inputWrapper, styles.readOnlyWrapper]}>
-                    <Text style={styles.readOnlyText} numberOfLines={1}>{admin?.uid}</Text>
+                    <Text style={styles.readOnlyText} numberOfLines={1}>{admin?.uid || admin?.id || 'N/A'}</Text>
                   </View>
                 </View>
                 <TouchableOpacity style={styles.mainBtn} onPress={handleUpdateProfile} disabled={loading} activeOpacity={0.86}>

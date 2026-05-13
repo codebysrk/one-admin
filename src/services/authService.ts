@@ -27,7 +27,7 @@ export const loginAdmin = async (email: string, password: string) => {
       throw new Error("User profile not found.");
     }
 
-    const userData = userDoc.data();
+    const userData = { uid: user.uid, ...userDoc.data() };
     
     if (userData.role !== 'admin') {
       await signOut(auth);
