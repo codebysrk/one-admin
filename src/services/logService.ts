@@ -9,7 +9,7 @@ interface LogOptions {
   action: string;
   details: string;
   targetId?: string;
-  targetType?: 'USER' | 'ROUTE' | 'TICKET' | 'NOTIFICATION';
+  targetType?: 'USER' | 'ROUTE' | 'TICKET' | 'NOTIFICATION' | 'ADMIN';
   oldValue?: any;
   newValue?: any;
   notes?: string;

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Modal, TextI
 import { collection, onSnapshot, doc, deleteDoc, addDoc, query, orderBy, getCountFromServer } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
-import { Bell, Plus, Trash2, Megaphone, Info, AlertTriangle, Bus, X, Users, Send } from 'lucide-react-native';
+import { Bell, Plus, Trash2, Megaphone, Info, AlertTriangle, Bus, X, Send } from 'lucide-react-native';
 import { AdminHeader, AdminScreen, EmptyState, LoadingState, StatusBadge } from '../../components/AdminUI';
 import { logActivity } from '../../services/logService';
 import { LinearGradient } from 'expo-linear-gradient';

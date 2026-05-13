@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { collection, query, where, orderBy, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
@@ -28,18 +28,18 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
       setTickets(data);
       setLoading(false);
     }, (err) => {
-      console.error(err);
+      if (__DEV__) console.warn('User tickets listener:', err);
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, [userId]);
 
-  const handleDelete = (id: string) => {
+  const handleDelete = useCallback((id: string) => {
     setConfirmModal({ visible: true, ticketId: id });
-  };
+  }, []);
 
-  const confirmDelete = async (reason: string) => {
+  const confirmDelete = useCallback(async (reason: string) => {
     const id = reasonModal.ticketId;
     try {
       await deleteDoc(doc(db, 'tickets', id));
@@ -53,9 +53,16 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
       });
       setReasonModal({ visible: false, ticketId: '' });
     } catch (error) {
-      console.error('Error deleting ticket:', error);
+      if (__DEV__) console.warn('Error deleting ticket:', error);
     }
-  };
+  }, [reasonModal.ticketId, userName]);
+
+  const renderTicket = useCallback(
+    ({ item }: { item: any }) => (
+      <TicketCard ticket={item} showUserInfo listUserName={userName} onDelete={handleDelete} />
+    ),
+    [handleDelete, userName]
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -76,12 +83,11 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
         <FlatList
           data={tickets}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TicketCard 
-              ticket={{ ...item, userName }} 
-              onDelete={handleDelete}
-            />
-          )}
+          renderItem={renderTicket}
+          removeClippedSubviews
+          windowSize={7}
+          maxToRenderPerBatch={12}
+          initialNumToRender={10}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={<EmptyState icon={<Ticket size={30} color={COLORS.textSubtle} />} title="No tickets found" message="This user has no booking history yet." />}
         />

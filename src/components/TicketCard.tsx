@@ -8,10 +8,13 @@ import { StatusBadge } from './AdminUI';
 interface TicketCardProps {
   ticket: any;
   showUserInfo?: boolean;
+  /** When set, shown instead of ticket.userName (keeps parent from cloning ticket each render). */
+  listUserName?: string;
   onDelete?: (id: string) => void;
 }
 
-export const TicketCard = ({ ticket, showUserInfo = false, onDelete }: TicketCardProps) => {
+const TicketCardInner = ({ ticket, showUserInfo = false, listUserName, onDelete }: TicketCardProps) => {
+  const userLabel = listUserName ?? ticket.userName;
   return (
     <View style={styles.ticketContainer}>
       <LinearGradient 
@@ -48,7 +51,7 @@ export const TicketCard = ({ ticket, showUserInfo = false, onDelete }: TicketCar
                 <Users size={14} color={COLORS.accent} />
               </View>
               <View style={styles.userDetails}>
-                <Text style={styles.userNameLabel}>{ticket.userName}</Text>
+                <Text style={styles.userNameLabel}>{userLabel}</Text>
               </View>
               <StatusBadge 
                 label={ticket.status || 'Active'} 
@@ -144,3 +147,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   }
 });
+
+export const TicketCard = React.memo(TicketCardInner);

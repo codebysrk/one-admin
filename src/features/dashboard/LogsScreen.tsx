@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, useWindowDimensions, Modal, ActivityIndicator, Alert } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
 import { collection, onSnapshot, query, orderBy, limit, where, Timestamp, getDocs, deleteDoc, doc, writeBatch } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
-import { Search, Clock, User, Download, Activity, Shield, Smartphone, ChevronRight, Filter, Calendar, ArrowRight, Trash2, Settings, AlertTriangle, X } from 'lucide-react-native';
+import { Search, Clock, User, Download, Activity, Shield, Smartphone, ChevronRight, ArrowRight, Trash2, Settings, AlertTriangle } from 'lucide-react-native';
 import { exportToCSV } from '../../utils/csvHelper';
 import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField, AdminBottomSheet, ConfirmationModal } from '../../components/AdminUI';
 import { useAdminStore } from '../../store/useAdminStore';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 const formatFullTimestamp = (timestamp: any) => {
   if (!timestamp) return 'Pending';
@@ -55,39 +54,47 @@ export const LogsScreen = () => {
       setLogs(logData);
       setLoading(false);
     }, (err) => {
-      console.error(err);
+      if (__DEV__) console.warn('Logs listener:', err);
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, [dateFilter]);
 
-  const filteredLogs = logs.filter(log => {
-    const matchesSearch = 
-      log.userName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.action?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.details?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.notes?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    if (activeFilter === 'ALL') return matchesSearch;
-    return matchesSearch && log.type === activeFilter;
-  });
+  const filteredLogs = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    return logs.filter((log) => {
+      const matchesSearch =
+        log.userName?.toLowerCase().includes(q) ||
+        log.action?.toLowerCase().includes(q) ||
+        log.details?.toLowerCase().includes(q) ||
+        log.notes?.toLowerCase().includes(q);
 
-  const getLogStyle = (action: string) => {
+      if (activeFilter === 'ALL') return matchesSearch;
+      return matchesSearch && log.type === activeFilter;
+    });
+  }, [logs, searchQuery, activeFilter]);
+
+  const getLogStyle = useCallback((action: string) => {
     const act = action?.toUpperCase() || '';
     if (act.includes('DELETE') || act.includes('BANNED') || act.includes('FAILED')) return { color: COLORS.error, bg: COLORS.errorSoft };
     if (act.includes('ADD') || act.includes('CREATE') || act.includes('LOGIN') || act.includes('SUCCESS')) return { color: COLORS.success, bg: COLORS.successSoft };
     if (act.includes('UPDATE') || act.includes('EDIT')) return { color: COLORS.warning, bg: COLORS.warningSoft };
     if (act.includes('SEARCH')) return { color: COLORS.info, bg: COLORS.infoSoft };
     return { color: COLORS.accent, bg: COLORS.accentSoft };
-  };
+  }, []);
 
-  const handleNavigate = (item: any) => {
-    if (!item.targetType) return;
-    if (item.targetType === 'USER') setActiveTab('Users');
-    if (item.targetType === 'ROUTE') setActiveTab('Routes');
-    if (item.targetType === 'TICKET') setActiveTab('Dashboard'); 
-  };
+  const handleNavigate = useCallback(
+    (item: any) => {
+      if (!item.targetType) return;
+      if (item.targetType === 'USER') setActiveTab('Users');
+      if (item.targetType === 'ROUTE') setActiveTab('Routes');
+      if (item.targetType === 'TICKET') setActiveTab('Tickets');
+      if (item.targetType === 'ADMIN') setActiveTab('Admins');
+      if (item.targetType === 'NOTIFICATION') setActiveTab('Alerts');
+    },
+    [setActiveTab]
+  );
 
   const handleCleanup = async (days: number | 'ALL') => {
     setConfirmModal({ visible: true, days });
@@ -120,102 +127,105 @@ export const LogsScreen = () => {
       Alert.alert('Success', `Successfully purged ${snapshot.docs.length} legacy logs.`);
       setShowCleanupModal(false);
     } catch (error) {
-      console.error(error);
+      if (__DEV__) console.warn('Log cleanup failed:', error);
       Alert.alert('Error', 'Cleanup process failed.');
     } finally {
       setCleaning(false);
     }
   };
 
-  const renderLogItem = ({ item, index }: any) => {
-    const theme = getLogStyle(item.action);
-    const isLast = index === filteredLogs.length - 1;
+  const renderLogItem = useCallback(
+    ({ item, index }: any) => {
+      const theme = getLogStyle(item.action);
+      const isLast = index === filteredLogs.length - 1;
 
-    return (
-      <View style={styles.logWrapper}>
-        <View style={styles.timelineContainer}>
-          <View style={[styles.timelineDot, { backgroundColor: theme.color }]} />
-          {!isLast && <View style={styles.timelineLine} />}
-        </View>
-
-        <TouchableOpacity 
-          activeOpacity={0.85} 
-          onPress={() => handleNavigate(item)}
-          style={styles.logCard}
-        >
-          <View style={styles.logHeader}>
-            <View style={[styles.typeBadge, { backgroundColor: item.type === 'ADMIN' ? COLORS.primary : COLORS.info }]}>
-               {item.type === 'ADMIN' ? <Shield size={10} color={COLORS.white} /> : <User size={10} color={COLORS.white} />}
-               <Text style={styles.typeText}>{item.type || 'SYSTEM'}</Text>
-            </View>
-            <View style={styles.timeWrapper}>
-              <Clock size={12} color={COLORS.textSubtle} />
-              <Text style={styles.timeText}>
-                {formatFullTimestamp(item.timestamp)}
-              </Text>
-            </View>
+      return (
+        <View style={styles.logWrapper}>
+          <View style={styles.timelineContainer}>
+            <View style={[styles.timelineDot, { backgroundColor: theme.color }]} />
+            {!isLast && <View style={styles.timelineLine} />}
           </View>
 
-          <Text style={styles.logAction} numberOfLines={1}>{item.action}</Text>
-          <Text style={styles.logDetails}>{item.details}</Text>
-
-          {(item.oldValue !== undefined && item.newValue !== undefined) && (
-            <View style={styles.deltaBox}>
-              <View style={styles.deltaRow}>
-                <Text style={styles.deltaLabel}>FROM</Text>
-                <Text style={styles.deltaValue}>{String(item.oldValue)}</Text>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => handleNavigate(item)}
+            style={styles.logCard}
+          >
+            <View style={styles.logHeader}>
+              <View style={[styles.typeBadge, { backgroundColor: item.type === 'ADMIN' ? COLORS.primary : COLORS.info }]}>
+                {item.type === 'ADMIN' ? <Shield size={10} color={COLORS.white} /> : <User size={10} color={COLORS.white} />}
+                <Text style={styles.typeText}>{item.type || 'SYSTEM'}</Text>
               </View>
-              <ArrowRight size={12} color={COLORS.textSubtle} />
-              <View style={styles.deltaRow}>
-                <Text style={styles.deltaLabel}>TO</Text>
-                <Text style={[styles.deltaValue, { color: theme.color }]}>{String(item.newValue)}</Text>
+              <View style={styles.timeWrapper}>
+                <Clock size={12} color={COLORS.textSubtle} />
+                <Text style={styles.timeText}>
+                  {formatFullTimestamp(item.timestamp)}
+                </Text>
               </View>
             </View>
-          )}
 
-          {item.notes && (
-            <View style={styles.noteBox}>
-              <Text style={styles.noteLabel}>REASONING</Text>
-              <Text style={styles.noteText}>{item.notes}</Text>
-            </View>
-          )}
+            <Text style={styles.logAction} numberOfLines={1}>{item.action}</Text>
+            <Text style={styles.logDetails}>{item.details}</Text>
 
-          {item.deviceMeta && (
-            <View style={styles.metaBox}>
-               <View style={styles.metaRow}>
-                  <Smartphone size={12} color={COLORS.textSubtle} />
-                  <Text style={styles.metaTitle}>DEVICE HARDWARE</Text>
-               </View>
-               <View style={styles.deviceDetails}>
-                  <Text style={styles.deviceText}>{item.deviceMeta.model || 'Unknown Device'} ({item.deviceMeta.os} {item.deviceMeta.osVersion})</Text>
-                  <View style={[styles.securityPill, { backgroundColor: item.deviceMeta.isRooted ? COLORS.errorSoft : COLORS.successSoft }]}>
-                     <Text style={[styles.securityText, { color: item.deviceMeta.isRooted ? COLORS.error : COLORS.success }]}>
-                        {item.deviceMeta.isRooted ? 'EMULATOR/ROOTED' : 'SECURE DEVICE'}
-                     </Text>
-                  </View>
-               </View>
-               <Text style={styles.versionText}>App Version: {item.deviceMeta.appVersion}</Text>
-            </View>
-          )}
-
-          <View style={styles.logFooter}>
-            <View style={styles.actorInfo}>
-              <View style={styles.actorAvatar}>
-                <Text style={styles.actorInitial}>{(item.userName || item.name || item.userEmail || 'S').charAt(0).toUpperCase()}</Text>
-              </View>
-              <Text style={styles.actorName} numberOfLines={1}>{item.userName || item.name || item.userEmail || 'Anonymous'}</Text>
-            </View>
-            {item.targetType && (
-              <View style={styles.navIndicator}>
-                <Text style={styles.navText}>View Details</Text>
-                <ChevronRight size={12} color={COLORS.primary} />
+            {(item.oldValue !== undefined && item.newValue !== undefined) && (
+              <View style={styles.deltaBox}>
+                <View style={styles.deltaRow}>
+                  <Text style={styles.deltaLabel}>FROM</Text>
+                  <Text style={styles.deltaValue}>{String(item.oldValue)}</Text>
+                </View>
+                <ArrowRight size={12} color={COLORS.textSubtle} />
+                <View style={styles.deltaRow}>
+                  <Text style={styles.deltaLabel}>TO</Text>
+                  <Text style={[styles.deltaValue, { color: theme.color }]}>{String(item.newValue)}</Text>
+                </View>
               </View>
             )}
-          </View>
-        </TouchableOpacity>
-      </View>
-    );
-  };
+
+            {item.notes && (
+              <View style={styles.noteBox}>
+                <Text style={styles.noteLabel}>REASONING</Text>
+                <Text style={styles.noteText}>{item.notes}</Text>
+              </View>
+            )}
+
+            {item.deviceMeta && (
+              <View style={styles.metaBox}>
+                <View style={styles.metaRow}>
+                  <Smartphone size={12} color={COLORS.textSubtle} />
+                  <Text style={styles.metaTitle}>DEVICE HARDWARE</Text>
+                </View>
+                <View style={styles.deviceDetails}>
+                  <Text style={styles.deviceText}>{item.deviceMeta.model || 'Unknown Device'} ({item.deviceMeta.os} {item.deviceMeta.osVersion})</Text>
+                  <View style={[styles.securityPill, { backgroundColor: item.deviceMeta.isRooted ? COLORS.errorSoft : COLORS.successSoft }]}>
+                    <Text style={[styles.securityText, { color: item.deviceMeta.isRooted ? COLORS.error : COLORS.success }]}>
+                      {item.deviceMeta.isRooted ? 'EMULATOR/ROOTED' : 'SECURE DEVICE'}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.versionText}>App Version: {item.deviceMeta.appVersion}</Text>
+              </View>
+            )}
+
+            <View style={styles.logFooter}>
+              <View style={styles.actorInfo}>
+                <View style={styles.actorAvatar}>
+                  <Text style={styles.actorInitial}>{(item.userName || item.name || item.userEmail || 'S').charAt(0).toUpperCase()}</Text>
+                </View>
+                <Text style={styles.actorName} numberOfLines={1}>{item.userName || item.name || item.userEmail || 'Anonymous'}</Text>
+              </View>
+              {item.targetType && (
+                <View style={styles.navIndicator}>
+                  <Text style={styles.navText}>View Details</Text>
+                  <ChevronRight size={12} color={COLORS.primary} />
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
+        </View>
+      );
+    },
+    [filteredLogs, getLogStyle, handleNavigate]
+  );
 
   return (
     <AdminScreen>
@@ -287,6 +297,10 @@ export const LogsScreen = () => {
           data={filteredLogs}
           keyExtractor={(item) => item.id}
           renderItem={renderLogItem}
+          removeClippedSubviews
+          windowSize={7}
+          maxToRenderPerBatch={10}
+          initialNumToRender={8}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={

@@ -27,16 +27,17 @@ export const loginAdmin = async (email: string, password: string) => {
       throw new Error("User profile not found.");
     }
 
-    const userData = { uid: user.uid, ...userDoc.data() };
+    const profile = userDoc.data() as Record<string, unknown>;
+    const userData = { uid: user.uid, ...profile };
     
-    if (userData.role !== 'admin') {
+    if (profile.role !== 'admin') {
       await signOut(auth);
       throw new Error("Access Denied: Only administrators can log in here.");
     }
 
-    if (userData.status !== 'ACTIVE') {
+    if (profile.status !== 'ACTIVE') {
       await signOut(auth);
-      throw new Error(`Account status: ${userData.status}. Please contact support.`);
+      throw new Error(`Account status: ${String(profile.status)}. Please contact support.`);
     }
 
     return {

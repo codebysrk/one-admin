@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView }
 import { collection, query, where, onSnapshot, doc, updateDoc, getDocs } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
-import { UserPlus, Shield, ShieldCheck, ShieldAlert, Trash2, ChevronRight, CheckSquare, Square, Search } from 'lucide-react-native';
+import { UserPlus, Shield, ShieldCheck, ShieldAlert, Trash2, ChevronRight, CheckSquare, Square } from 'lucide-react-native';
 import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField, AdminBottomSheet, ConfirmationModal } from '../../components/AdminUI';
 import { AdminPermission } from '../../services/authService';
 import { logActivity } from '../../services/logService';
@@ -130,6 +130,7 @@ export const AdminsManagementScreen = () => {
         </View>
         <IconButton 
           tone="neutral" 
+          accessibilityLabel={`Remove admin ${item.name || 'user'}`}
           onPress={() => {
             if (item.email === 'admin@onedelhi.com') {
               Alert.alert('Restricted', 'Super Admin account cannot be removed.');
@@ -169,7 +170,7 @@ export const AdminsManagementScreen = () => {
         title="Admin Hub" 
         subtitle="Manage system access & rights"
         action={(
-          <IconButton tone="success" onPress={() => setShowInviteModal(true)}>
+          <IconButton tone="success" accessibilityLabel="Add new administrator" onPress={() => setShowInviteModal(true)}>
             <UserPlus size={18} color={COLORS.white} />
           </IconButton>
         )}
@@ -248,7 +249,6 @@ export const AdminsManagementScreen = () => {
             placeholder="Search by email..." 
             value={inviteEmail} 
             onChangeText={setInviteEmail} 
-            icon={<Search size={18} color={COLORS.textMuted} />}
           />
           <Text style={styles.inviteHint}>The user must have an active account on the One Delhi app to be promoted.</Text>
           
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
   permLabel: { fontSize: 15, fontWeight: '700', color: COLORS.text },
   permLabelActive: { color: COLORS.primary },
   permDesc: { fontSize: 12, color: COLORS.textMuted, marginTop: 4, lineHeight: 18 },
-  saveBtn: { backgroundColor: COLORS.primary, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 20, ...SHADOWS.primary },
+  saveBtn: { backgroundColor: COLORS.primary, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 20, ...SHADOWS.accent },
   saveBtnText: { color: COLORS.white, fontSize: 14, fontWeight: '800' },
 
   superAdminNotice: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.successSoft, padding: 12, borderRadius: 12, marginBottom: 20, marginHorizontal: 20 },

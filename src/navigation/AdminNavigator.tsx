@@ -1,21 +1,62 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
-import { DashboardScreen } from '../features/dashboard/DashboardScreen';
-import { RoutesManagementScreen } from '../features/routes/RoutesManagementScreen';
-import { UsersListScreen } from '../features/users/UsersListScreen';
-import { NotificationsScreen } from '../features/notifications/NotificationsScreen';
-import { AllTicketsScreen } from '../features/dashboard/AllTicketsScreen';
-import { PendingDeletionsScreen } from '../features/users/PendingDeletionsScreen';
-import { DevicesListScreen } from '../features/users/DevicesListScreen';
-import { LogsScreen } from '../features/dashboard/LogsScreen';
-import { AdminProfileScreen } from '../features/profile/AdminProfileScreen';
-import { AdminsManagementScreen } from '../features/admins/AdminsManagementScreen';
+import React, { Suspense, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../core/theme';
-import { LayoutDashboard, Bus, Users, Bell, Ticket, UserMinus, Smartphone, Activity, UserCircle, ShieldCheck } from 'lucide-react-native';
+import {
+  LayoutDashboard,
+  Bus,
+  Users,
+  Bell,
+  Ticket,
+  UserMinus,
+  Smartphone,
+  Activity,
+  UserCircle,
+  ShieldCheck,
+} from 'lucide-react-native';
 import { useAdminStore } from '../store/useAdminStore';
 import { AdminPressable } from '../components/AdminUI';
 
-const tabs = [
+const DashboardScreen = React.lazy(() =>
+  import('../features/dashboard/DashboardScreen').then((m) => ({ default: m.DashboardScreen }))
+);
+const RoutesManagementScreen = React.lazy(() =>
+  import('../features/routes/RoutesManagementScreen').then((m) => ({ default: m.RoutesManagementScreen }))
+);
+const UsersListScreen = React.lazy(() =>
+  import('../features/users/UsersListScreen').then((m) => ({ default: m.UsersListScreen }))
+);
+const NotificationsScreen = React.lazy(() =>
+  import('../features/notifications/NotificationsScreen').then((m) => ({ default: m.NotificationsScreen }))
+);
+const AllTicketsScreen = React.lazy(() =>
+  import('../features/dashboard/AllTicketsScreen').then((m) => ({ default: m.AllTicketsScreen }))
+);
+const PendingDeletionsScreen = React.lazy(() =>
+  import('../features/users/PendingDeletionsScreen').then((m) => ({ default: m.PendingDeletionsScreen }))
+);
+const DevicesListScreen = React.lazy(() =>
+  import('../features/users/DevicesListScreen').then((m) => ({ default: m.DevicesListScreen }))
+);
+const LogsScreen = React.lazy(() =>
+  import('../features/dashboard/LogsScreen').then((m) => ({ default: m.LogsScreen }))
+);
+const AdminProfileScreen = React.lazy(() =>
+  import('../features/profile/AdminProfileScreen').then((m) => ({ default: m.AdminProfileScreen }))
+);
+const AdminsManagementScreen = React.lazy(() =>
+  import('../features/admins/AdminsManagementScreen').then((m) => ({ default: m.AdminsManagementScreen }))
+);
+
+type TabConfig = {
+  key: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  screen: React.LazyExoticComponent<React.ComponentType<any>>;
+  requiredPermission?: import('../services/authService').AdminPermission;
+  hidden?: boolean;
+};
+
+const tabs: TabConfig[] = [
   { key: 'Dashboard', label: 'Home', icon: LayoutDashboard, screen: DashboardScreen },
   { key: 'Routes', label: 'Routes', icon: Bus, screen: RoutesManagementScreen, requiredPermission: 'MANAGE_ROUTES' },
   { key: 'Users', label: 'Users', icon: Users, screen: UsersListScreen, requiredPermission: 'MANAGE_USERS' },
@@ -28,58 +69,71 @@ const tabs = [
   { key: 'Profile', label: 'Profile', icon: UserCircle, screen: AdminProfileScreen },
 ];
 
+const TabBarFallback = () => (
+  <View style={tabFallbackStyles.wrap}>
+    <ActivityIndicator size="small" color={COLORS.accent} />
+  </View>
+);
+
+const tabFallbackStyles = StyleSheet.create({
+  wrap: { flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 120 },
+});
+
 export const AdminNavigator = () => {
   const admin = useAdminStore((state) => state.admin);
   const activeTab = useAdminStore((state) => state.activeTab);
   const setActiveTab = useAdminStore((state) => state.setActiveTab);
 
-  const ActiveScreen = tabs.find(t => t.key === activeTab)?.screen || DashboardScreen;
+  const visibleTabs = useMemo(() => {
+    return tabs.filter((t) => {
+      if (t.key === 'Profile' || t.hidden) return false;
+      if (admin?.email === 'admin@onedelhi.com') return true;
+      const adminPermissions = admin?.permissions;
+      if (!adminPermissions) return true;
+      if (t.requiredPermission) {
+        const hasFull = adminPermissions.includes('FULL_ACCESS');
+        if (!hasFull && !adminPermissions.includes(t.requiredPermission)) return false;
+      }
+      return true;
+    });
+  }, [admin?.email, admin?.permissions]);
+
+  const ActiveScreen = useMemo(() => {
+    return tabs.find((t) => t.key === activeTab)?.screen ?? DashboardScreen;
+  }, [activeTab]);
+
+  const onTabPress = useCallback(
+    (key: string) => {
+      setActiveTab(key);
+    },
+    [setActiveTab]
+  );
 
   return (
     <View style={styles.container}>
       <View style={styles.screenContainer}>
-        <ActiveScreen />
+        <Suspense fallback={<TabBarFallback />}>
+          <ActiveScreen />
+        </Suspense>
       </View>
 
       <View style={styles.tabBarContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
-          {tabs.filter(t => {
-            if (t.key === 'Profile' || t.hidden) return false;
-            
-            // Super Admin Bypass: admin@onedelhi.com always has full access
-            if (admin?.email === 'admin@onedelhi.com') return true;
-            
-            // Legacy Admin Support: If no permissions array exists, grant full access
-            const adminPermissions = admin?.permissions;
-            if (!adminPermissions) return true;
-
-            // Permission Check for New Admins
-            if (t.requiredPermission) {
-              const hasFull = adminPermissions.includes('FULL_ACCESS');
-              if (!hasFull && !adminPermissions.includes(t.requiredPermission)) return false;
-            }
-            return true;
-          }).map((tab) => {
+          {visibleTabs.map((tab) => {
             const isActive = activeTab === tab.key;
             const IconComponent = tab.icon;
             return (
               <AdminPressable
                 key={tab.key}
                 style={[styles.tabItem, isActive && styles.tabItemActive]}
-                onPress={() => setActiveTab(tab.key)}
+                onPress={() => onTabPress(tab.key)}
                 accessibilityRole="button"
                 accessibilityLabel={`Open ${tab.label}`}
               >
                 <View style={[styles.iconBox, isActive && styles.iconBoxActive]}>
-                  <IconComponent
-                    size={18}
-                    color={isActive ? COLORS.white : COLORS.textMuted}
-                  />
+                  <IconComponent size={18} color={isActive ? COLORS.white : COLORS.textMuted} />
                 </View>
-                <Text style={[
-                  styles.tabLabel,
-                  { color: isActive ? COLORS.primary : COLORS.textMuted }
-                ]}>
+                <Text style={[styles.tabLabel, { color: isActive ? COLORS.primary : COLORS.textMuted }]}>
                   {tab.label}
                 </Text>
               </AdminPressable>
@@ -102,10 +156,31 @@ const styles = StyleSheet.create({
     borderTopColor: COLORS.border,
     ...SHADOWS.floating,
   },
-  tabBar: { flexDirection: 'row', paddingHorizontal: SPACING.md, alignItems: 'center', gap: SPACING.sm, flexGrow: 1, justifyContent: 'center' },
-  tabItem: { width: 76, minHeight: 60, alignItems: 'center', justifyContent: 'center', gap: 5, borderRadius: RADIUS.md },
+  tabBar: {
+    flexDirection: 'row',
+    paddingHorizontal: SPACING.md,
+    alignItems: 'center',
+    gap: SPACING.sm,
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  tabItem: {
+    width: 76,
+    minHeight: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    borderRadius: RADIUS.md,
+  },
   tabItemActive: { backgroundColor: COLORS.accentSoft, borderWidth: 1, borderColor: COLORS.accentMuted },
-  iconBox: { width: 36, height: 36, borderRadius: RADIUS.md, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.surfaceMuted },
+  iconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceMuted,
+  },
   iconBoxActive: { backgroundColor: COLORS.accent, ...SHADOWS.accent },
-  tabLabel: { fontSize: 10, lineHeight: 13, fontWeight: '800' }
+  tabLabel: { fontSize: 10, lineHeight: 13, fontWeight: '800' },
 });

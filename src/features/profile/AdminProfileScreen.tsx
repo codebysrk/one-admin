@@ -9,7 +9,10 @@ import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
 import { User, Mail, Lock, Save, LogOut, Eye, EyeOff, ArrowLeft, ShieldCheck } from 'lucide-react-native';
 
 export const AdminProfileScreen = () => {
-  const { admin, setAdmin, logout, setActiveTab } = useAdminStore();
+  const admin = useAdminStore((s) => s.admin);
+  const setAdmin = useAdminStore((s) => s.setAdmin);
+  const logout = useAdminStore((s) => s.logout);
+  const setActiveTab = useAdminStore((s) => s.setActiveTab);
   const [activeSubTab, setActiveSubTab] = useState<'info' | 'security'>('info');
   const [name, setName] = useState(admin?.name || '');
   const [email, setEmail] = useState(admin?.email || '');

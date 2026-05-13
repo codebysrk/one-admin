@@ -1,30 +1,26 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, useWindowDimensions, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { collection, getCountFromServer, limit, onSnapshot, orderBy, query, Timestamp, where, getDocs } from 'firebase/firestore';
+import { collection, getCountFromServer, limit, onSnapshot, orderBy, query, getDocs } from 'firebase/firestore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { LineChart } from 'react-native-chart-kit';
 import {
-  Activity,
   Bell,
   Bus,
-  Calendar,
   ChevronRight,
-  LayoutGrid,
   Smartphone,
   Ticket,
   TrendingUp,
   UserCircle,
-  UserMinus,
   Users,
   IndianRupee,
   MapPin,
   ArrowUpRight,
 } from 'lucide-react-native';
 import { useAdminStore } from '../../store/useAdminStore';
-import { COLORS, RADIUS, SHADOWS, SPACING, TYPOGRAPHY } from '../../core/theme';
+import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
 import { db } from '../../services/firebase';
-import { AdminPressable, Card, EmptyState, LoadingState, SectionHeader } from '../../components/AdminUI';
+import { AdminPressable, Card, SectionHeader } from '../../components/AdminUI';
 
 const statCards = [
   { key: 'revenue', label: 'Revenue', icon: IndianRupee, tone: COLORS.success, bg: COLORS.successSoft },
@@ -59,11 +55,14 @@ export const DashboardScreen = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchStats = async () => {
       try {
         const usersSnap = await getCountFromServer(collection(db, 'users'));
         const routesSnap = await getCountFromServer(collection(db, 'routes'));
-        
+        if (cancelled) return;
+
         // Calculate Revenue and Chart Data
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setHours(0,0,0,0);
@@ -72,6 +71,7 @@ export const DashboardScreen = () => {
         // Fetch ALL tickets for total revenue, but filter for chart
         const qTickets = query(collection(db, 'tickets'));
         const ticketSnap = await getDocs(qTickets);
+        if (cancelled) return;
         
         let totalRev = 0;
         let weeklyTotal = 0;
@@ -99,6 +99,8 @@ export const DashboardScreen = () => {
           routeCount[rName].revenue += fare;
         });
 
+        if (cancelled) return;
+
         // Sort Top Routes
         const sortedRoutes = Object.entries(routeCount)
           .map(([name, val]) => ({ name, ...val }))
@@ -114,7 +116,7 @@ export const DashboardScreen = () => {
         setRevenueData(dailyRev);
         setTopRoutes(sortedRoutes);
       } catch (error) {
-        console.error(error);
+        if (__DEV__) console.warn('Dashboard stats fetch failed:', error);
       }
     };
 
@@ -125,11 +127,11 @@ export const DashboardScreen = () => {
 
     const qLiveTickets = query(collection(db, 'tickets'), orderBy('timestamp', 'desc'), limit(5));
     const unsubscribeTickets = onSnapshot(qLiveTickets, (snapshot) => {
-      const tickets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const tickets = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as { id: string; busType?: string }));
       setLiveTickets(tickets);
       
       // Calculate Bus Distribution from latest 50 tickets for a good sample
-      const acCount = tickets.filter(t => t.busType === 'AC').length;
+      const acCount = tickets.filter((t) => t.busType === 'AC').length;
       const nonAcCount = tickets.length - acCount;
       setBusStats({ ac: acCount, nonAc: nonAcCount });
       
@@ -138,21 +140,25 @@ export const DashboardScreen = () => {
 
     fetchStats();
     return () => {
+      cancelled = true;
       unsubscribeLogs();
       unsubscribeTickets();
     };
   }, []);
 
-  const chartConfig = {
-    backgroundColor: COLORS.surface,
-    backgroundGradientFrom: COLORS.surface,
-    backgroundGradientTo: COLORS.surface,
-    decimalPlaces: 0,
-    color: (opacity = 1) => `rgba(99, 102, 241, ${opacity})`,
-    labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`,
-    propsForDots: { r: '4', strokeWidth: '2', stroke: COLORS.white },
-    propsForBackgroundLines: { strokeDasharray: '', stroke: COLORS.border, opacity: 0.5 },
-  };
+  const chartConfig = useMemo(
+    () => ({
+      backgroundColor: COLORS.surface,
+      backgroundGradientFrom: COLORS.surface,
+      backgroundGradientTo: COLORS.surface,
+      decimalPlaces: 0,
+      color: (opacity = 1) => `rgba(99, 102, 241, ${opacity})`,
+      labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`,
+      propsForDots: { r: '4', strokeWidth: '2', stroke: COLORS.white },
+      propsForBackgroundLines: { strokeDasharray: '', stroke: COLORS.border, opacity: 0.5 },
+    }),
+    []
+  );
 
   const chartWidth = Math.max(260, width - 64);
 
