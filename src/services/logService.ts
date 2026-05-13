@@ -39,6 +39,6 @@ export const logActivity = async (options: LogOptions) => {
       deviceMeta,
     });
   } catch (error) {
-    console.error('Logging failed:', error);
+    if (__DEV__) console.error('Logging failed:', error);
   }
 };

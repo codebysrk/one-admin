@@ -65,7 +65,7 @@ export const AdminsManagementScreen = () => {
       });
       setEditingAdmin(null);
     } catch (error) {
-      console.error(error);
+      if (__DEV__) console.error(error);
       Alert.alert('Error', 'Failed to update permissions');
     }
   };
@@ -100,7 +100,7 @@ export const AdminsManagementScreen = () => {
       setInviteEmail('');
       Alert.alert('Success', `${inviteEmail} is now an administrator.`);
     } catch (error) {
-      console.error(error);
+      if (__DEV__) console.error(error);
       Alert.alert('Error', 'Promotion failed');
     }
   };
@@ -114,7 +114,7 @@ export const AdminsManagementScreen = () => {
       setConfirmModal({ visible: false, adminId: '', action: '' as any });
       Alert.alert('Success', 'Administrator rights revoked.');
     } catch (error) {
-      console.error(error);
+      if (__DEV__) console.error(error);
     }
   };
 

@@ -41,7 +41,7 @@ export const exportToCSV = async (data: any[], fileName: string) => {
       Alert.alert("Success", `File saved to: ${fileUri}`);
     }
   } catch (error: any) {
-    console.error("Export Error:", error);
+    if (__DEV__) console.error("Export Error:", error);
     Alert.alert("Export Failed", error.message);
   }
 };
