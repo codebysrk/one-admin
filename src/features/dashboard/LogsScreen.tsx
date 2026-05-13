@@ -138,6 +138,24 @@ export const LogsScreen = () => {
             </View>
           )}
 
+          {item.deviceMeta && (
+            <View style={styles.metaBox}>
+               <View style={styles.metaRow}>
+                  <Smartphone size={12} color={COLORS.textSubtle} />
+                  <Text style={styles.metaTitle}>DEVICE HARDWARE</Text>
+               </View>
+               <View style={styles.deviceDetails}>
+                  <Text style={styles.deviceText}>{item.deviceMeta.model || 'Unknown Device'} ({item.deviceMeta.os} {item.deviceMeta.osVersion})</Text>
+                  <View style={[styles.securityPill, { backgroundColor: item.deviceMeta.isRooted ? COLORS.errorSoft : COLORS.successSoft }]}>
+                     <Text style={[styles.securityText, { color: item.deviceMeta.isRooted ? COLORS.error : COLORS.success }]}>
+                        {item.deviceMeta.isRooted ? 'EMULATOR/ROOTED' : 'SECURE DEVICE'}
+                     </Text>
+                  </View>
+               </View>
+               <Text style={styles.versionText}>App Version: {item.deviceMeta.appVersion}</Text>
+            </View>
+          )}
+
           <View style={styles.logFooter}>
             <View style={styles.actorInfo}>
               <View style={styles.actorAvatar}>
@@ -294,5 +312,13 @@ const styles = StyleSheet.create({
   actorInitial: { fontSize: 11, fontWeight: '800', color: COLORS.accent },
   actorName: { fontSize: 12, color: COLORS.text, fontWeight: '700', flex: 1 },
   navIndicator: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  navText: { fontSize: 10, fontWeight: '800', color: COLORS.primary }
+  navText: { fontSize: 10, fontWeight: '800', color: COLORS.primary },
+  metaBox: { marginTop: 12, padding: 12, backgroundColor: '#F8FAFC', borderRadius: RADIUS.md, borderWidth: 1, borderColor: '#E2E8F0' },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  metaTitle: { fontSize: 9, fontWeight: '900', color: COLORS.textSubtle, letterSpacing: 0.5 },
+  deviceDetails: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  deviceText: { fontSize: 13, fontWeight: '700', color: COLORS.text },
+  securityPill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  securityText: { fontSize: 9, fontWeight: '900' },
+  versionText: { fontSize: 10, color: COLORS.textSubtle, fontWeight: '600' }
 });
