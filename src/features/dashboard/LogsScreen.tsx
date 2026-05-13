@@ -234,12 +234,11 @@ export const LogsScreen = () => {
         title="Security Audit"
         subtitle="Real-time system activity feed"
         action={(
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <IconButton
               tone="neutral"
               accessibilityLabel="System Maintenance"
               onPress={() => setShowCleanupModal(true)}
-              style={{ marginRight: 8 }}
             >
               <Settings size={18} color={COLORS.text} />
             </IconButton>

@@ -77,7 +77,7 @@ export const DashboardScreen = () => {
 
         ticketSnap.forEach(doc => {
           const data = doc.data();
-          const fare = Number(data.fare) || 0;
+          const fare = Number(data.total || data.fare || data.totalFare) || 0;
           totalRev += fare;
           
           // Chart data
