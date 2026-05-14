@@ -314,13 +314,13 @@ export const DashboardScreen = () => {
               <View style={[styles.activityDot, { backgroundColor: ticket.busType === 'AC' ? COLORS.primary : COLORS.warning }]} />
               <View style={styles.activityContent}>
                 <Text style={styles.activityTxt} numberOfLines={1}>{(ticket.route || 'Route')} • {ticket.source} to {ticket.dest}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
                   <Text style={styles.activityMeta}>
                     {formatLogTime(ticket.timestamp)} • ₹{ticket.total || ticket.finalFare}
                   </Text>
-                  {Number(ticket.fare) > Number(ticket.total || ticket.finalFare) && (
-                    <Text style={[styles.activityMeta, { textDecorationLine: 'line-through', opacity: 0.6 }]}>
-                      ₹{ticket.fare}
+                  {parseFloat(ticket.fare) > parseFloat(ticket.total || ticket.finalFare) && (
+                    <Text style={[styles.activityMeta, { textDecorationLine: 'line-through', opacity: 0.5, marginLeft: 4 }]}>
+                      (₹{ticket.fare})
                     </Text>
                   )}
                   <Text style={styles.activityMeta}> • {ticket.qty} Ticket(s)</Text>
