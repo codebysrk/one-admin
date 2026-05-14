@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useTransition } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Platform } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { collection, onSnapshot, doc, updateDoc, query, orderBy, setDoc, deleteDoc, where } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
@@ -7,6 +8,65 @@ import { User as UserIcon, Trash2, Search, BadgeCheck, XCircle, Ticket, ShieldCh
 import { AdminHeader, AdminScreen, EmptyState, LoadingState, ReasonModal, SearchField, StatusBadge } from '../../components/AdminUI';
 import { UserTicketsScreen } from './UserTicketsScreen';
 import { logActivity } from '../../services/logService';
+
+
+const UserCard = React.memo(({ item, userRevenue, initiateDelete, initiateStatusToggle, setSelectedUser }: any) => {
+  const banned = item.status === 'BANNED';
+  const isAdmin = item.role === 'admin';
+  const revenue = userRevenue[item.id] || 0;
+  const isVIP = revenue >= 1000;
+
+  return (
+    <View style={styles.userCard}>
+      <View style={styles.cardMain}>
+        <View style={[styles.avatar, { backgroundColor: banned ? COLORS.errorSoft : (isAdmin ? COLORS.primarySoft : COLORS.accentSoft) }]}>
+          {isAdmin ? <ShieldCheck size={23} color={COLORS.primary} /> : <UserIcon size={23} color={banned ? COLORS.error : COLORS.accent} />}
+        </View>
+        <View style={styles.userInfo}>
+          <View style={styles.nameRow}>
+            <Text style={styles.userName} numberOfLines={1}>{item.name}</Text>
+            {isVIP && (
+              <View style={styles.vipBadge}>
+                <Star size={10} color="#D97706" fill="#D97706" />
+                <Text style={styles.vipText}>VIP</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.userEmail} numberOfLines={1}>{item.email}</Text>
+          <View style={styles.statusRow}>
+            <StatusBadge label={item.status || 'ACTIVE'} tone={banned ? 'error' : 'success'} />
+            {isAdmin && <StatusBadge label="ADMIN" tone="info" />}
+          </View>
+        </View>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Delete ${item.name}`} onPress={() => initiateDelete(item)} style={styles.deleteBtn} activeOpacity={0.82}>
+          <Trash2 size={18} color={COLORS.error} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.revenueRow}>
+        <View style={styles.revBox}>
+          <IndianRupee size={12} color={COLORS.success} />
+          <Text style={styles.revLabel}>Lifetime Revenue:</Text>
+          <Text style={styles.revValue}>₹{revenue.toLocaleString('en-IN')}</Text>
+        </View>
+      </View>
+
+      <View style={styles.cardActions}>
+        <TouchableOpacity style={styles.actionBtn} onPress={() => initiateStatusToggle(item)} activeOpacity={0.82}>
+          {item.status === 'ACTIVE' ? <XCircle size={14} color={COLORS.error} /> : <BadgeCheck size={14} color={COLORS.success} />}
+          <Text style={[styles.actionBtnText, { color: item.status === 'ACTIVE' ? COLORS.error : COLORS.success }]}>
+            {item.status === 'ACTIVE' ? 'Ban User' : 'Unban'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.actionBtn} onPress={() => setSelectedUser(item)} activeOpacity={0.82}>
+          <Ticket size={14} color={COLORS.textMuted} />
+          <Text style={[styles.actionBtnText, { color: COLORS.textMuted }]}>View Tickets</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+});
 
 type FilterType = 'ALL' | 'ACTIVE' | 'BANNED' | 'ADMINS';
 
@@ -139,63 +199,15 @@ export const UsersListScreen = () => {
   }, [users, searchQuery, activeFilter]);
 
   const renderUser = useCallback(
-    ({ item }: any) => {
-      const banned = item.status === 'BANNED';
-      const isAdmin = item.role === 'admin';
-      const revenue = userRevenue[item.id] || 0;
-      const isVIP = revenue >= 1000;
-
-      return (
-        <View style={styles.userCard}>
-          <View style={styles.cardMain}>
-            <View style={[styles.avatar, { backgroundColor: banned ? COLORS.errorSoft : (isAdmin ? COLORS.primarySoft : COLORS.accentSoft) }]}>
-              {isAdmin ? <ShieldCheck size={23} color={COLORS.primary} /> : <UserIcon size={23} color={banned ? COLORS.error : COLORS.accent} />}
-            </View>
-            <View style={styles.userInfo}>
-              <View style={styles.nameRow}>
-                <Text style={styles.userName} numberOfLines={1}>{item.name}</Text>
-                {isVIP && (
-                  <View style={styles.vipBadge}>
-                    <Star size={10} color="#D97706" fill="#D97706" />
-                    <Text style={styles.vipText}>VIP</Text>
-                  </View>
-                )}
-              </View>
-              <Text style={styles.userEmail} numberOfLines={1}>{item.email}</Text>
-              <View style={styles.statusRow}>
-                <StatusBadge label={item.status || 'ACTIVE'} tone={banned ? 'error' : 'success'} />
-                {isAdmin && <StatusBadge label="ADMIN" tone="info" />}
-              </View>
-            </View>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Delete ${item.name}`} onPress={() => initiateDelete(item)} style={styles.deleteBtn} activeOpacity={0.82}>
-              <Trash2 size={18} color={COLORS.error} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.revenueRow}>
-            <View style={styles.revBox}>
-              <IndianRupee size={12} color={COLORS.success} />
-              <Text style={styles.revLabel}>Lifetime Revenue:</Text>
-              <Text style={styles.revValue}>₹{revenue.toLocaleString('en-IN')}</Text>
-            </View>
-          </View>
-
-          <View style={styles.cardActions}>
-            <TouchableOpacity style={styles.actionBtn} onPress={() => initiateStatusToggle(item)} activeOpacity={0.82}>
-              {item.status === 'ACTIVE' ? <XCircle size={14} color={COLORS.error} /> : <BadgeCheck size={14} color={COLORS.success} />}
-              <Text style={[styles.actionBtnText, { color: item.status === 'ACTIVE' ? COLORS.error : COLORS.success }]}>
-                {item.status === 'ACTIVE' ? 'Ban User' : 'Unban'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionBtn} onPress={() => setSelectedUser(item)} activeOpacity={0.82}>
-              <Ticket size={14} color={COLORS.textMuted} />
-              <Text style={[styles.actionBtnText, { color: COLORS.textMuted }]}>View Tickets</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      );
-    },
+    ({ item }: any) => (
+      <UserCard
+        item={item}
+        userRevenue={userRevenue}
+        initiateDelete={initiateDelete}
+        initiateStatusToggle={initiateStatusToggle}
+        setSelectedUser={setSelectedUser}
+      />
+    ),
     [userRevenue, initiateDelete, initiateStatusToggle]
   );
 
@@ -226,7 +238,9 @@ export const UsersListScreen = () => {
           {(['ALL', 'ACTIVE', 'BANNED', 'ADMINS'] as FilterType[]).map((f) => (
             <TouchableOpacity 
               key={f} 
-              onPress={() => setActiveFilter(f)}
+              onPress={() => {
+                setActiveFilter(f);
+              }}
               style={[styles.filterTab, activeFilter === f && styles.filterTabActive]}
             >
               <Text style={[styles.filterText, activeFilter === f && styles.filterTextActive]}>{f}</Text>
@@ -238,14 +252,11 @@ export const UsersListScreen = () => {
       {loading ? (
         <LoadingState label="Indexing users..." />
       ) : (
-        <FlatList
+        <FlashList
           data={filteredUsers}
           keyExtractor={(item) => item.id}
           renderItem={renderUser}
-          removeClippedSubviews
-          windowSize={8}
-          maxToRenderPerBatch={10}
-          initialNumToRender={8}
+          estimatedItemSize={180}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <EmptyState 

@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { initializeFirestore } from "firebase/firestore";
+import { initializeFirestore, memoryLocalCache } from "firebase/firestore";
 import { initializeAuth, getReactNativePersistence } from "firebase/auth";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFunctions } from "firebase/functions";
@@ -21,8 +21,9 @@ export const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage)
 });
 
+// Initialize Firestore with Memory Cache for React Native compatibility
 export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
+  localCache: memoryLocalCache({})
 });
 
 export const functions = getFunctions(app);

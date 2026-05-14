@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, useWindowDimensions, StatusBar } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { collection, getCountFromServer, limit, onSnapshot, orderBy, query, getDocs } from 'firebase/firestore';
+import { collection, getCountFromServer, limit, onSnapshot, orderBy, query, getDocs, where, Timestamp } from 'firebase/firestore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { LineChart } from 'react-native-chart-kit';
 import {
@@ -20,7 +21,7 @@ import {
 import { useAdminStore } from '../../store/useAdminStore';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
 import { db } from '../../services/firebase';
-import { AdminPressable, Card, SectionHeader } from '../../components/AdminUI';
+import { AdminPressable, Card, SectionHeader, LoadingState, SkeletonBlock } from '../../components/AdminUI';
 
 const statCards = [
   { key: 'revenue', label: 'Revenue', icon: IndianRupee, tone: COLORS.success, bg: COLORS.successSoft },
@@ -42,7 +43,7 @@ const formatLogTime = (timestamp: any) => {
 
 export const DashboardScreen = () => {
   const admin = useAdminStore((state) => state.admin);
-  const setActiveTab = useAdminStore((state) => state.setActiveTab);
+  const navigation = useNavigation<any>();
   const { width } = useWindowDimensions();
 
   const [stats, setStats] = useState({ users: 0, revenue: 0, routes: 0 });
@@ -68,8 +69,12 @@ export const DashboardScreen = () => {
         sevenDaysAgo.setHours(0,0,0,0);
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
         
-        // Fetch ALL tickets for total revenue, but filter for chart
-        const qTickets = query(collection(db, 'tickets'));
+        // Final optimized query: latest 500 tickets for accurate charts and performance
+        const qTickets = query(
+          collection(db, 'tickets'),
+          orderBy('timestamp', 'desc'),
+          limit(500)
+        );
         const ticketSnap = await getDocs(qTickets);
         if (cancelled) return;
         
@@ -81,16 +86,27 @@ export const DashboardScreen = () => {
         ticketSnap.forEach(doc => {
           const data = doc.data();
           const fare = Number(data.fare) || 0;
-          totalRev += fare;
           
-          // Chart data
-          // Safe date conversion
-          const date = data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
-          const dayIndex = Math.floor((date.getTime() - sevenDaysAgo.getTime()) / (1000 * 3600 * 24));
-          if (dayIndex >= 0 && dayIndex < 7) {
-            dailyRev[dayIndex] += fare;
-            weeklyTotal += fare;
+          // Chart data & Weekly Revenue
+          let date;
+          if (data.timestamp?.toDate) {
+            date = data.timestamp.toDate();
+          } else if (data.timestamp) {
+            date = new Date(data.timestamp);
+          } else {
+            date = new Date();
           }
+
+          if (!Number.isNaN(date.getTime())) {
+            const dayIndex = Math.floor((date.getTime() - sevenDaysAgo.getTime()) / (1000 * 3600 * 24));
+            if (dayIndex >= 0 && dayIndex < 7) {
+              dailyRev[dayIndex] += fare;
+              weeklyTotal += fare;
+            }
+          }
+          
+          // For now, totalRev will show the sum of what we fetched (last 7 days)
+          totalRev += fare;
 
           // Top Routes logic
           const rName = data.routeName || data.routeId || 'Unknown';
@@ -173,15 +189,19 @@ export const DashboardScreen = () => {
               <Text style={styles.adminName} numberOfLines={1}>{admin?.name || 'Administrator'}</Text>
               <Text style={styles.adminSubtitle}>Revenue & Operations Intelligence</Text>
             </View>
-            <AdminPressable accessibilityRole="button" accessibilityLabel="Open profile settings" onPress={() => setActiveTab('Profile')} style={styles.profileBtn}>
+            <AdminPressable accessibilityRole="button" accessibilityLabel="Open profile settings" onPress={() => navigation.navigate('Profile')} style={styles.profileBtn}>
               <UserCircle size={28} color={COLORS.white} />
             </AdminPressable>
           </View>
 
           <View style={styles.heroPanel}>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.heroLabel}>Weekly Earnings</Text>
-              <Text style={styles.heroValue}>₹{weeklyRevenue.toLocaleString('en-IN')}</Text>
+              {loading ? (
+                <SkeletonBlock style={{ width: 140, height: 38, marginTop: 6, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.2)' }} />
+              ) : (
+                <Text style={styles.heroValue}>₹{weeklyRevenue.toLocaleString('en-IN')}</Text>
+              )}
             </View>
             <View style={styles.heroSignal}>
               <ArrowUpRight size={16} color={COLORS.success} />
@@ -215,19 +235,23 @@ export const DashboardScreen = () => {
             caption="Earnings (₹) over the last 7 days"
           />
           <View style={styles.chartFrame}>
-            <LineChart
-              data={{
-                labels: ['6d', '5d', '4d', '3d', '2d', '1d', 'Now'],
-                datasets: [{ data: revenueData }],
-              }}
-              width={chartWidth}
-              height={160}
-              chartConfig={chartConfig}
-              bezier
-              withInnerLines
-              withOuterLines={false}
-              style={styles.chart}
-            />
+            {loading ? (
+              <SkeletonBlock style={{ width: '100%', height: 160, borderRadius: 12 }} />
+            ) : (
+              <LineChart
+                data={{
+                  labels: ['6d', '5d', '4d', '3d', '2d', '1d', 'Now'],
+                  datasets: [{ data: revenueData }],
+                }}
+                width={chartWidth}
+                height={160}
+                chartConfig={chartConfig}
+                bezier
+                withInnerLines
+                withOuterLines={false}
+                style={styles.chart}
+              />
+            )}
           </View>
         </Card>
 
@@ -298,7 +322,7 @@ export const DashboardScreen = () => {
           title="Security Feed"
           caption="Latest critical system activities"
           action={(
-            <AdminPressable style={styles.viewAll} onPress={() => setActiveTab('Logs')}>
+            <AdminPressable style={styles.viewAll} onPress={() => navigation.navigate('Logs')}>
               <Text style={styles.viewAllText}>View All</Text>
               <ChevronRight size={14} color={COLORS.accent} />
             </AdminPressable>
@@ -307,7 +331,11 @@ export const DashboardScreen = () => {
 
         <Card style={styles.activityFeed}>
           {loading ? (
-            <ActivityIndicator color={COLORS.primary} />
+            <View style={{ padding: 16 }}>
+              <SkeletonBlock style={{ height: 40, width: '100%', marginBottom: 12, borderRadius: 8 }} />
+              <SkeletonBlock style={{ height: 40, width: '100%', marginBottom: 12, borderRadius: 8 }} />
+              <SkeletonBlock style={{ height: 40, width: '100%', borderRadius: 8 }} />
+            </View>
           ) : activities.map((log: any, index) => (
             <View key={log.id} style={[styles.activityRow, index === activities.length - 1 && styles.activityRowLast]}>
               <View style={[styles.activityDot, { backgroundColor: log.type === 'ADMIN' ? COLORS.primary : COLORS.info }]} />

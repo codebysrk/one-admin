@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform, StatusBar } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { updateEmail, updatePassword, updateProfile, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -12,7 +13,7 @@ export const AdminProfileScreen = () => {
   const admin = useAdminStore((s) => s.admin);
   const setAdmin = useAdminStore((s) => s.setAdmin);
   const logout = useAdminStore((s) => s.logout);
-  const setActiveTab = useAdminStore((s) => s.setActiveTab);
+  const navigation = useNavigation<any>();
   const [activeSubTab, setActiveSubTab] = useState<'info' | 'security'>('info');
   const [name, setName] = useState(admin?.name || '');
   const [email, setEmail] = useState(admin?.email || '');
@@ -66,7 +67,7 @@ export const AdminProfileScreen = () => {
       <StatusBar barStyle="light-content" />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboard}>
         <View style={styles.topBar}>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Back to dashboard" onPress={() => setActiveTab('Dashboard')} style={styles.backBtn}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Back to dashboard" onPress={() => navigation.goBack()} style={styles.backBtn}>
             <ArrowLeft size={20} color={COLORS.white} />
           </TouchableOpacity>
           <Text style={styles.topBarTitle}>Profile Settings</Text>

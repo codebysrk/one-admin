@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
+import { useNavigation } from '@react-navigation/native';
 import { collection, onSnapshot, query, orderBy, limit, where, Timestamp, getDocs, deleteDoc, doc, writeBatch } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
@@ -31,7 +33,7 @@ export const LogsScreen = () => {
   const [showCleanupModal, setShowCleanupModal] = useState(false);
   const [cleaning, setCleaning] = useState(false);
   const [confirmModal, setConfirmModal] = useState({ visible: false, days: 0 as number | 'ALL' });
-  const setActiveTab = useAdminStore((state) => state.setActiveTab);
+  const navigation = useNavigation<any>();
 
   useEffect(() => {
     let q = query(collection(db, 'logs'), orderBy('timestamp', 'desc'), limit(150));
@@ -87,13 +89,13 @@ export const LogsScreen = () => {
   const handleNavigate = useCallback(
     (item: any) => {
       if (!item.targetType) return;
-      if (item.targetType === 'USER') setActiveTab('Users');
-      if (item.targetType === 'ROUTE') setActiveTab('Routes');
-      if (item.targetType === 'TICKET') setActiveTab('Tickets');
-      if (item.targetType === 'ADMIN') setActiveTab('Admins');
-      if (item.targetType === 'NOTIFICATION') setActiveTab('Alerts');
+      if (item.targetType === 'USER') navigation.navigate('Users');
+      if (item.targetType === 'ROUTE') navigation.navigate('Routes');
+      if (item.targetType === 'TICKET') navigation.navigate('Tickets');
+      if (item.targetType === 'ADMIN') navigation.navigate('Admins');
+      if (item.targetType === 'NOTIFICATION') navigation.navigate('Alerts');
     },
-    [setActiveTab]
+    [navigation]
   );
 
   const handleCleanup = async (days: number | 'ALL') => {
@@ -293,14 +295,11 @@ export const LogsScreen = () => {
       {loading ? (
         <LoadingState label="Decrypting logs..." />
       ) : (
-        <FlatList
+        <FlashList
           data={filteredLogs}
           keyExtractor={(item) => item.id}
           renderItem={renderLogItem}
-          removeClippedSubviews
-          windowSize={7}
-          maxToRenderPerBatch={10}
-          initialNumToRender={8}
+          estimatedItemSize={220}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={

@@ -54,6 +54,8 @@ const errorStyles = StyleSheet.create({
   btnText: { color: COLORS.white, fontWeight: '800' },
 });
 
+import { NavigationContainer } from '@react-navigation/native';
+
 function AppBody() {
   const admin = useAdminStore((state) => state.admin);
 
@@ -74,7 +76,9 @@ export default function App() {
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
-        <AppBody />
+        <NavigationContainer>
+          <AppBody />
+        </NavigationContainer>
       </SafeAreaProvider>
     </ErrorBoundary>
   );

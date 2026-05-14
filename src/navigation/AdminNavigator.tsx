@@ -79,10 +79,60 @@ const tabFallbackStyles = StyleSheet.create({
   wrap: { flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 120 },
 });
 
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+
+const Tab = createBottomTabNavigator();
+
+const LazyScreen = (Component: React.LazyExoticComponent<any>) => (props: any) => (
+  <Suspense fallback={<TabBarFallback />}>
+    <Component {...props} />
+  </Suspense>
+);
+
+const CustomTabBar = ({ state, descriptors, navigation, visibleTabs }: any) => {
+  return (
+    <View style={styles.tabBarContainer}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
+        {visibleTabs.map((tab: any) => {
+          const isActive = state.index === state.routes.findIndex((r: any) => r.name === tab.key);
+          const IconComponent = tab.icon;
+
+          const onPress = () => {
+            const event = navigation.emit({
+              type: 'tabPress',
+              target: state.routes.find((r: any) => r.name === tab.key)?.key,
+              canPreventDefault: true,
+            });
+
+            if (!isActive && !event.defaultPrevented) {
+              navigation.navigate(tab.key);
+            }
+          };
+
+          return (
+            <AdminPressable
+              key={tab.key}
+              style={[styles.tabItem, isActive && styles.tabItemActive]}
+              onPress={onPress}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${tab.label}`}
+            >
+              <View style={[styles.iconBox, isActive && styles.iconBoxActive]}>
+                <IconComponent size={18} color={isActive ? COLORS.white : COLORS.textMuted} />
+              </View>
+              <Text style={[styles.tabLabel, { color: isActive ? COLORS.primary : COLORS.textMuted }]}>
+                {tab.label}
+              </Text>
+            </AdminPressable>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+};
+
 export const AdminNavigator = () => {
   const admin = useAdminStore((state) => state.admin);
-  const activeTab = useAdminStore((state) => state.activeTab);
-  const setActiveTab = useAdminStore((state) => state.setActiveTab);
 
   const visibleTabs = useMemo(() => {
     return tabs.filter((t) => {
@@ -98,50 +148,27 @@ export const AdminNavigator = () => {
     });
   }, [admin?.email, admin?.permissions]);
 
-  const ActiveScreen = useMemo(() => {
-    return tabs.find((t) => t.key === activeTab)?.screen ?? DashboardScreen;
-  }, [activeTab]);
-
-  const onTabPress = useCallback(
-    (key: string) => {
-      setActiveTab(key);
-    },
-    [setActiveTab]
-  );
-
   return (
-    <View style={styles.container}>
-      <View style={styles.screenContainer}>
-        <Suspense fallback={<TabBarFallback />}>
-          <ActiveScreen />
-        </Suspense>
-      </View>
-
-      <View style={styles.tabBarContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
-          {visibleTabs.map((tab) => {
-            const isActive = activeTab === tab.key;
-            const IconComponent = tab.icon;
-            return (
-              <AdminPressable
-                key={tab.key}
-                style={[styles.tabItem, isActive && styles.tabItemActive]}
-                onPress={() => onTabPress(tab.key)}
-                accessibilityRole="button"
-                accessibilityLabel={`Open ${tab.label}`}
-              >
-                <View style={[styles.iconBox, isActive && styles.iconBoxActive]}>
-                  <IconComponent size={18} color={isActive ? COLORS.white : COLORS.textMuted} />
-                </View>
-                <Text style={[styles.tabLabel, { color: isActive ? COLORS.primary : COLORS.textMuted }]}>
-                  {tab.label}
-                </Text>
-              </AdminPressable>
-            );
-          })}
-        </ScrollView>
-      </View>
-    </View>
+    <Tab.Navigator
+      tabBar={(props) => <CustomTabBar {...props} visibleTabs={visibleTabs} />}
+      screenOptions={{
+        headerShown: false,
+        lazy: false, // Ensure screens are preserved in memory
+      }}
+    >
+      {visibleTabs.map((tab) => (
+        <Tab.Screen 
+          key={tab.key} 
+          name={tab.key} 
+          component={LazyScreen(tab.screen)} 
+        />
+      ))}
+      {/* Hidden tabs or tabs not in the scrollbar can still be added here if needed */}
+      <Tab.Screen 
+        name="Profile" 
+        component={LazyScreen(AdminProfileScreen)} 
+      />
+    </Tab.Navigator>
   );
 };
 
