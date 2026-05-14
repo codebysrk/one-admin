@@ -81,7 +81,7 @@ export const DashboardScreen = () => {
         let totalRev = 0;
         let weeklyTotal = 0;
         const dailyRev = [0, 0, 0, 0, 0, 0, 0];
-        const routeCount: Record<string, { count: number, revenue: number }> = {};
+        const routeCount: Record<string, { count: number, revenue: number, originalRevenue: number }> = {};
 
         ticketSnap.forEach(doc => {
           const data = doc.data();
@@ -110,12 +110,15 @@ export const DashboardScreen = () => {
 
           // Top Routes logic
           const rName = data.route || data.routeName || data.routeId || 'Unknown';
-          if (!routeCount[rName]) routeCount[rName] = { count: 0, revenue: 0 };
+          if (!routeCount[rName]) routeCount[rName] = { count: 0, revenue: 0, originalRevenue: 0 };
           routeCount[rName].count += 1;
           
-          // Use total/finalFare if available, otherwise fare
-          const ticketRevenue = Number(data.total) || Number(data.finalFare) || fare;
-          routeCount[rName].revenue += ticketRevenue;
+          // Use total/finalFare for discounted revenue, fare for original
+          const discountedRev = Number(data.total) || Number(data.finalFare) || fare;
+          const originalRev = fare;
+          
+          routeCount[rName].revenue += discountedRev;
+          routeCount[rName].originalRevenue += originalRev;
         });
 
         if (cancelled) return;
@@ -276,8 +279,13 @@ export const DashboardScreen = () => {
                 <Text style={styles.routeName}>{route.name}</Text>
                 <Text style={styles.routeVolume}>{route.count} tickets issued</Text>
               </View>
-              <View style={styles.routeMetrics}>
-                <Text style={styles.routeRev}>₹{route.revenue}</Text>
+              <View style={[styles.routeMetrics, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+                {route.originalRevenue > route.revenue && (
+                  <Text style={[styles.routeVolume, { textDecorationLine: 'line-through', fontSize: 11, opacity: 0.5 }]}>
+                    ₹{route.originalRevenue.toLocaleString('en-IN')}
+                  </Text>
+                )}
+                <Text style={styles.routeRev}>₹{route.revenue.toLocaleString('en-IN')}</Text>
               </View>
             </View>
           ))}
@@ -314,16 +322,16 @@ export const DashboardScreen = () => {
               <View style={[styles.activityDot, { backgroundColor: ticket.busType === 'AC' ? COLORS.primary : COLORS.warning }]} />
               <View style={styles.activityContent}>
                 <Text style={styles.activityTxt} numberOfLines={1}>{(ticket.route || 'Route')} • {ticket.source} to {ticket.dest}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <Text style={styles.activityMeta}>
-                    {formatLogTime(ticket.timestamp)} • ₹{ticket.total || ticket.finalFare}
-                  </Text>
-                  {parseFloat(ticket.fare) > parseFloat(ticket.total || ticket.finalFare) && (
-                    <Text style={[styles.activityMeta, { textDecorationLine: 'line-through', opacity: 0.5, marginLeft: 4 }]}>
-                      (₹{ticket.fare})
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Text style={styles.activityMeta}>{formatLogTime(ticket.timestamp)} • </Text>
+                  {Number(ticket.fare) > Number(ticket.total || ticket.finalFare) && (
+                    <Text style={[styles.activityMeta, { textDecorationLine: 'line-through', opacity: 0.5 }]}>
+                      ₹{ticket.fare}
                     </Text>
                   )}
-                  <Text style={styles.activityMeta}> • {ticket.qty} Ticket(s)</Text>
+                  <Text style={styles.activityMeta}>
+                    ₹{ticket.total || ticket.finalFare} • {ticket.qty} Ticket(s)
+                  </Text>
                 </View>
               </View>
             </View>
