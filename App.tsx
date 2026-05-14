@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AdminNavigator } from './src/navigation/AdminNavigator';
 import { COLORS } from './src/core/theme';
 import { AdminPressable } from './src/components/AdminUI';
+import { checkAppUpdate } from './src/services/updateService';
 
 type ErrorBoundaryProps = { children: ReactNode };
 type ErrorBoundaryState = { hasError: boolean; message?: string };
@@ -65,6 +66,11 @@ function AppBody() {
 }
 
 export default function App() {
+  React.useEffect(() => {
+    // Check for updates when app starts
+    checkAppUpdate();
+  }, []);
+
   return (
     <ErrorBoundary>
       <SafeAreaProvider>

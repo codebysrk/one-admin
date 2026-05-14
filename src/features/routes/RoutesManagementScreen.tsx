@@ -8,6 +8,9 @@ import { Plus, Trash2, Bus, X, Search, MapPin, ChevronRight, Edit3, Navigation, 
 import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, ReasonModal, SearchField, AdminBottomSheet, ConfirmationModal } from '../../components/AdminUI';
 import { logActivity } from '../../services/logService';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import { FileJson } from 'lucide-react-native';
 
 export const RoutesManagementScreen = () => {
   const [routes, setRoutes] = useState<any[]>([]);
@@ -67,6 +70,47 @@ export const RoutesManagementScreen = () => {
       resetForm();
     } catch (error) {
       Alert.alert('Error', 'Could not save route');
+    }
+  };
+  
+  const handleImportJSON = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/json',
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) return;
+
+      const fileUri = result.assets[0].uri;
+      const fileContent = await FileSystem.readAsStringAsync(fileUri);
+      const jsonData = JSON.parse(fileContent);
+
+      // Validate Structure
+      if (!jsonData.route || !jsonData.directions) {
+        throw new Error("Invalid JSON structure. Missing 'route' or 'directions' fields.");
+      }
+
+      setLoading(true);
+      await setDoc(doc(db, 'routes', jsonData.route.trim()), {
+        ...jsonData,
+        updatedAt: Date.now(),
+      });
+
+      await logActivity({
+        type: 'ADMIN',
+        action: 'ROUTE_IMPORTED',
+        details: `Imported route ${jsonData.route} via JSON.`,
+        targetId: jsonData.route,
+        targetType: 'ROUTE',
+      });
+
+      Alert.alert('Success', `Route ${jsonData.route} imported successfully!`);
+    } catch (error: any) {
+      if (__DEV__) console.error(error);
+      Alert.alert('Import Failed', error.message || 'Could not parse JSON file.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -144,9 +188,21 @@ export const RoutesManagementScreen = () => {
         title="Route Hub"
         subtitle={`${filteredRoutes.length} network lines active`}
         action={(
-          <IconButton accessibilityLabel="New route" onPress={() => { resetForm(); setModalVisible(true); }}>
-            <Plus size={20} color={COLORS.white} />
-          </IconButton>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <IconButton 
+              tone="neutral"
+              accessibilityLabel="Import JSON" 
+              onPress={handleImportJSON}
+            >
+              <FileJson size={20} color={COLORS.text} />
+            </IconButton>
+            <IconButton 
+              accessibilityLabel="New route" 
+              onPress={() => { resetForm(); setModalVisible(true); }}
+            >
+              <Plus size={20} color={COLORS.white} />
+            </IconButton>
+          </View>
         )}
       />
 
