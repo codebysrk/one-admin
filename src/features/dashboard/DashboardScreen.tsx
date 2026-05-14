@@ -313,8 +313,18 @@ export const DashboardScreen = () => {
             <View key={ticket.id} style={[styles.activityRow, index === liveTickets.length - 1 && styles.activityRowLast]}>
               <View style={[styles.activityDot, { backgroundColor: ticket.busType === 'AC' ? COLORS.primary : COLORS.warning }]} />
               <View style={styles.activityContent}>
-                <Text style={styles.activityTxt} numberOfLines={1}>{ticket.route} • {ticket.source} to {ticket.dest}</Text>
-                <Text style={styles.activityMeta}>{formatLogTime(ticket.timestamp)} • ₹{ticket.total} • {ticket.qty} Ticket(s)</Text>
+                <Text style={styles.activityTxt} numberOfLines={1}>{(ticket.route || 'Route')} • {ticket.source} to {ticket.dest}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Text style={styles.activityMeta}>
+                    {formatLogTime(ticket.timestamp)} • ₹{ticket.total || ticket.finalFare}
+                  </Text>
+                  {Number(ticket.fare) > Number(ticket.total || ticket.finalFare) && (
+                    <Text style={[styles.activityMeta, { textDecorationLine: 'line-through', opacity: 0.6 }]}>
+                      ₹{ticket.fare}
+                    </Text>
+                  )}
+                  <Text style={styles.activityMeta}> • {ticket.qty} Ticket(s)</Text>
+                </View>
               </View>
             </View>
           ))}
