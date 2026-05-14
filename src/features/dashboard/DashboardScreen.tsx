@@ -109,10 +109,13 @@ export const DashboardScreen = () => {
           totalRev += fare;
 
           // Top Routes logic
-          const rName = data.routeName || data.routeId || 'Unknown';
+          const rName = data.route || data.routeName || data.routeId || 'Unknown';
           if (!routeCount[rName]) routeCount[rName] = { count: 0, revenue: 0 };
           routeCount[rName].count += 1;
-          routeCount[rName].revenue += fare;
+          
+          // Use total/finalFare if available, otherwise fare
+          const ticketRevenue = Number(data.total) || Number(data.finalFare) || fare;
+          routeCount[rName].revenue += ticketRevenue;
         });
 
         if (cancelled) return;
