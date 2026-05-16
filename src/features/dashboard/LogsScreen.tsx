@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
+const AnyFlashList = FlashList as any;
 import { useNavigation } from '@react-navigation/native';
 import { collection, onSnapshot, query, orderBy, limit, where, Timestamp, getDocs, deleteDoc, doc, writeBatch } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -312,9 +313,9 @@ export const LogsScreen = () => {
       {loading ? (
         <LoadingState label="Decrypting logs..." />
       ) : (
-        <FlashList
+        <AnyFlashList
           data={filteredLogs}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item: any) => item.id}
           renderItem={renderLogItem}
           estimatedItemSize={220}
           contentContainerStyle={styles.listContent}

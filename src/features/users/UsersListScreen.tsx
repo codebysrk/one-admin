@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useTransition } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Platform } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
+const AnyFlashList = FlashList as any;
 import { collection, onSnapshot, doc, updateDoc, query, orderBy, setDoc, deleteDoc, where } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
@@ -266,9 +267,9 @@ export const UsersListScreen = () => {
       {loading ? (
         <LoadingState label="Indexing users..." />
       ) : (
-        <FlashList
+        <AnyFlashList
           data={filteredUsers}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item: any) => item.id}
           renderItem={renderUser}
           estimatedItemSize={180}
           contentContainerStyle={styles.list}
