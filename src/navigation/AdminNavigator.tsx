@@ -93,7 +93,7 @@ const LazyScreen = (Component: React.LazyExoticComponent<any>) => (props: any) =
   </Suspense>
 );
 
-const CustomTabBar = ({ state, descriptors, navigation, visibleTabs }: any) => {
+const CustomTabBar = React.memo(({ state, descriptors, navigation, visibleTabs }: any) => {
   return (
     <View style={styles.tabBarContainer}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
@@ -133,7 +133,7 @@ const CustomTabBar = ({ state, descriptors, navigation, visibleTabs }: any) => {
       </ScrollView>
     </View>
   );
-};
+});
 
 export const AdminNavigator = () => {
   const admin = useAdminStore((state) => state.admin);
@@ -157,7 +157,7 @@ export const AdminNavigator = () => {
       tabBar={(props) => <CustomTabBar {...props} visibleTabs={visibleTabs} />}
       screenOptions={{
         headerShown: false,
-        lazy: false, // Ensure screens are preserved in memory
+        lazy: true,
       }}
     >
       {visibleTabs.map((tab) => (

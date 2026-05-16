@@ -45,6 +45,115 @@ const formatLogTime = (timestamp: any) => {
   return isToday ? `Today, ${timeStr}` : `${date.toLocaleDateString([], { day: '2-digit', month: 'short' })}, ${timeStr}`;
 };
 
+const HeroSection = React.memo(({ admin, weeklyRevenue, loading, onProfilePress }: any) => (
+  <LinearGradient colors={['#4F46E5', '#3730A3']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+    <SafeAreaView>
+      <View style={styles.header}>
+        <View style={styles.headerCopy}>
+          <Text style={styles.greeting}>One Delhi • Command Center</Text>
+          <Text style={styles.adminName} numberOfLines={1}>{admin?.name || 'Administrator'}</Text>
+          <Text style={styles.adminSubtitle}>Revenue & Operations Intelligence</Text>
+        </View>
+        <AdminPressable accessibilityRole="button" accessibilityLabel="Open profile settings" onPress={onProfilePress} style={styles.profileBtn}>
+          <UserCircle size={28} color={COLORS.white} />
+        </AdminPressable>
+      </View>
+
+      <View style={styles.heroPanel}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.heroLabel}>Weekly Earnings</Text>
+          {loading ? (
+            <SkeletonBlock style={{ width: 140, height: 38, marginTop: 6, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.2)' }} />
+          ) : (
+            <Text style={styles.heroValue}>₹{weeklyRevenue.toLocaleString('en-IN')}</Text>
+          )}
+        </View>
+        <View style={styles.heroSignal}>
+          <ArrowUpRight size={16} color={COLORS.success} />
+          <Text style={styles.heroSignalText}>Live Stats</Text>
+        </View>
+      </View>
+    </SafeAreaView>
+  </LinearGradient>
+));
+
+const StatsGrid = React.memo(({ stats }: any) => (
+  <View style={styles.statsGrid}>
+    {statCards.map((stat) => {
+      const Icon = stat.icon;
+      const val = stat.key === 'revenue' ? `₹${stats.revenue > 1000 ? (stats.revenue / 1000).toFixed(1) + 'k' : stats.revenue}` : stats[stat.key];
+      return (
+        <Card key={stat.key} style={styles.statCard}>
+          <View style={[styles.statIcon, { backgroundColor: stat.bg }]}>
+            <Icon size={18} color={stat.tone} />
+          </View>
+          <Text style={styles.statValue}>{val}</Text>
+          <Text style={styles.statLabel}>{stat.label}</Text>
+        </Card>
+      );
+    })}
+  </View>
+));
+
+const RevenueChart = React.memo(({ loading, chartWidth, revenueData, chartConfig }: any) => (
+  <Card style={styles.chartCard}>
+    <SectionHeader
+      icon={<TrendingUp size={17} color={COLORS.primary} />}
+      title="Revenue Performance"
+      caption="Earnings (₹) over the last 7 days"
+    />
+    <View style={styles.chartFrame}>
+      {loading ? (
+        <SkeletonBlock style={{ width: '100%', height: 160, borderRadius: 12 }} />
+      ) : (
+        <LineChart
+          data={{
+            labels: ['6d', '5d', '4d', '3d', '2d', '1d', 'Now'],
+            datasets: [{ data: revenueData }],
+          }}
+          width={chartWidth}
+          height={160}
+          chartConfig={chartConfig}
+          bezier
+          withInnerLines
+          withOuterLines={false}
+          style={styles.chart}
+        />
+      )}
+    </View>
+  </Card>
+));
+
+const ActivityItem = React.memo(({ log, isLast }: any) => (
+  <View style={[styles.activityRow, isLast && styles.activityRowLast]}>
+    <View style={[styles.activityDot, { backgroundColor: log.type === 'ADMIN' ? COLORS.primary : COLORS.info }]} />
+    <View style={styles.activityContent}>
+      <Text style={styles.activityTxt} numberOfLines={1}>{log.details || log.action}</Text>
+      <Text style={styles.activityMeta}>{formatLogTime(log.timestamp)} • {log.userName || 'System'}</Text>
+    </View>
+  </View>
+));
+
+const TicketItem = React.memo(({ ticket, isLast }: any) => (
+  <View style={[styles.activityRow, isLast && styles.activityRowLast]}>
+    <View style={[styles.activityDot, { backgroundColor: ticket.busType === 'AC' ? COLORS.primary : COLORS.warning }]} />
+    <View style={styles.activityContent}>
+      <Text style={styles.activityTxt} numberOfLines={1}>{(ticket.route || 'Route')} • {ticket.source} to {ticket.dest}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <Text style={styles.activityMeta}>{formatLogTime(ticket.timestamp)} • </Text>
+        {Number(ticket.fare) > Number(ticket.total || ticket.finalFare) && (
+          <Text style={[styles.activityMeta, { textDecorationLine: 'line-through', opacity: 0.5 }]}>
+            ₹{ticket.fare}
+          </Text>
+        )}
+        <Text style={styles.activityMeta}>
+          ₹{ticket.total || ticket.finalFare} • {ticket.qty} Ticket(s)
+        </Text>
+      </View>
+    </View>
+  </View>
+));
+
 export const DashboardScreen = () => {
   const admin = useAdminStore((state) => state.admin);
   const navigation = useNavigation<any>();
@@ -191,79 +300,11 @@ export const DashboardScreen = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      <LinearGradient colors={['#4F46E5', '#3730A3']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
-        <SafeAreaView>
-          <View style={styles.header}>
-            <View style={styles.headerCopy}>
-              <Text style={styles.greeting}>One Delhi • Command Center</Text>
-              <Text style={styles.adminName} numberOfLines={1}>{admin?.name || 'Administrator'}</Text>
-              <Text style={styles.adminSubtitle}>Revenue & Operations Intelligence</Text>
-            </View>
-            <AdminPressable accessibilityRole="button" accessibilityLabel="Open profile settings" onPress={() => navigation.navigate('Profile')} style={styles.profileBtn}>
-              <UserCircle size={28} color={COLORS.white} />
-            </AdminPressable>
-          </View>
-
-          <View style={styles.heroPanel}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.heroLabel}>Weekly Earnings</Text>
-              {loading ? (
-                <SkeletonBlock style={{ width: 140, height: 38, marginTop: 6, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.2)' }} />
-              ) : (
-                <Text style={styles.heroValue}>₹{weeklyRevenue.toLocaleString('en-IN')}</Text>
-              )}
-            </View>
-            <View style={styles.heroSignal}>
-              <ArrowUpRight size={16} color={COLORS.success} />
-              <Text style={styles.heroSignalText}>Live Stats</Text>
-            </View>
-          </View>
-        </SafeAreaView>
-      </LinearGradient>
+      <HeroSection admin={admin} weeklyRevenue={weeklyRevenue} loading={loading} onProfilePress={() => navigation.navigate('Profile')} />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentInner}>
-        <View style={styles.statsGrid}>
-          {statCards.map((stat) => {
-            const Icon = stat.icon;
-            const val = stat.key === 'revenue' ? `₹${stats.revenue > 1000 ? (stats.revenue/1000).toFixed(1) + 'k' : stats.revenue}` : stats[stat.key];
-            return (
-              <Card key={stat.key} style={styles.statCard}>
-                <View style={[styles.statIcon, { backgroundColor: stat.bg }]}>
-                  <Icon size={18} color={stat.tone} />
-                </View>
-                <Text style={styles.statValue}>{val}</Text>
-                <Text style={styles.statLabel}>{stat.label}</Text>
-              </Card>
-            );
-          })}
-        </View>
-
-        <Card style={styles.chartCard}>
-          <SectionHeader
-            icon={<TrendingUp size={17} color={COLORS.primary} />}
-            title="Revenue Performance"
-            caption="Earnings (₹) over the last 7 days"
-          />
-          <View style={styles.chartFrame}>
-            {loading ? (
-              <SkeletonBlock style={{ width: '100%', height: 160, borderRadius: 12 }} />
-            ) : (
-              <LineChart
-                data={{
-                  labels: ['6d', '5d', '4d', '3d', '2d', '1d', 'Now'],
-                  datasets: [{ data: revenueData }],
-                }}
-                width={chartWidth}
-                height={160}
-                chartConfig={chartConfig}
-                bezier
-                withInnerLines
-                withOuterLines={false}
-                style={styles.chart}
-              />
-            )}
-          </View>
-        </Card>
+        <StatsGrid stats={stats} />
+        <RevenueChart loading={loading} chartWidth={chartWidth} revenueData={revenueData} chartConfig={chartConfig} />
 
         <SectionHeader
           icon={<MapPin size={17} color={COLORS.primary} />}
@@ -322,23 +363,7 @@ export const DashboardScreen = () => {
           {liveTickets.length === 0 ? (
             <Text style={styles.noData}>Waiting for bookings...</Text>
           ) : liveTickets.map((ticket, index) => (
-            <View key={ticket.id} style={[styles.activityRow, index === liveTickets.length - 1 && styles.activityRowLast]}>
-              <View style={[styles.activityDot, { backgroundColor: ticket.busType === 'AC' ? COLORS.primary : COLORS.warning }]} />
-              <View style={styles.activityContent}>
-                <Text style={styles.activityTxt} numberOfLines={1}>{(ticket.route || 'Route')} • {ticket.source} to {ticket.dest}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Text style={styles.activityMeta}>{formatLogTime(ticket.timestamp)} • </Text>
-                  {Number(ticket.fare) > Number(ticket.total || ticket.finalFare) && (
-                    <Text style={[styles.activityMeta, { textDecorationLine: 'line-through', opacity: 0.5 }]}>
-                      ₹{ticket.fare}
-                    </Text>
-                  )}
-                  <Text style={styles.activityMeta}>
-                    ₹{ticket.total || ticket.finalFare} • {ticket.qty} Ticket(s)
-                  </Text>
-                </View>
-              </View>
-            </View>
+            <TicketItem key={ticket.id} ticket={ticket} isLast={index === liveTickets.length - 1} />
           ))}
         </Card>
 
@@ -362,13 +387,7 @@ export const DashboardScreen = () => {
               <SkeletonBlock style={{ height: 40, width: '100%', borderRadius: 8 }} />
             </View>
           ) : activities.map((log: any, index) => (
-            <View key={log.id} style={[styles.activityRow, index === activities.length - 1 && styles.activityRowLast]}>
-              <View style={[styles.activityDot, { backgroundColor: log.type === 'ADMIN' ? COLORS.primary : COLORS.info }]} />
-              <View style={styles.activityContent}>
-                <Text style={styles.activityTxt} numberOfLines={1}>{log.details || log.action}</Text>
-                <Text style={styles.activityMeta}>{formatLogTime(log.timestamp)} • {log.userName || 'System'}</Text>
-              </View>
-            </View>
+            <ActivityItem key={log.id} log={log} isLast={index === activities.length - 1} />
           ))}
         </Card>
       </ScrollView>

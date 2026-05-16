@@ -79,7 +79,7 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
           <ArrowLeft size={20} color={COLORS.primary} />
         </TouchableOpacity>
         <View style={styles.headerCopy}>
-          <Text style={styles.headerTitle}>Tickets History</Text>
+          <Text style={styles.headerTitle}>Tickets History ({tickets.length})</Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>{userName}</Text>
         </View>
       </View>

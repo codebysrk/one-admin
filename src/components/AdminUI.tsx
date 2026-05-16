@@ -292,32 +292,32 @@ export const FormField = ({
   );
 };
 
-export const StatusBadge = ({ label, tone = 'neutral' }: { label: string; tone?: BadgeTone }) => {
+export const StatusBadge = React.memo(({ label, tone = 'neutral' }: { label: string; tone?: BadgeTone }) => {
   const colors = toneMap[tone];
   return (
     <View style={[styles.badge, { backgroundColor: colors.bg, borderColor: colors.border }]}>
       <Text style={[styles.badgeText, { color: colors.fg }]} numberOfLines={1}>{label}</Text>
     </View>
   );
-};
+});
 
-export const KeyValueRow = ({ label, value }: { label: string; value?: string | number | null }) => (
+export const KeyValueRow = React.memo(({ label, value }: { label: string; value?: string | number | null }) => (
   <View style={styles.keyValueRow}>
     <Text style={styles.keyLabel}>{label}</Text>
     <Text style={styles.keyValue} numberOfLines={1}>{value || 'Unknown'}</Text>
   </View>
-);
+));
 
-export const EmptyState = ({ icon, title, message, action }: EmptyStateProps) => (
+export const EmptyState = React.memo(({ icon, title, message, action }: EmptyStateProps) => (
   <View style={styles.empty}>
     {icon ? <View style={styles.emptyIcon}>{icon}</View> : null}
     <Text style={styles.emptyTitle}>{title}</Text>
     {message ? <Text style={styles.emptyMessage}>{message}</Text> : null}
     {action ? <View style={styles.emptyAction}>{action}</View> : null}
   </View>
-);
+));
 
-export const SkeletonBlock = ({ style }: { style?: StyleProp<ViewStyle> }) => {
+export const SkeletonBlock = React.memo(({ style }: { style?: StyleProp<ViewStyle> }) => {
   const opacity = useRef(new Animated.Value(0.45)).current;
 
   useEffect(() => {
@@ -332,9 +332,9 @@ export const SkeletonBlock = ({ style }: { style?: StyleProp<ViewStyle> }) => {
   }, [opacity]);
 
   return <Animated.View style={[styles.skeleton, { opacity }, style]} />;
-};
+});
 
-export const LoadingState = ({
+export const LoadingState = React.memo(({
   label = 'Loading data...',
   compact,
 }: {
@@ -359,7 +359,7 @@ export const LoadingState = ({
       </View>
     ) : null}
   </View>
-);
+));
 
 export const ReasonModal = ({ 
   visible, 
