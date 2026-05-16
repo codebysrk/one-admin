@@ -3,7 +3,16 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react
 import { collection, onSnapshot, doc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
-import { UserMinus, Trash2, Clock, Copy } from 'lucide-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+const IconWrapper = (name: any) => (props: any) => (
+  <MaterialCommunityIcons name={name} {...props} />
+);
+
+const UserMinus = IconWrapper('account-minus');
+const Trash2 = IconWrapper('trash-can-outline');
+const Clock = IconWrapper('clock-outline');
+const Copy = IconWrapper('content-copy');
 import * as Clipboard from 'expo-clipboard';
 import { AdminHeader, AdminScreen, EmptyState, LoadingState, StatusBadge } from '../../components/AdminUI';
 

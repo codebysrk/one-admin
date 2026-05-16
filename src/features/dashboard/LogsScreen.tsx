@@ -5,7 +5,24 @@ import { useNavigation } from '@react-navigation/native';
 import { collection, onSnapshot, query, orderBy, limit, where, Timestamp, getDocs, deleteDoc, doc, writeBatch } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
-import { Search, Clock, User, Download, Activity, Shield, Smartphone, ChevronRight, ArrowRight, Trash2, Settings, AlertTriangle } from 'lucide-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+const IconWrapper = (name: any) => (props: any) => (
+  <MaterialCommunityIcons name={name} {...props} />
+);
+
+const Search = IconWrapper('magnify');
+const Clock = IconWrapper('clock-outline');
+const User = IconWrapper('account');
+const Download = IconWrapper('download-outline');
+const Activity = IconWrapper('pulse');
+const Shield = IconWrapper('shield-outline');
+const Smartphone = IconWrapper('cellphone');
+const ChevronRight = IconWrapper('chevron-right');
+const ArrowRight = IconWrapper('arrow-right');
+const Trash2 = IconWrapper('trash-can-outline');
+const Settings = IconWrapper('cog-outline');
+const AlertTriangle = IconWrapper('alert');
 import { exportToCSV } from '../../utils/csvHelper';
 import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField, AdminBottomSheet, ConfirmationModal } from '../../components/AdminUI';
 import { useAdminStore } from '../../store/useAdminStore';

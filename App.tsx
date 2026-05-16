@@ -1,6 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, Text } from 'react-native';
+import { StyleSheet, View, Text, Platform } from 'react-native';
 import { LoginScreen } from './src/features/auth/LoginScreen';
 import { useAdminStore } from './src/store/useAdminStore';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -54,7 +54,8 @@ const errorStyles = StyleSheet.create({
   btnText: { color: COLORS.white, fontWeight: '800' },
 });
 
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import { BackHandler, ToastAndroid } from 'react-native';
 
 function AppBody() {
   const admin = useAdminStore((state) => state.admin);
@@ -68,15 +69,40 @@ function AppBody() {
 }
 
 export default function App() {
+  const navigationRef = useNavigationContainerRef();
+  const lastBackPressed = React.useRef(0);
+
   React.useEffect(() => {
     // Check for updates when app starts
     checkAppUpdate();
+
+    const backAction = () => {
+      if (navigationRef.canGoBack()) {
+        navigationRef.goBack();
+        return true;
+      }
+
+      const now = Date.now();
+      if (lastBackPressed.current && now - lastBackPressed.current < 2000) {
+        BackHandler.exitApp();
+        return true;
+      }
+
+      lastBackPressed.current = now;
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('Press back again to exit', ToastAndroid.SHORT);
+      }
+      return true;
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
   }, []);
 
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
           <AppBody />
         </NavigationContainer>
       </SafeAreaProvider>

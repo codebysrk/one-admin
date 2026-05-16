@@ -3,7 +3,20 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView }
 import { collection, query, where, onSnapshot, doc, updateDoc, getDocs } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
-import { UserPlus, Shield, ShieldCheck, ShieldAlert, Trash2, ChevronRight, CheckSquare, Square } from 'lucide-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+const IconWrapper = (name: any) => (props: any) => (
+  <MaterialCommunityIcons name={name} {...props} />
+);
+
+const UserPlus = IconWrapper('account-plus');
+const Shield = IconWrapper('shield');
+const ShieldCheck = IconWrapper('shield-check');
+const ShieldAlert = IconWrapper('shield-alert');
+const Trash2 = IconWrapper('trash-can-outline');
+const ChevronRight = IconWrapper('chevron-right');
+const CheckSquare = IconWrapper('checkbox-marked');
+const Square = IconWrapper('checkbox-blank-outline');
 import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField, AdminBottomSheet, ConfirmationModal } from '../../components/AdminUI';
 import { AdminPermission } from '../../services/authService';
 import { logActivity } from '../../services/logService';

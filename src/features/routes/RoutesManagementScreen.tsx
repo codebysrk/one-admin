@@ -4,13 +4,32 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
-import { Plus, Trash2, Bus, X, Search, MapPin, ChevronRight, Edit3, Navigation, Map, Hash, ArrowRightLeft, Info } from 'lucide-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+const IconWrapper = (name: any) => (props: any) => (
+  <MaterialCommunityIcons name={name} {...props} />
+);
+
+const Plus = IconWrapper('plus');
+const Trash2 = IconWrapper('trash-can-outline');
+const Bus = IconWrapper('bus');
+const X = IconWrapper('close');
+const Search = IconWrapper('magnify');
+const MapPin = IconWrapper('map-marker');
+const ChevronRight = IconWrapper('chevron-right');
+const Edit3 = IconWrapper('pencil-outline');
+const Navigation = IconWrapper('navigation');
+const Map = IconWrapper('map-outline');
+const Hash = IconWrapper('pound');
+const ArrowRightLeft = IconWrapper('swap-horizontal');
+const Info = IconWrapper('information-outline');
+const FileJson = IconWrapper('file-document-outline');
+
 import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, ReasonModal, SearchField, AdminBottomSheet, ConfirmationModal } from '../../components/AdminUI';
 import { logActivity } from '../../services/logService';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import { FileJson } from 'lucide-react-native';
 
 export const RoutesManagementScreen = () => {
   const [routes, setRoutes] = useState<any[]>([]);

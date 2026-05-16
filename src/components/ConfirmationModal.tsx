@@ -7,7 +7,14 @@ import {
   TouchableOpacity,
   Animated,
 } from 'react-native';
-import { AlertTriangle, Info } from 'lucide-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+const IconWrapper = (name: any) => (props: any) => (
+  <MaterialCommunityIcons name={name} {...props} />
+);
+
+const AlertTriangle = IconWrapper('alert');
+const Info = IconWrapper('information-outline');
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../core/theme';
 
 interface ConfirmationModalProps {

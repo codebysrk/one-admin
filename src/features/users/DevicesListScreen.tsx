@@ -3,7 +3,17 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react
 import { collection, onSnapshot, updateDoc, doc, query, orderBy } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
-import { Smartphone, LogOut, ShieldAlert, ShieldCheck, Clock } from 'lucide-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+const IconWrapper = (name: any) => (props: any) => (
+  <MaterialCommunityIcons name={name} {...props} />
+);
+
+const Smartphone = IconWrapper('cellphone');
+const LogOut = IconWrapper('logout');
+const ShieldAlert = IconWrapper('shield-alert');
+const ShieldCheck = IconWrapper('shield-check');
+const Clock = IconWrapper('clock-outline');
 import { AdminHeader, AdminScreen, EmptyState, LoadingState, StatusBadge } from '../../components/AdminUI';
 
 export const DevicesListScreen = () => {

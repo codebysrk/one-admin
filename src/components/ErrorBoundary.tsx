@@ -1,6 +1,14 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
-import { AlertTriangle, RefreshCcw, Home } from 'lucide-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+const IconWrapper = (name: any) => (props: any) => (
+  <MaterialCommunityIcons name={name} {...props} />
+);
+
+const AlertTriangle = IconWrapper('alert');
+const RefreshCcw = IconWrapper('refresh');
+const Home = IconWrapper('home');
 import { COLORS, RADIUS, SPACING } from '../core/theme';
 
 interface Props {

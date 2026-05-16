@@ -30,7 +30,7 @@ export const loginAdmin = async (email: string, password: string) => {
     const profile = userDoc.data() as Record<string, unknown>;
     const userData = { uid: user.uid, ...profile };
     
-    if (profile.role !== 'admin') {
+    if (profile.role !== 'ADMIN') {
       await signOut(auth);
       throw new Error("Access Denied: Only administrators can log in here.");
     }

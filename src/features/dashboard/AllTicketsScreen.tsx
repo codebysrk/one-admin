@@ -14,7 +14,14 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, SPACING } from '../../core/theme';
-import { Ticket, Download } from 'lucide-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+const IconWrapper = (name: any) => (props: any) => (
+  <MaterialCommunityIcons name={name} {...props} />
+);
+
+const Ticket = IconWrapper('ticket');
+const Download = IconWrapper('download-outline');
 import { exportToCSV } from '../../utils/csvHelper';
 import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, ReasonModal, SearchField, ConfirmationModal } from '../../components/AdminUI';
 import { logActivity } from '../../services/logService';

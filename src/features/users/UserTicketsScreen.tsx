@@ -4,7 +4,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { collection, query, where, orderBy, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SPACING } from '../../core/theme';
-import { ArrowLeft, Ticket } from 'lucide-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+const IconWrapper = (name: any) => (props: any) => (
+  <MaterialCommunityIcons name={name} {...props} />
+);
+
+const ArrowLeft = IconWrapper('arrow-left');
+const Ticket = IconWrapper('ticket');
 import { EmptyState, LoadingState, ReasonModal, ConfirmationModal } from '../../components/AdminUI';
 import { logActivity } from '../../services/logService';
 import { TicketCard } from '../../components/TicketCard';

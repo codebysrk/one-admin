@@ -1,6 +1,18 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Bus, MapPin, Calendar, Clock, Ticket, Users, Trash2 } from 'lucide-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+const IconWrapper = (name: any) => (props: any) => (
+  <MaterialCommunityIcons name={name} {...props} />
+);
+
+const Bus = IconWrapper('bus');
+const MapPin = IconWrapper('map-marker');
+const Calendar = IconWrapper('calendar-outline');
+const Clock = IconWrapper('clock-outline');
+const Ticket = IconWrapper('ticket');
+const Users = IconWrapper('account-group');
+const Trash2 = IconWrapper('trash-can-outline');
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../core/theme';
 import { StatusBadge } from './AdminUI';

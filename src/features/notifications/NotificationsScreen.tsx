@@ -3,7 +3,21 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Modal, TextI
 import { collection, onSnapshot, doc, deleteDoc, addDoc, query, orderBy, getCountFromServer } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
-import { Bell, Plus, Trash2, Megaphone, Info, AlertTriangle, Bus, X, Send } from 'lucide-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+const IconWrapper = (name: any) => (props: any) => (
+  <MaterialCommunityIcons name={name} {...props} />
+);
+
+const Bell = IconWrapper('bell');
+const Plus = IconWrapper('plus');
+const Trash2 = IconWrapper('trash-can-outline');
+const Megaphone = IconWrapper('bullhorn');
+const Info = IconWrapper('information-outline');
+const AlertTriangle = IconWrapper('alert');
+const Bus = IconWrapper('bus');
+const X = IconWrapper('close');
+const Send = IconWrapper('send');
 import { AdminHeader, AdminScreen, EmptyState, LoadingState, StatusBadge } from '../../components/AdminUI';
 import { logActivity } from '../../services/logService';
 import { LinearGradient } from 'expo-linear-gradient';

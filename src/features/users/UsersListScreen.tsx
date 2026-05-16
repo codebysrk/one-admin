@@ -4,7 +4,21 @@ import { FlashList } from '@shopify/flash-list';
 import { collection, onSnapshot, doc, updateDoc, query, orderBy, setDoc, deleteDoc, where } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
-import { User as UserIcon, Trash2, Search, BadgeCheck, XCircle, Ticket, ShieldCheck, IndianRupee, Star } from 'lucide-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+const IconWrapper = (name: any) => (props: any) => (
+  <MaterialCommunityIcons name={name} {...props} />
+);
+
+const UserIcon = IconWrapper('account');
+const Trash2 = IconWrapper('trash-can-outline');
+const Search = IconWrapper('magnify');
+const BadgeCheck = IconWrapper('check-decagram');
+const XCircle = IconWrapper('close-circle');
+const Ticket = IconWrapper('ticket');
+const ShieldCheck = IconWrapper('shield-check');
+const IndianRupee = IconWrapper('currency-inr');
+const Star = IconWrapper('star');
 import { AdminHeader, AdminScreen, EmptyState, LoadingState, ReasonModal, SearchField, StatusBadge } from '../../components/AdminUI';
 import { UserTicketsScreen } from './UserTicketsScreen';
 import { logActivity } from '../../services/logService';

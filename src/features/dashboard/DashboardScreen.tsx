@@ -5,19 +5,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { collection, getCountFromServer, limit, onSnapshot, orderBy, query, getDocs, where, Timestamp } from 'firebase/firestore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { LineChart } from 'react-native-chart-kit';
-import {
-  Bell,
-  Bus,
-  ChevronRight,
-  Smartphone,
-  Ticket,
-  TrendingUp,
-  UserCircle,
-  Users,
-  IndianRupee,
-  MapPin,
-  ArrowUpRight,
-} from 'lucide-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+const IconWrapper = (name: any) => (props: any) => (
+  <MaterialCommunityIcons name={name} {...props} />
+);
+
+const Bell = IconWrapper('bell');
+const Bus = IconWrapper('bus');
+const ChevronRight = IconWrapper('chevron-right');
+const Smartphone = IconWrapper('cellphone');
+const Ticket = IconWrapper('ticket');
+const TrendingUp = IconWrapper('trending-up');
+const UserCircle = IconWrapper('account-circle');
+const Users = IconWrapper('account-group');
+const IndianRupee = IconWrapper('currency-inr');
+const MapPin = IconWrapper('map-marker');
+const ArrowUpRight = IconWrapper('arrow-top-right');
 import { useAdminStore } from '../../store/useAdminStore';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
 import { db } from '../../services/firebase';

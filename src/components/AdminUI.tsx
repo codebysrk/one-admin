@@ -16,7 +16,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Search, X, MessageSquare, AlertCircle } from 'lucide-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+const IconWrapper = (name: any) => (props: any) => (
+  <MaterialCommunityIcons name={name} {...props} />
+);
+
+const Search = IconWrapper('magnify');
+const X = IconWrapper('close');
+const MessageSquare = IconWrapper('message-reply-text');
+const AlertCircle = IconWrapper('alert-circle');
 import { Modal } from 'react-native';
 import { COLORS, RADIUS, SHADOWS, SPACING, TYPOGRAPHY } from '../core/theme';
 export { AdminBottomSheet } from './BottomSheet';

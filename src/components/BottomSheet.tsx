@@ -10,7 +10,13 @@ import {
   ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X } from 'lucide-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+const IconWrapper = (name: any) => (props: any) => (
+  <MaterialCommunityIcons name={name} {...props} />
+);
+
+const X = IconWrapper('close');
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../core/theme';
 
 interface BottomSheetProps {

@@ -7,7 +7,21 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../../services/firebase';
 import { useAdminStore } from '../../store/useAdminStore';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
-import { User, Mail, Lock, Save, LogOut, Eye, EyeOff, ArrowLeft, ShieldCheck } from 'lucide-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+const IconWrapper = (name: any) => (props: any) => (
+  <MaterialCommunityIcons name={name} {...props} />
+);
+
+const User = IconWrapper('account');
+const Mail = IconWrapper('email');
+const Lock = IconWrapper('lock');
+const Save = IconWrapper('content-save-outline');
+const LogOut = IconWrapper('logout');
+const Eye = IconWrapper('eye');
+const EyeOff = IconWrapper('eye-off');
+const ArrowLeft = IconWrapper('arrow-left');
+const ShieldCheck = IconWrapper('shield-check');
 
 export const AdminProfileScreen = () => {
   const admin = useAdminStore((s) => s.admin);

@@ -6,7 +6,22 @@ import { auth } from '../../services/firebase';
 import { loginAdmin } from '../../services/authService';
 import { useAdminStore } from '../../store/useAdminStore';
 import { COLORS, RADIUS, SHADOWS } from '../../core/theme';
-import { Lock, Mail, Eye, EyeOff, ArrowRight, ShieldCheck, X, Send, AlertCircle, Fingerprint } from 'lucide-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+const IconWrapper = (name: any) => (props: any) => (
+  <MaterialCommunityIcons name={name} {...props} />
+);
+
+const Lock = IconWrapper('lock');
+const Mail = IconWrapper('email');
+const Eye = IconWrapper('eye');
+const EyeOff = IconWrapper('eye-off');
+const ArrowRight = IconWrapper('arrow-right');
+const ShieldCheck = IconWrapper('shield-check');
+const X = IconWrapper('close');
+const Send = IconWrapper('send');
+const AlertCircle = IconWrapper('alert-circle');
+const Fingerprint = IconWrapper('fingerprint');
 import { LinearGradient } from 'expo-linear-gradient';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';

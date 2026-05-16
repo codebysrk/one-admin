@@ -1,20 +1,24 @@
 import React, { Suspense, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../core/theme';
-import {
-  LayoutDashboard,
-  Bus,
-  Users,
-  Bell,
-  Ticket,
-  UserMinus,
-  Smartphone,
-  Activity,
-  UserCircle,
-  ShieldCheck,
-} from 'lucide-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAdminStore } from '../store/useAdminStore';
 import { AdminPressable } from '../components/AdminUI';
+
+const IconWrapper = (name: any) => (props: any) => (
+  <MaterialCommunityIcons name={name} {...props} />
+);
+
+const LayoutDashboard = IconWrapper('view-dashboard');
+const Bus = IconWrapper('bus');
+const Users = IconWrapper('account-group');
+const Bell = IconWrapper('bell');
+const Ticket = IconWrapper('ticket');
+const UserMinus = IconWrapper('account-minus');
+const Smartphone = IconWrapper('cellphone');
+const Activity = IconWrapper('pulse');
+const UserCircle = IconWrapper('account-circle');
+const ShieldCheck = IconWrapper('shield-check');
 
 const DashboardScreen = React.lazy(() =>
   import('../features/dashboard/DashboardScreen').then((m) => ({ default: m.DashboardScreen }))
