@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Modal, TextInput, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Modal, TextInput, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, PanResponder, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FlashList } from '@shopify/flash-list';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
@@ -14,22 +15,462 @@ const Plus = IconWrapper('plus');
 const Trash2 = IconWrapper('trash-can-outline');
 const Bus = IconWrapper('bus');
 const X = IconWrapper('close');
-const Search = IconWrapper('magnify');
 const MapPin = IconWrapper('map-marker');
 const ChevronRight = IconWrapper('chevron-right');
-const Edit3 = IconWrapper('pencil-outline');
 const Navigation = IconWrapper('navigation');
 const Map = IconWrapper('map-outline');
 const Hash = IconWrapper('pound');
 const ArrowRightLeft = IconWrapper('swap-horizontal');
-const Info = IconWrapper('information-outline');
 const FileJson = IconWrapper('file-document-outline');
+const ContentPaste = IconWrapper('content-paste');
+const DragIcon = IconWrapper('drag-vertical');
 
 import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, ReasonModal, SearchField, AdminBottomSheet, ConfirmationModal } from '../../components/AdminUI';
 import { logActivity } from '../../services/logService';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+
+interface DraggableStopRowProps {
+  stop: string;
+  index: number;
+  isDragging: boolean;
+  showLineAbove: boolean;
+  showLineBelow: boolean;
+  onLayout: (y: number, height: number) => void;
+  onDragStart: (index: number) => void;
+  onDragMove: (index: number, dy: number) => void;
+  onDragEnd: (index: number, dy: number) => void;
+  onChangeText: (text: string) => void;
+  onDelete: () => void;
+  dragY: Animated.Value;
+}
+
+const DraggableStopRow = ({
+  stop,
+  index,
+  isDragging,
+  showLineAbove,
+  showLineBelow,
+  onLayout,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
+  onChangeText,
+  onDelete,
+  dragY,
+}: DraggableStopRowProps) => {
+
+  const translateX = useRef(new Animated.Value(0)).current;
+
+  // Use propsRef to avoid stale closures in PanResponder callbacks
+  const propsRef = useRef({ onDragStart, onDragMove, onDragEnd, onDelete, index });
+  propsRef.current = { onDragStart, onDragMove, onDragEnd, onDelete, index };
+
+  const verticalDragPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        const { onDragStart, index } = propsRef.current;
+        onDragStart(index);
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        const { onDragMove, index } = propsRef.current;
+        onDragMove(index, gestureState.dy);
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        const { onDragEnd, index } = propsRef.current;
+        onDragEnd(index, gestureState.dy);
+      },
+      onPanResponderTerminate: () => {
+        const { onDragEnd, index } = propsRef.current;
+        onDragEnd(index, 0);
+      },
+    })
+  ).current;
+
+  const swipePanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        return Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        if (gestureState.dx < 0) {
+          translateX.setValue(gestureState.dx);
+        } else {
+          translateX.setValue(0);
+        }
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        const threshold = -120;
+        if (gestureState.dx < threshold) {
+          Animated.timing(translateX, {
+            toValue: -500,
+            duration: 200,
+            useNativeDriver: true,
+          }).start(() => {
+            propsRef.current.onDelete();
+            translateX.setValue(0);
+          });
+        } else {
+          Animated.spring(translateX, {
+            toValue: 0,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(translateX, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      },
+    })
+  ).current;
+
+  return (
+    <View 
+      style={{ width: '100%', position: 'relative' }}
+      onLayout={(e) => {
+        const { y, height } = e.nativeEvent.layout;
+        onLayout(y, height);
+      }}
+    >
+      {showLineAbove && <View style={styles.dropLine} />}
+
+      {/* Swipe to Delete Underlay Background */}
+      {!isDragging && (
+        <View style={styles.swipeDeleteBg}>
+          <Trash2 size={18} color={COLORS.white} />
+          <Text style={styles.swipeDeleteText}>Delete</Text>
+        </View>
+      )}
+
+      <Animated.View 
+        {...swipePanResponder.panHandlers}
+        style={[
+          styles.stopRow,
+          {
+            transform: [
+              { translateY: isDragging ? dragY : 0 },
+              { translateX: translateX }
+            ]
+          },
+          isDragging && {
+            zIndex: 99,
+            backgroundColor: COLORS.surfacePressed,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.1,
+            shadowRadius: 6,
+            elevation: 5,
+            borderColor: COLORS.accent,
+            opacity: 0.9,
+          }
+        ]}
+      >
+        <View style={styles.stopBadge}>
+          <Text style={styles.stopBadgeText}>
+            {String(index + 1).padStart(2, '0')}
+          </Text>
+        </View>
+
+        <TextInput
+          style={styles.stopInput}
+          value={stop}
+          onChangeText={onChangeText}
+          placeholder={`Stop #${index + 1}`}
+          placeholderTextColor={COLORS.textSubtle}
+        />
+
+        <View 
+          {...verticalDragPanResponder.panHandlers} 
+          style={styles.dragHandle}
+        >
+          <DragIcon size={18} color={COLORS.textSubtle} />
+        </View>
+      </Animated.View>
+
+      {showLineBelow && <View style={styles.dropLine} />}
+    </View>
+  );
+};
+
+interface StopSequenceEditorProps {
+  stops: string[];
+  onChangeStops: (stops: string[]) => void;
+}
+
+const StopSequenceEditor = ({ stops, onChangeStops }: StopSequenceEditorProps) => {
+  const [isBulkOpen, setIsBulkOpen] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+  
+  // Drag and drop states
+  const [activeDragIndex, setActiveDragIndex] = useState<number | null>(null);
+  const [targetDropIndex, setTargetDropIndex] = useState<number | null>(null);
+  
+  // Refs to prevent stale closures inside PanResponders
+  const activeDragIndexRef = useRef<number | null>(null);
+  const targetDropIndexRef = useRef<number | null>(null);
+  const stopsRef = useRef<string[]>([]);
+
+  activeDragIndexRef.current = activeDragIndex;
+  targetDropIndexRef.current = targetDropIndex;
+  stopsRef.current = stops;
+
+  const rowLayouts = useRef<{ [key: number]: { y: number; height: number } }>({});
+  const dragY = useRef(new Animated.Value(0)).current;
+
+  const handleDragStart = (index: number) => {
+    setActiveDragIndex(index);
+    setTargetDropIndex(index);
+    activeDragIndexRef.current = index;
+    targetDropIndexRef.current = index;
+    dragY.setValue(0);
+  };
+
+  const handleDragMove = (index: number, dy: number) => {
+    dragY.setValue(dy);
+
+    const layout = rowLayouts.current[index];
+    if (!layout) return;
+
+    // Calculate current center Y of the dragged item
+    const currentCenterY = layout.y + layout.height / 2 + dy;
+    let minDistance = Infinity;
+    let target = index;
+
+    const currentStops = stopsRef.current;
+    for (let i = 0; i < currentStops.length; i++) {
+      const targetLayout = rowLayouts.current[i];
+      if (!targetLayout) continue;
+
+      const targetCenter = targetLayout.y + targetLayout.height / 2;
+      const distance = Math.abs(currentCenterY - targetCenter);
+      if (distance < minDistance) {
+        minDistance = distance;
+        target = i;
+      }
+    }
+    setTargetDropIndex(target);
+    targetDropIndexRef.current = target;
+  };
+
+  const handleDragEnd = (index: number, dy: number) => {
+    const finalTarget = targetDropIndexRef.current;
+
+    if (finalTarget !== null && finalTarget !== index) {
+      // Immediate swap without visual jumps
+      setActiveDragIndex(null);
+      setTargetDropIndex(null);
+      activeDragIndexRef.current = null;
+      targetDropIndexRef.current = null;
+      dragY.setValue(0);
+
+      const newStops = [...stopsRef.current];
+      const [removed] = newStops.splice(index, 1);
+      newStops.splice(finalTarget, 0, removed);
+      onChangeStops(newStops);
+    } else {
+      // Spring back to original position
+      setTargetDropIndex(null);
+      targetDropIndexRef.current = null;
+      Animated.spring(dragY, {
+        toValue: 0,
+        useNativeDriver: true,
+      }).start(() => {
+        setActiveDragIndex(null);
+        activeDragIndexRef.current = null;
+      });
+    }
+  };
+
+  const handleDelete = (index: number) => {
+    const newStops = stops.filter((_, i) => i !== index);
+    onChangeStops(newStops);
+  };
+
+  const handleTextChange = (text: string, index: number) => {
+    const newStops = [...stops];
+    newStops[index] = text;
+    onChangeStops(newStops);
+  };
+
+  const handleAddStop = () => {
+    onChangeStops([...stops, '']);
+  };
+
+  const getDetectedCount = (text: string) => {
+    return text.split(/[\n,]+/).map(s => s.trim()).filter(Boolean).length;
+  };
+
+  const handleBulkImport = (append: boolean) => {
+    const parsed = bulkText
+      .split(/[\n,]+/)
+      .map(s => s.trim())
+      .filter(Boolean);
+    
+    if (parsed.length === 0) {
+      Alert.alert('Import Error', 'Please paste at least one valid stop name.');
+      return;
+    }
+
+    if (append) {
+      onChangeStops([...stops, ...parsed]);
+    } else {
+      onChangeStops(parsed);
+    }
+    setBulkText('');
+    setIsBulkOpen(false);
+  };
+
+  return (
+    <View style={{ width: '100%' }}>
+      {stops.map((stop, index) => {
+        const isDragging = activeDragIndex === index;
+        const showLineAbove = activeDragIndex !== null && targetDropIndex === index && index < activeDragIndex;
+        const showLineBelow = activeDragIndex !== null && targetDropIndex === index && index > activeDragIndex;
+
+        return (
+          <DraggableStopRow
+            key={index}
+            stop={stop}
+            index={index}
+            isDragging={isDragging}
+            showLineAbove={showLineAbove}
+            showLineBelow={showLineBelow}
+            dragY={dragY}
+            onLayout={(y, height) => {
+              rowLayouts.current[index] = { y, height };
+            }}
+            onDragStart={handleDragStart}
+            onDragMove={handleDragMove}
+            onDragEnd={handleDragEnd}
+            onChangeText={(text) => handleTextChange(text, index)}
+            onDelete={() => handleDelete(index)}
+          />
+        );
+      })}
+
+      {stops.length === 0 && (
+        <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+          <Text style={{ fontSize: 13, color: COLORS.textSubtle, fontStyle: 'italic' }}>
+            No stops in this sequence yet.
+          </Text>
+        </View>
+      )}
+
+      <View style={styles.editorFooter}>
+        <TouchableOpacity style={styles.addStopBtn} onPress={handleAddStop}>
+          <Plus size={14} color={COLORS.accent} />
+          <Text style={styles.addStopBtnText}>Add Stop</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.bulkImportToggleBtn} 
+          onPress={() => {
+            setBulkText(stops.join('\n'));
+            setIsBulkOpen(true);
+          }}
+        >
+          <ContentPaste size={14} color={COLORS.textMuted} />
+          <Text style={styles.bulkImportToggleBtnText}>Bulk Edit</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          onPress={() => {
+            Alert.alert(
+              'Clear Sequence',
+              'Are you sure you want to remove all stops from this journey?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Clear', style: 'destructive', onPress: () => onChangeStops([]) }
+              ]
+            );
+          }}
+          disabled={stops.length === 0}
+          style={[styles.clearAllBtn, stops.length === 0 && { opacity: 0.5 }]}
+        >
+          <X size={14} color={COLORS.error} />
+          <Text style={styles.clearAllBtnText}>Clear All</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Modal
+        visible={isBulkOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsBulkOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.bulkModalCard}>
+            <View style={styles.bulkModalHeader}>
+              <View style={styles.bulkModalIconBox}>
+                <ContentPaste size={20} color={COLORS.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.bulkModalTitle}>Bulk Edit Sequence</Text>
+                <Text style={styles.bulkModalSub}>Write one stop per line or separate by commas</Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.bulkModalCloseBtn}
+                onPress={() => setIsBulkOpen(false)}
+              >
+                <X size={18} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.bulkModalBody}>
+              <TextInput
+                style={styles.bulkModalInput}
+                value={bulkText}
+                onChangeText={setBulkText}
+                placeholder={"Example:\nStop A\nStop B\nStop C"}
+                placeholderTextColor={COLORS.textSubtle}
+                multiline
+                autoFocus
+              />
+
+              <View style={styles.detectedBadge}>
+                <View style={styles.detectedDot} />
+                <Text style={styles.detectedText}>
+                  {getDetectedCount(bulkText)} stops detected
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.bulkModalActions}>
+              <TouchableOpacity 
+                style={[styles.bulkBtn, styles.bulkBtnSecondary]} 
+                onPress={() => setIsBulkOpen(false)}
+              >
+                <Text style={styles.bulkBtnTextSecondary}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity 
+                  style={[styles.bulkBtn, styles.bulkBtnSecondary]} 
+                  onPress={() => handleBulkImport(true)}
+                >
+                  <Text style={styles.bulkBtnTextSecondary}>Append</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.bulkBtn, styles.bulkBtnPrimary]} 
+                  onPress={() => handleBulkImport(false)}
+                >
+                  <Text style={styles.bulkBtnTextPrimary}>Overwrite</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+};
 
 export const RoutesManagementScreen = () => {
   const [routes, setRoutes] = useState<any[]>([]);
@@ -44,10 +485,10 @@ export const RoutesManagementScreen = () => {
   const [routeNumber, setRouteNumber] = useState('');
   const [upFrom, setUpFrom] = useState('');
   const [upTo, setUpTo] = useState('');
-  const [upStops, setUpStops] = useState('');
+  const [upStops, setUpStops] = useState<string[]>([]);
   const [downFrom, setDownFrom] = useState('');
   const [downTo, setDownTo] = useState('');
-  const [downStops, setDownStops] = useState('');
+  const [downStops, setDownStops] = useState<string[]>([]);
 
   useEffect(() => {
     const q = query(collection(db, 'routes'), orderBy('route', 'asc'));
@@ -65,8 +506,8 @@ export const RoutesManagementScreen = () => {
       return;
     }
 
-    const upStopList = upStops.split(',').map(s => s.trim()).filter(Boolean);
-    const downStopList = downStops.split(',').map(s => s.trim()).filter(Boolean);
+    const upStopList = upStops.map(s => s.trim()).filter(Boolean);
+    const downStopList = downStops.map(s => s.trim()).filter(Boolean);
     const payload = {
       route: routeNumber.trim(),
       directions: {
@@ -143,8 +584,8 @@ export const RoutesManagementScreen = () => {
 
   const resetForm = () => {
     setRouteNumber('');
-    setUpFrom(''); setUpTo(''); setUpStops('');
-    setDownFrom(''); setDownTo(''); setDownStops('');
+    setUpFrom(''); setUpTo(''); setUpStops([]);
+    setDownFrom(''); setDownTo(''); setDownStops([]);
     setEditingRoute(null);
   };
 
@@ -153,16 +594,16 @@ export const RoutesManagementScreen = () => {
     setRouteNumber(route.route);
     setUpFrom(route.directions?.up?.from || '');
     setUpTo(route.directions?.up?.to || '');
-    setUpStops(route.directions?.up?.stops?.join(', ') || '');
+    setUpStops(route.directions?.up?.stops || []);
     setDownFrom(route.directions?.down?.from || '');
     setDownTo(route.directions?.down?.to || '');
-    setDownStops(route.directions?.down?.stops?.join(', ') || '');
+    setDownStops(route.directions?.down?.stops || []);
     setModalVisible(true);
   };
 
   const filteredRoutes = routes.filter(r => r.route?.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  const getStopCount = (str: string) => str.split(',').filter(s => s.trim().length > 0).length;
+  const getStopCount = (arr: string[]) => arr.filter(s => s.trim().length > 0).length;
 
   const renderRouteItem = ({ item }: any) => (
     <TouchableOpacity style={styles.routeCard} onPress={() => startEdit(item)} activeOpacity={0.82}>
@@ -232,7 +673,7 @@ export const RoutesManagementScreen = () => {
       {loading ? (
         <LoadingState label="Analyzing network..." />
       ) : (
-        <FlatList
+        <FlashList
           data={filteredRoutes}
           keyExtractor={(item) => item.id}
           renderItem={renderRouteItem}
@@ -296,14 +737,7 @@ export const RoutesManagementScreen = () => {
                          <Map size={14} color={COLORS.textMuted} />
                          <Text style={styles.stopsLabel}>STOP SEQUENCE</Text>
                       </View>
-                      <TextInput 
-                        style={styles.stopsArea} 
-                        placeholder="Type stop names separated by commas..." 
-                        value={upStops} 
-                        onChangeText={setUpStops} 
-                        multiline 
-                        placeholderTextColor={COLORS.textSubtle}
-                      />
+                      <StopSequenceEditor stops={upStops} onChangeStops={setUpStops} />
                    </View>
                 </View>
 
@@ -338,14 +772,7 @@ export const RoutesManagementScreen = () => {
                          <Map size={14} color={COLORS.textMuted} />
                          <Text style={styles.stopsLabel}>STOP SEQUENCE</Text>
                       </View>
-                      <TextInput 
-                        style={styles.stopsArea} 
-                        placeholder="Type stop names separated by commas..." 
-                        value={downStops} 
-                        onChangeText={setDownStops} 
-                        multiline 
-                        placeholderTextColor={COLORS.textSubtle}
-                      />
+                      <StopSequenceEditor stops={downStops} onChangeStops={setDownStops} />
                    </View>
                 </View>
           </KeyboardAvoidingView>
@@ -399,7 +826,7 @@ const styles = StyleSheet.create({
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 12 },
   footerInfo: { fontSize: 11, fontWeight: '700', color: COLORS.accent },
   
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.8)' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.8)', justifyContent: 'center', alignItems: 'center' },
   sheetTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text },
   sheetSubtitle: { fontSize: 12, color: COLORS.textMuted, fontWeight: '600', marginTop: 4 },
   closeBtn: { padding: 8, backgroundColor: COLORS.surfaceMuted, borderRadius: 10 },
@@ -429,7 +856,250 @@ const styles = StyleSheet.create({
   stopsSection: { backgroundColor: COLORS.surface, borderRadius: 16, padding: 12, borderWidth: 1, borderColor: COLORS.border },
   stopsHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   stopsLabel: { fontSize: 10, fontWeight: '900', color: COLORS.textMuted, letterSpacing: 0.5 },
-  stopsArea: { height: 90, fontSize: 13, fontWeight: '700', color: COLORS.text, lineHeight: 20, textAlignVertical: 'top' },
+  stopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    height: 48,
+    paddingHorizontal: 10,
+    marginBottom: 8,
+    gap: 8,
+  },
+  stopBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.accentSoft,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.accentMuted,
+  },
+  stopBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.accent,
+  },
+  stopInput: {
+    flex: 1,
+    height: 44,
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+    paddingHorizontal: 4,
+  },
+  dragHandle: {
+    paddingHorizontal: 6,
+    paddingVertical: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dropLine: {
+    height: 4,
+    backgroundColor: COLORS.accent,
+    borderRadius: 2,
+    marginVertical: 4,
+    width: '100%',
+  },
+  swipeDeleteBg: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 8,
+    backgroundColor: COLORS.error,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingRight: 16,
+    gap: 6,
+  },
+  swipeDeleteText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  editorFooter: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 12,
+  },
+  addStopBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: COLORS.accent,
+    backgroundColor: COLORS.accentSoft,
+    flex: 1,
+    minWidth: 120,
+  },
+  addStopBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: COLORS.accent,
+  },
+  bulkImportToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surfaceMuted,
+  },
+  bulkImportToggleBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+  },
+  clearAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+    backgroundColor: COLORS.errorSoft,
+  },
+  clearAllBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.error,
+  },
+  bulkModalCard: {
+    width: '90%',
+    backgroundColor: COLORS.surface,
+    borderRadius: 24,
+    padding: 20,
+    ...SHADOWS.floating,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  bulkModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+  },
+  bulkModalIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.accentSoft,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bulkModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+  bulkModalSub: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  bulkModalCloseBtn: {
+    padding: 6,
+    backgroundColor: COLORS.surfaceMuted,
+    borderRadius: 8,
+  },
+  bulkModalBody: {
+    marginBottom: 16,
+  },
+  bulkModalInput: {
+    height: 180,
+    backgroundColor: COLORS.surfaceMuted,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 16,
+    padding: 14,
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+    textAlignVertical: 'top',
+    lineHeight: 20,
+  },
+  detectedBadge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.accentSoft,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginTop: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: COLORS.accentMuted,
+  },
+  detectedDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.accent,
+  },
+  detectedText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.accent,
+  },
+  bulkModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    paddingTop: 16,
+  },
+  bulkActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  bulkBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bulkBtnPrimary: {
+    backgroundColor: COLORS.accent,
+  },
+  bulkBtnSecondary: {
+    backgroundColor: COLORS.surfaceMuted,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  bulkBtnTextPrimary: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.white,
+  },
+  bulkBtnTextSecondary: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+  },
 
   sheetFooter: { padding: 12, borderTopWidth: 1, borderTopColor: COLORS.border, backgroundColor: COLORS.surface, paddingBottom: Platform.OS === 'ios' ? 30 : 12 },
   saveBtn: { borderRadius: 10, overflow: 'hidden', ...SHADOWS.card },
