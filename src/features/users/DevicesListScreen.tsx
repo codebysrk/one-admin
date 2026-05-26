@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { collection, onSnapshot, updateDoc, doc, query, orderBy } from 'firebase/firestore';
+import { FlashList } from '@shopify/flash-list';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { AdminHeader, AdminScreen, EmptyState, LoadingState, StatusBadge } from '../../components/AdminUI';
 
 const IconWrapper = (name: any) => (props: any) => (
   <MaterialCommunityIcons name={name} {...props} />
@@ -14,7 +16,8 @@ const LogOut = IconWrapper('logout');
 const ShieldAlert = IconWrapper('shield-alert');
 const ShieldCheck = IconWrapper('shield-check');
 const Clock = IconWrapper('clock-outline');
-import { AdminHeader, AdminScreen, EmptyState, LoadingState, StatusBadge } from '../../components/AdminUI';
+const Android = IconWrapper('android');
+const Apple = IconWrapper('apple');
 
 export const DevicesListScreen = () => {
   const [devices, setDevices] = useState<any[]>([]);
@@ -53,54 +56,64 @@ export const DevicesListScreen = () => {
 
   const renderDeviceItem = ({ item }: any) => {
     const approved = item.status === 'APPROVED';
+    const isAndroid = (item.platform || '').toLowerCase().includes('android');
+    const isIOS = (item.platform || '').toLowerCase().includes('ios');
+
     return (
-      <View style={styles.deviceCard}>
+      <View style={[styles.deviceCard, !approved && styles.deviceCardBanned]}>
         <View style={styles.deviceHeader}>
           <View style={styles.deviceInfo}>
-            <View style={[styles.avatar, { backgroundColor: approved ? COLORS.successSoft : COLORS.errorSoft }]}>
-              <Smartphone size={24} color={approved ? COLORS.success : COLORS.error} />
+            <View style={[styles.avatar, approved ? styles.avatarApproved : styles.avatarBanned]}>
+              <Smartphone size={20} color={approved ? COLORS.success : COLORS.error} />
             </View>
             <View style={styles.deviceCopy}>
-              <Text style={styles.deviceName} numberOfLines={1}>{item.deviceName}</Text>
-              <Text style={styles.userName} numberOfLines={1}>User: {item.userName}</Text>
+              <Text style={styles.deviceName} numberOfLines={1}>{item.deviceName || 'Unknown Device'}</Text>
+              <Text style={styles.userName} numberOfLines={1}>Owner: {item.userName || 'System'}</Text>
             </View>
           </View>
-          <StatusBadge label={item.status || 'Unknown'} tone={approved ? 'success' : 'error'} />
+          <View style={styles.badgeCol}>
+            <StatusBadge label={item.status || 'Unknown'} tone={approved ? 'success' : 'error'} />
+          </View>
         </View>
 
         <View style={styles.deviceDetails}>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Model</Text>
-            <Text style={styles.detailValue} numberOfLines={1}>{item.brand} {item.model}</Text>
+          <View style={styles.detailChipsRow}>
+            <View style={styles.chip}>
+              {isAndroid ? <Android size={12} color={COLORS.textMuted} style={{ marginRight: 4 }} /> : isIOS ? <Apple size={12} color={COLORS.textMuted} style={{ marginRight: 4 }} /> : <Smartphone size={12} color={COLORS.textMuted} style={{ marginRight: 4 }} />}
+              <Text style={styles.chipText}>{(item.platform || 'Unknown').toUpperCase()} {item.osVersion || ''}</Text>
+            </View>
+            <View style={styles.chip}>
+              <Text style={styles.chipLabel}>Model: </Text>
+              <Text style={styles.chipValText} numberOfLines={1}>{item.brand || ''} {item.model || ''}</Text>
+            </View>
           </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>OS</Text>
-            <Text style={styles.detailValue} numberOfLines={1}>{(item.platform || 'Unknown').toUpperCase()} {item.osVersion}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Clock size={12} color={COLORS.textMuted} />
-            <Text style={styles.timeText} numberOfLines={1}>Last active: {new Date(item.lastActive).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, day: '2-digit', month: 'short' })}</Text>
+
+          <View style={styles.timeRow}>
+            <Clock size={12} color={COLORS.textSubtle} style={{ marginRight: 6 }} />
+            <Text style={styles.timeText} numberOfLines={1}>
+              Last active: {new Date(item.lastActive).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, day: '2-digit', month: 'short' })}
+            </Text>
           </View>
         </View>
 
         <View style={styles.actions}>
           <TouchableOpacity
-            style={styles.actionBtn}
+            style={[styles.actionBtn, approved ? styles.banBtn : styles.approveBtn]}
             onPress={() => toggleStatus(item.id, item.status)}
-            activeOpacity={0.82}
+            activeOpacity={0.7}
           >
-            {approved ? <ShieldAlert size={16} color={COLORS.error} /> : <ShieldCheck size={16} color={COLORS.success} />}
+            {approved ? <ShieldAlert size={15} color={COLORS.error} /> : <ShieldCheck size={15} color={COLORS.success} />}
             <Text style={[styles.actionBtnText, { color: approved ? COLORS.error : COLORS.success }]}>
-              {approved ? 'Ban Device' : 'Unban Device'}
+              {approved ? 'Ban Device' : 'Approve Device'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.actionBtn}
+            style={[styles.actionBtn, item.forceLogout ? styles.logoutActiveBtn : styles.logoutInactiveBtn]}
             onPress={() => toggleForceLogout(item.id, item.forceLogout)}
-            activeOpacity={0.82}
+            activeOpacity={0.7}
           >
-            <LogOut size={16} color={item.forceLogout ? COLORS.info : COLORS.textMuted} />
+            <LogOut size={15} color={item.forceLogout ? COLORS.info : COLORS.textMuted} />
             <Text style={[styles.actionBtnText, { color: item.forceLogout ? COLORS.info : COLORS.textMuted }]}>
               {item.forceLogout ? 'Cancel Logout' : 'Force Logout'}
             </Text>
@@ -117,7 +130,7 @@ export const DevicesListScreen = () => {
       {loading ? (
         <LoadingState label="Loading devices..." />
       ) : (
-        <FlatList
+        <FlashList
           data={devices}
           keyExtractor={(item) => item.id}
           renderItem={renderDeviceItem}
@@ -131,19 +144,149 @@ export const DevicesListScreen = () => {
 
 const styles = StyleSheet.create({
   listContent: { padding: SPACING.xl, paddingBottom: 40 },
-  deviceCard: { backgroundColor: COLORS.surface, borderRadius: RADIUS.md, padding: SPACING.lg, marginBottom: SPACING.lg, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
-  deviceHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, gap: 12 },
-  deviceInfo: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 },
-  deviceCopy: { flex: 1, minWidth: 0 },
-  avatar: { width: 48, height: 48, borderRadius: RADIUS.md, justifyContent: 'center', alignItems: 'center' },
-  deviceName: { fontSize: 16, lineHeight: 21, fontWeight: '800', color: COLORS.text },
-  userName: { fontSize: 12, color: COLORS.textMuted, marginTop: 3, fontWeight: '600' },
-  deviceDetails: { gap: 8, marginBottom: 16, backgroundColor: COLORS.surfaceMuted, borderRadius: RADIUS.md, padding: SPACING.md },
-  detailRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  detailLabel: { fontSize: 12, color: COLORS.textMuted, width: 50, fontWeight: '800', textTransform: 'uppercase' },
-  detailValue: { fontSize: 12, color: COLORS.text, fontWeight: '700', flex: 1 },
-  timeText: { fontSize: 11, color: COLORS.textMuted, fontWeight: '700', flex: 1 },
-  actions: { flexDirection: 'row', gap: 12, borderTopWidth: 1, borderTopColor: COLORS.surfaceMuted, paddingTop: 16 },
-  actionBtn: { flex: 1, minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 10, paddingHorizontal: 8, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surfaceMuted },
-  actionBtnText: { fontSize: 12, fontWeight: '800' },
+  deviceCard: { 
+    backgroundColor: COLORS.surface, 
+    borderRadius: RADIUS.lg, 
+    padding: 14, 
+    marginBottom: 12, 
+    borderWidth: 1, 
+    borderColor: COLORS.border, 
+    ...SHADOWS.card 
+  },
+  deviceCardBanned: { 
+    borderColor: COLORS.errorSoft, 
+    backgroundColor: COLORS.surfaceMuted 
+  },
+  deviceHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginBottom: 12, 
+    gap: 10 
+  },
+  deviceInfo: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 10, 
+    flex: 1, 
+    minWidth: 0 
+  },
+  deviceCopy: { 
+    flex: 1, 
+    minWidth: 0 
+  },
+  avatar: { 
+    width: 36, 
+    height: 36, 
+    borderRadius: RADIUS.md, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    borderWidth: 1 
+  },
+  avatarApproved: { 
+    backgroundColor: COLORS.successSoft, 
+    borderColor: 'rgba(5, 150, 105, 0.15)' 
+  },
+  avatarBanned: { 
+    backgroundColor: COLORS.errorSoft, 
+    borderColor: 'rgba(225, 29, 72, 0.15)' 
+  },
+  deviceName: { 
+    fontSize: 14, 
+    fontWeight: '800', 
+    color: COLORS.text 
+  },
+  userName: { 
+    fontSize: 11, 
+    color: COLORS.textMuted, 
+    marginTop: 1, 
+    fontWeight: '600' 
+  },
+  badgeCol: { 
+    justifyContent: 'center' 
+  },
+  deviceDetails: { 
+    gap: 8, 
+    marginBottom: 14, 
+    paddingBottom: 12, 
+    borderBottomWidth: 1, 
+    borderBottomColor: COLORS.border 
+  },
+  detailChipsRow: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    gap: 8, 
+    marginBottom: 4 
+  },
+  chip: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: COLORS.surfaceMuted, 
+    borderWidth: 1, 
+    borderColor: COLORS.border, 
+    borderRadius: RADIUS.sm, 
+    paddingHorizontal: 8, 
+    paddingVertical: 4 
+  },
+  chipText: { 
+    fontSize: 10, 
+    fontWeight: '800', 
+    color: COLORS.textMuted 
+  },
+  chipLabel: { 
+    fontSize: 10, 
+    color: COLORS.textSubtle, 
+    fontWeight: '700' 
+  },
+  chipValText: { 
+    fontSize: 10, 
+    fontWeight: '800', 
+    color: COLORS.text 
+  },
+  timeRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginTop: 2 
+  },
+  timeText: { 
+    fontSize: 10, 
+    color: COLORS.textSubtle, 
+    fontWeight: '700' 
+  },
+  actions: { 
+    flexDirection: 'row', 
+    gap: 10 
+  },
+  actionBtn: { 
+    flex: 1, 
+    minHeight: 38, 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    gap: 6, 
+    paddingVertical: 8, 
+    paddingHorizontal: 12, 
+    borderRadius: RADIUS.md, 
+    borderWidth: 1 
+  },
+  actionBtnText: { 
+    fontSize: 11, 
+    fontWeight: '800' 
+  },
+  banBtn: { 
+    backgroundColor: COLORS.errorSoft, 
+    borderColor: '#FECDD3' 
+  },
+  approveBtn: { 
+    backgroundColor: COLORS.successSoft, 
+    borderColor: '#BBF7D0' 
+  },
+  logoutActiveBtn: { 
+    backgroundColor: COLORS.infoSoft, 
+    borderColor: '#BFDBFE' 
+  },
+  logoutInactiveBtn: { 
+    backgroundColor: COLORS.surfaceMuted, 
+    borderColor: COLORS.border 
+  },
 });
