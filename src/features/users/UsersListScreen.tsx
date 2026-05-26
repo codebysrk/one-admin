@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback, useTransition } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-const AnyFlashList = FlashList as any;
 import { collection, onSnapshot, doc, updateDoc, query, orderBy, setDoc, deleteDoc, where } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { AdminHeader, AdminScreen, EmptyState, LoadingState, ReasonModal, SearchField, StatusBadge } from '../../components/AdminUI';
+import { UserTicketsScreen } from './UserTicketsScreen';
+import { logActivity } from '../../services/logService';
 
 const IconWrapper = (name: any) => (props: any) => (
   <MaterialCommunityIcons name={name} {...props} />
@@ -20,10 +22,6 @@ const Ticket = IconWrapper('ticket');
 const ShieldCheck = IconWrapper('shield-check');
 const IndianRupee = IconWrapper('currency-inr');
 const Star = IconWrapper('star');
-import { AdminHeader, AdminScreen, EmptyState, LoadingState, ReasonModal, SearchField, StatusBadge } from '../../components/AdminUI';
-import { UserTicketsScreen } from './UserTicketsScreen';
-import { logActivity } from '../../services/logService';
-
 
 const UserCard = React.memo(({ item, userRevenue, initiateDelete, initiateStatusToggle, setSelectedUser }: any) => {
   const banned = item.status === 'BANNED';
@@ -32,17 +30,17 @@ const UserCard = React.memo(({ item, userRevenue, initiateDelete, initiateStatus
   const isVIP = revenue >= 1000;
 
   return (
-    <View style={styles.userCard}>
+    <View style={[styles.userCard, banned && styles.userCardBanned]}>
       <View style={styles.cardMain}>
-        <View style={[styles.avatar, { backgroundColor: banned ? COLORS.errorSoft : (isAdmin ? COLORS.primarySoft : COLORS.accentSoft) }]}>
-          {isAdmin ? <ShieldCheck size={23} color={COLORS.primary} /> : <UserIcon size={23} color={banned ? COLORS.error : COLORS.accent} />}
+        <View style={[styles.avatar, banned ? styles.avatarBanned : (isAdmin ? styles.avatarAdmin : styles.avatarUser)]}>
+          {isAdmin ? <ShieldCheck size={20} color={COLORS.primary} /> : <UserIcon size={20} color={banned ? COLORS.error : COLORS.accent} />}
         </View>
         <View style={styles.userInfo}>
           <View style={styles.nameRow}>
             <Text style={styles.userName} numberOfLines={1}>{item.name}</Text>
             {isVIP && (
               <View style={styles.vipBadge}>
-                <Star size={10} color="#D97706" fill="#D97706" />
+                <Star size={9} color="#D97706" fill="#D97706" />
                 <Text style={styles.vipText}>VIP</Text>
               </View>
             )}
@@ -53,30 +51,44 @@ const UserCard = React.memo(({ item, userRevenue, initiateDelete, initiateStatus
             {isAdmin && <StatusBadge label="ADMIN" tone="info" />}
           </View>
         </View>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Delete ${item.name}`} onPress={() => initiateDelete(item)} style={styles.deleteBtn} activeOpacity={0.82}>
-          <Trash2 size={18} color={COLORS.error} />
+        <TouchableOpacity 
+          accessibilityRole="button" 
+          accessibilityLabel={`Delete ${item.name}`} 
+          onPress={() => initiateDelete(item)} 
+          style={styles.deleteBtn} 
+          activeOpacity={0.7}
+        >
+          <Trash2 size={16} color={COLORS.error} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.revenueRow}>
         <View style={styles.revBox}>
           <IndianRupee size={12} color={COLORS.success} />
-          <Text style={styles.revLabel}>Lifetime Revenue:</Text>
+          <Text style={styles.revLabel}>Lifetime Revenue</Text>
           <Text style={styles.revValue}>₹{revenue.toLocaleString('en-IN')}</Text>
         </View>
       </View>
 
       <View style={styles.cardActions}>
-        <TouchableOpacity style={styles.actionBtn} onPress={() => initiateStatusToggle(item)} activeOpacity={0.82}>
-          {item.status === 'ACTIVE' ? <XCircle size={14} color={COLORS.error} /> : <BadgeCheck size={14} color={COLORS.success} />}
-          <Text style={[styles.actionBtnText, { color: item.status === 'ACTIVE' ? COLORS.error : COLORS.success }]}>
-            {item.status === 'ACTIVE' ? 'Ban User' : 'Unban'}
+        <TouchableOpacity 
+          style={[styles.actionBtn, banned ? styles.unbanBtn : styles.banBtn]} 
+          onPress={() => initiateStatusToggle(item)} 
+          activeOpacity={0.7}
+        >
+          {item.status === 'ACTIVE' || !item.status ? <XCircle size={14} color={COLORS.error} /> : <BadgeCheck size={14} color={COLORS.success} />}
+          <Text style={[styles.actionBtnText, { color: (item.status === 'ACTIVE' || !item.status) ? COLORS.error : COLORS.success }]}>
+            {item.status === 'ACTIVE' || !item.status ? 'Ban User' : 'Unban'}
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.actionBtn} onPress={() => setSelectedUser(item)} activeOpacity={0.82}>
-          <Ticket size={14} color={COLORS.textMuted} />
-          <Text style={[styles.actionBtnText, { color: COLORS.textMuted }]}>View Tickets</Text>
+        <TouchableOpacity 
+          style={[styles.actionBtn, styles.viewTicketsBtn]} 
+          onPress={() => setSelectedUser(item)} 
+          activeOpacity={0.7}
+        >
+          <Ticket size={14} color={COLORS.accent} />
+          <Text style={[styles.actionBtnText, { color: COLORS.accent }]}>View Tickets</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -89,7 +101,7 @@ export const UsersListScreen = () => {
   const [, startTransition] = useTransition();
   const [users, setUsers] = useState<any[]>([]);
   const [userRevenue, setUserRevenue] = useState<Record<string, number>>({});
-  const [userAlerts, setUserAlerts] = useState<Record<string, string>>({});
+  const [, setUserAlerts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
@@ -132,6 +144,7 @@ export const UsersListScreen = () => {
           alertsMap[uid] = data.timestamp?.toDate ? data.timestamp.toDate().toLocaleDateString() : 'Recent';
         }
       });
+      alertsMap[String(new Date())] = 'test'; // dummy alert trigger
       setUserAlerts(alertsMap);
     });
 
@@ -143,7 +156,7 @@ export const UsersListScreen = () => {
   }, []);
 
   const initiateStatusToggle = useCallback((user: any) => {
-    const action = user.status === 'ACTIVE' ? 'Ban User' : 'Unban User';
+    const action = user.status === 'ACTIVE' || !user.status ? 'Ban User' : 'Unban User';
     setReasonModal({ visible: true, title: `${action}: ${user.name}`, type: 'TOGGLE_STATUS', data: user });
   }, []);
 
@@ -155,7 +168,7 @@ export const UsersListScreen = () => {
     const { type, data: user } = reasonModal;
 
     if (type === 'TOGGLE_STATUS') {
-      const newStatus = user.status === 'ACTIVE' ? 'BANNED' : 'ACTIVE';
+      const newStatus = user.status === 'ACTIVE' || !user.status ? 'BANNED' : 'ACTIVE';
       try {
         await updateDoc(doc(db, 'users', user.id), { status: newStatus });
         await logActivity({
@@ -164,7 +177,7 @@ export const UsersListScreen = () => {
           details: `${user.name}'s access status was changed to ${newStatus}.`,
           targetId: user.id,
           targetType: 'USER',
-          oldValue: user.status,
+          oldValue: user.status || 'ACTIVE',
           newValue: newStatus,
           notes: reason
         });
@@ -267,11 +280,10 @@ export const UsersListScreen = () => {
       {loading ? (
         <LoadingState label="Indexing users..." />
       ) : (
-        <AnyFlashList
+        <FlashList
           data={filteredUsers}
           keyExtractor={(item: any) => item.id}
           renderItem={renderUser}
-          estimatedItemSize={180}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <EmptyState 
@@ -296,30 +308,123 @@ export const UsersListScreen = () => {
 const styles = StyleSheet.create({
   controls: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg, gap: 12 },
   filterBar: { gap: 8, paddingBottom: 4 },
-  filterTab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: RADIUS.pill, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border },
-  filterTabActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  filterTab: { 
+    paddingHorizontal: 16, 
+    paddingVertical: 8, 
+    borderRadius: RADIUS.pill, 
+    backgroundColor: COLORS.surface, 
+    borderWidth: 1, 
+    borderColor: COLORS.border 
+  },
+  filterTabActive: { 
+    backgroundColor: COLORS.primary, 
+    borderColor: COLORS.primary 
+  },
   filterText: { fontSize: 11, fontWeight: '800', color: COLORS.textMuted },
   filterTextActive: { color: COLORS.white },
   
   list: { padding: SPACING.xl, paddingBottom: 40 },
-  userCard: { backgroundColor: COLORS.surface, borderRadius: RADIUS.lg, padding: SPACING.lg, marginBottom: SPACING.lg, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
-  cardMain: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
-  avatar: { width: 52, height: 52, borderRadius: RADIUS.md, justifyContent: 'center', alignItems: 'center' },
+  userCard: { 
+    backgroundColor: COLORS.surface, 
+    borderRadius: RADIUS.lg, 
+    padding: 14, 
+    marginBottom: 12, 
+    borderWidth: 1, 
+    borderColor: COLORS.border, 
+    ...SHADOWS.card 
+  },
+  userCardBanned: {
+    borderColor: COLORS.errorSoft,
+    backgroundColor: COLORS.surfaceMuted,
+  },
+  cardMain: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  avatar: { 
+    width: 40, 
+    height: 40, 
+    borderRadius: RADIUS.md, 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  avatarUser: {
+    backgroundColor: COLORS.accentSoft,
+    borderColor: 'rgba(37, 99, 235, 0.15)',
+  },
+  avatarAdmin: {
+    backgroundColor: COLORS.primarySoft,
+    borderColor: 'rgba(11, 18, 32, 0.15)',
+  },
+  avatarBanned: {
+    backgroundColor: COLORS.errorSoft,
+    borderColor: 'rgba(225, 29, 72, 0.15)',
+  },
   userInfo: { flex: 1, minWidth: 0 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  userName: { fontSize: 16, lineHeight: 21, fontWeight: '800', color: COLORS.text, flexShrink: 1 },
-  vipBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: '#FDE68A' },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  userName: { fontSize: 14, fontWeight: '800', color: COLORS.text, flexShrink: 1 },
+  vipBadge: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 3, 
+    backgroundColor: '#FEF3C7', 
+    paddingHorizontal: 6, 
+    paddingVertical: 2, 
+    borderRadius: RADIUS.xs, 
+    borderWidth: 1, 
+    borderColor: '#FDE68A' 
+  },
   vipText: { fontSize: 9, fontWeight: '900', color: '#B45309' },
-  userEmail: { fontSize: 12, color: COLORS.textMuted, marginTop: 2, fontWeight: '600' },
-  statusRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 },
-  deleteBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.errorSoft, borderRadius: RADIUS.md },
+  userEmail: { fontSize: 11, color: COLORS.textMuted, marginTop: 1, fontWeight: '600' },
+  statusRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 6 },
+  deleteBtn: { 
+    width: 36, 
+    height: 36, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    backgroundColor: COLORS.errorSoft, 
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+    borderRadius: RADIUS.md 
+  },
   
-  revenueRow: { marginTop: 16, backgroundColor: COLORS.surfaceMuted, padding: 10, borderRadius: RADIUS.md, borderLeftWidth: 3, borderLeftColor: COLORS.success },
+  revenueRow: { 
+    marginTop: 12, 
+    backgroundColor: COLORS.surfaceMuted, 
+    paddingVertical: 8, 
+    paddingHorizontal: 12, 
+    borderRadius: RADIUS.md, 
+    borderLeftWidth: 3, 
+    borderLeftColor: COLORS.success,
+    borderWidth: 1,
+    borderColor: COLORS.border
+  },
   revBox: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   revLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textSubtle },
-  revValue: { fontSize: 13, fontWeight: '800', color: COLORS.text },
+  revValue: { fontSize: 12, fontWeight: '800', color: COLORS.text },
 
-  cardActions: { flexDirection: 'row', marginTop: 12, gap: 12 },
-  actionBtn: { flex: 1, minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surface, paddingHorizontal: 10, paddingVertical: 8, borderRadius: RADIUS.md, gap: 6, borderWidth: 1, borderColor: COLORS.border },
+  cardActions: { flexDirection: 'row', marginTop: 12, gap: 10 },
+  actionBtn: { 
+    flex: 1, 
+    minHeight: 38, 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    paddingHorizontal: 12, 
+    paddingVertical: 8, 
+    borderRadius: RADIUS.md, 
+    gap: 6, 
+    borderWidth: 1, 
+  },
   actionBtnText: { fontSize: 11, fontWeight: '800' },
+  banBtn: {
+    backgroundColor: COLORS.errorSoft,
+    borderColor: '#FECDD3',
+  },
+  unbanBtn: {
+    backgroundColor: COLORS.successSoft,
+    borderColor: '#BBF7D0',
+  },
+  viewTicketsBtn: {
+    backgroundColor: COLORS.accentSoft,
+    borderColor: 'rgba(37, 99, 235, 0.15)',
+  },
 });
