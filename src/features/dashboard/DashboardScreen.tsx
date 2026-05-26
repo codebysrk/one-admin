@@ -27,12 +27,6 @@ import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
 import { db } from '../../services/firebase';
 import { AdminPressable, Card, SectionHeader, LoadingState, SkeletonBlock } from '../../components/AdminUI';
 
-const statCards = [
-  { key: 'revenue', label: 'Revenue', icon: IndianRupee, tone: COLORS.success, bg: COLORS.successSoft },
-  { key: 'users', label: 'Active Users', icon: Users, tone: COLORS.accent, bg: COLORS.accentSoft },
-  { key: 'routes', label: 'Routes', icon: Bus, tone: COLORS.warning, bg: COLORS.warningSoft },
-] as const;
-
 const formatLogTime = (timestamp: any) => {
   if (!timestamp) return 'Recent';
   const date = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -45,55 +39,77 @@ const formatLogTime = (timestamp: any) => {
   return isToday ? `Today, ${timeStr}` : `${date.toLocaleDateString([], { day: '2-digit', month: 'short' })}, ${timeStr}`;
 };
 
-const HeroSection = React.memo(({ admin, weeklyRevenue, loading, onProfilePress }: any) => (
-  <LinearGradient colors={['#4F46E5', '#3730A3']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
-    <SafeAreaView>
+const CompactHeader = React.memo(({ admin, onProfilePress }: any) => (
+  <LinearGradient colors={['#4F46E5', '#3730A3']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.headerGradient}>
+    <SafeAreaView edges={['top']}>
       <View style={styles.header}>
         <View style={styles.headerCopy}>
           <Text style={styles.greeting}>One Delhi • Command Center</Text>
           <Text style={styles.adminName} numberOfLines={1}>{admin?.name || 'Administrator'}</Text>
-          <Text style={styles.adminSubtitle}>Revenue & Operations Intelligence</Text>
         </View>
         <AdminPressable accessibilityRole="button" accessibilityLabel="Open profile settings" onPress={onProfilePress} style={styles.profileBtn}>
           <UserCircle size={28} color={COLORS.white} />
         </AdminPressable>
       </View>
-
-      <View style={styles.heroPanel}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.heroLabel}>Weekly Earnings</Text>
-          {loading ? (
-            <SkeletonBlock style={{ width: 140, height: 38, marginTop: 6, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.2)' }} />
-          ) : (
-            <Text style={styles.heroValue}>₹{weeklyRevenue.toLocaleString('en-IN')}</Text>
-          )}
-        </View>
-        <View style={styles.heroSignal}>
-          <ArrowUpRight size={16} color={COLORS.success} />
-          <Text style={styles.heroSignalText}>Live Stats</Text>
-        </View>
-      </View>
     </SafeAreaView>
   </LinearGradient>
 ));
 
-const StatsGrid = React.memo(({ stats }: any) => (
-  <View style={styles.statsGrid}>
-    {statCards.map((stat) => {
-      const Icon = stat.icon;
-      const val = stat.key === 'revenue' ? `₹${stats.revenue > 1000 ? (stats.revenue / 1000).toFixed(1) + 'k' : stats.revenue}` : stats[stat.key];
-      return (
-        <Card key={stat.key} style={styles.statCard}>
-          <View style={[styles.statIcon, { backgroundColor: stat.bg }]}>
-            <Icon size={18} color={stat.tone} />
-          </View>
-          <Text style={styles.statValue}>{val}</Text>
-          <Text style={styles.statLabel}>{stat.label}</Text>
-        </Card>
-      );
-    })}
-  </View>
-));
+const StatsGrid = React.memo(({ stats, weeklyRevenue, loading }: any) => {
+  const cards = [
+    {
+      key: 'weekly',
+      label: 'Weekly Earnings',
+      icon: TrendingUp,
+      value: loading ? '...' : `₹${weeklyRevenue.toLocaleString('en-IN')}`,
+      tone: COLORS.primary,
+      bg: COLORS.primarySoft,
+    },
+    {
+      key: 'revenue',
+      label: 'Total Revenue',
+      icon: IndianRupee,
+      value: loading ? '...' : `₹${stats.revenue > 1000 ? (stats.revenue / 1000).toFixed(1) + 'k' : stats.revenue}`,
+      tone: COLORS.success,
+      bg: COLORS.successSoft,
+    },
+    {
+      key: 'users',
+      label: 'Active Users',
+      icon: Users,
+      value: loading ? '...' : stats.users.toLocaleString('en-IN'),
+      tone: COLORS.accent,
+      bg: COLORS.accentSoft,
+    },
+    {
+      key: 'routes',
+      label: 'Routes',
+      icon: Bus,
+      value: loading ? '...' : stats.routes.toLocaleString('en-IN'),
+      tone: COLORS.warning,
+      bg: COLORS.warningSoft,
+    },
+  ];
+
+  return (
+    <View style={styles.statsGrid}>
+      {cards.map((card) => {
+        const Icon = card.icon;
+        return (
+          <Card key={card.key} style={styles.statCard}>
+            <View style={styles.statCardHeader}>
+              <View style={[styles.statIcon, { backgroundColor: card.bg }]}>
+                <Icon size={16} color={card.tone} />
+              </View>
+              <Text style={styles.statLabel} numberOfLines={1}>{card.label}</Text>
+            </View>
+            <Text style={styles.statValue} numberOfLines={1}>{card.value}</Text>
+          </Card>
+        );
+      })}
+    </View>
+  );
+});
 
 const RevenueChart = React.memo(({ loading, chartWidth, revenueData, chartConfig }: any) => (
   <Card style={styles.chartCard}>
@@ -300,10 +316,10 @@ export const DashboardScreen = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      <HeroSection admin={admin} weeklyRevenue={weeklyRevenue} loading={loading} onProfilePress={() => navigation.navigate('Profile')} />
+      <CompactHeader admin={admin} onProfilePress={() => navigation.navigate('Profile')} />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentInner}>
-        <StatsGrid stats={stats} />
+        <StatsGrid stats={stats} weeklyRevenue={weeklyRevenue} loading={loading} />
         <RevenueChart loading={loading} chartWidth={chartWidth} revenueData={revenueData} chartConfig={chartConfig} />
 
         <SectionHeader
@@ -397,25 +413,20 @@ export const DashboardScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  hero: { paddingBottom: 30, borderBottomLeftRadius: RADIUS.xxl, borderBottomRightRadius: RADIUS.xxl },
+  headerGradient: { paddingBottom: 20, borderBottomLeftRadius: RADIUS.xl, borderBottomRightRadius: RADIUS.xl },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg },
   headerCopy: { flex: 1 },
   greeting: { fontSize: 10, color: '#E0E7FF', fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
   adminName: { fontSize: 24, fontWeight: '800', color: COLORS.white, marginTop: 4 },
-  adminSubtitle: { color: '#C7D2FE', fontSize: 12, fontWeight: '600', marginTop: 2 },
   profileBtn: { width: 44, height: 44, borderRadius: RADIUS.md, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
-  heroPanel: { marginTop: 24, marginHorizontal: SPACING.xl, padding: SPACING.lg, borderRadius: RADIUS.lg, backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  heroLabel: { color: '#E0E7FF', fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
-  heroValue: { color: COLORS.white, fontSize: 32, fontWeight: '800', marginTop: 4 },
-  heroSignal: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: RADIUS.pill, backgroundColor: COLORS.white },
-  heroSignalText: { color: COLORS.primary, fontSize: 10, fontWeight: '800' },
-  content: { flex: 1, marginTop: -15 },
+  content: { flex: 1, marginTop: 16 },
   contentInner: { paddingHorizontal: SPACING.lg, paddingBottom: 40 },
-  statsGrid: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  statCard: { flex: 1, marginBottom: 0, padding: 12 },
-  statIcon: { width: 32, height: 32, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  statValue: { color: COLORS.text, fontSize: 19, fontWeight: '800' },
-  statLabel: { color: COLORS.textMuted, fontSize: 9, fontWeight: '800', textTransform: 'uppercase', marginTop: 2 },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 20 },
+  statCard: { width: '47%', flexGrow: 1, marginBottom: 0, padding: 14 },
+  statCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  statIcon: { width: 28, height: 28, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center' },
+  statValue: { color: COLORS.text, fontSize: 20, fontWeight: '800' },
+  statLabel: { color: COLORS.textMuted, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', flexShrink: 1 },
   chartCard: { padding: 16, marginBottom: 24 },
   chartFrame: { marginTop: 16 },
   chart: { marginLeft: -15 },
