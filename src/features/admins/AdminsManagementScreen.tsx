@@ -1,25 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { collection, query, where, onSnapshot, doc, updateDoc, getDocs } from 'firebase/firestore';
+import { FlashList } from '@shopify/flash-list';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField, AdminBottomSheet, ConfirmationModal } from '../../components/AdminUI';
+import { AdminPermission } from '../../services/authService';
+import { logActivity } from '../../services/logService';
 
 const IconWrapper = (name: any) => (props: any) => (
   <MaterialCommunityIcons name={name} {...props} />
 );
 
 const UserPlus = IconWrapper('account-plus');
-const Shield = IconWrapper('shield');
 const ShieldCheck = IconWrapper('shield-check');
 const ShieldAlert = IconWrapper('shield-alert');
 const Trash2 = IconWrapper('trash-can-outline');
 const ChevronRight = IconWrapper('chevron-right');
 const CheckSquare = IconWrapper('checkbox-marked');
 const Square = IconWrapper('checkbox-blank-outline');
-import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField, AdminBottomSheet, ConfirmationModal } from '../../components/AdminUI';
-import { AdminPermission } from '../../services/authService';
-import { logActivity } from '../../services/logService';
 
 const ALL_PERMISSIONS: { key: AdminPermission; label: string; desc: string }[] = [
   { key: 'MANAGE_ROUTES', label: 'Route Management', desc: 'Can create, edit and delete bus lines' },
@@ -132,7 +132,7 @@ export const AdminsManagementScreen = () => {
   };
 
   const renderAdminItem = ({ item }: any) => (
-    <TouchableOpacity style={styles.adminCard} onPress={() => setEditingAdmin(item)}>
+    <TouchableOpacity style={styles.adminCard} onPress={() => setEditingAdmin(item)} activeOpacity={0.8}>
       <View style={styles.adminHeader}>
         <View style={styles.adminAvatar}>
           <ShieldCheck size={20} color={COLORS.primary} />
@@ -141,8 +141,8 @@ export const AdminsManagementScreen = () => {
           <Text style={styles.adminName}>{item.name || 'Admin User'}</Text>
           <Text style={styles.adminEmail}>{item.email}</Text>
         </View>
-        <IconButton 
-          tone="neutral" 
+        <TouchableOpacity 
+          accessibilityRole="button" 
           accessibilityLabel={`Remove admin ${item.name || 'user'}`}
           onPress={() => {
             if (item.email === 'admin@onedelhi.com') {
@@ -151,15 +151,17 @@ export const AdminsManagementScreen = () => {
             }
             setConfirmModal({ visible: true, adminId: item.id, action: 'REMOVE' });
           }}
+          style={styles.deleteBtn}
+          activeOpacity={0.7}
         >
-          <Trash2 size={16} color={item.email === 'admin@onedelhi.com' ? COLORS.textMuted : COLORS.error} />
-        </IconButton>
+          <Trash2 size={16} color={item.email === 'admin@onedelhi.com' ? COLORS.textSubtle : COLORS.error} />
+        </TouchableOpacity>
       </View>
       
       <View style={styles.rightsOverview}>
         {(item.permissions || []).slice(0, 3).map((p: string) => (
           <View key={p} style={styles.rightBadge}>
-            <Text style={styles.rightBadgeText}>{p.replace('MANAGE_', '')}</Text>
+            <Text style={styles.rightBadgeText}>{p.replace('MANAGE_', '').replace('_', ' ')}</Text>
           </View>
         ))}
         {(item.permissions || []).length > 3 && (
@@ -189,14 +191,14 @@ export const AdminsManagementScreen = () => {
         )}
       />
 
-      <View style={styles.searchBox}>
+      <View style={styles.searchBoxContainer}>
         <SearchField placeholder="Find an administrator..." value={searchQuery} onChangeText={setSearchQuery} />
       </View>
 
       {loading ? (
         <LoadingState label="Verifying access..." />
       ) : (
-        <FlatList
+        <FlashList
           data={admins.filter(a => a.email?.toLowerCase().includes(searchQuery.toLowerCase()) || a.name?.toLowerCase().includes(searchQuery.toLowerCase()))}
           keyExtractor={(item) => item.id}
           renderItem={renderAdminItem}
@@ -228,9 +230,10 @@ export const AdminsManagementScreen = () => {
                 key={perm.key} 
                 style={styles.permRow}
                 onPress={() => handleTogglePermission(perm.key)}
+                activeOpacity={0.7}
               >
                 <View style={styles.permIcon}>
-                  {hasPerm ? <CheckSquare size={20} color={COLORS.primary} /> : <Square size={20} color={COLORS.textMuted} />}
+                  {hasPerm ? <CheckSquare size={20} color={COLORS.primary} /> : <Square size={20} color={COLORS.textSubtle} />}
                 </View>
                 <View style={styles.permContent}>
                   <Text style={[styles.permLabel, hasPerm && styles.permLabelActive]}>{perm.label}</Text>
@@ -241,7 +244,7 @@ export const AdminsManagementScreen = () => {
           })}
 
           {editingAdmin?.email !== 'admin@onedelhi.com' && (
-            <TouchableOpacity style={styles.saveBtn} onPress={savePermissions}>
+            <TouchableOpacity style={styles.saveBtn} onPress={savePermissions} activeOpacity={0.8}>
               <Text style={styles.saveBtnText}>Update Access Rights</Text>
             </TouchableOpacity>
           )}
@@ -265,7 +268,7 @@ export const AdminsManagementScreen = () => {
           />
           <Text style={styles.inviteHint}>The user must have an active account on the One Delhi app to be promoted.</Text>
           
-          <TouchableOpacity style={styles.promoteBtn} onPress={promoteUser}>
+          <TouchableOpacity style={styles.promoteBtn} onPress={promoteUser} activeOpacity={0.8}>
             <Text style={styles.promoteText}>Grant Admin Access</Text>
           </TouchableOpacity>
         </View>
@@ -283,39 +286,106 @@ export const AdminsManagementScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  list: { padding: SPACING.lg },
-  searchBox: { paddingHorizontal: SPACING.lg, marginBottom: 10 },
-  adminCard: { backgroundColor: COLORS.surface, borderRadius: RADIUS.lg, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
-  adminHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-  adminAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.primarySoft, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  adminInfo: { flex: 1 },
-  adminName: { fontSize: 16, fontWeight: '800', color: COLORS.text },
-  adminEmail: { fontSize: 12, color: COLORS.textMuted, marginTop: 2, fontWeight: '600' },
-  rightsOverview: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  rightBadge: { backgroundColor: COLORS.surfaceMuted, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border },
+  list: { padding: SPACING.xl, paddingBottom: 40 },
+  searchBoxContainer: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg, marginBottom: 12 },
+  adminCard: { 
+    backgroundColor: COLORS.surface, 
+    borderRadius: RADIUS.lg, 
+    padding: 14, 
+    marginBottom: 12, 
+    borderWidth: 1, 
+    borderColor: COLORS.border, 
+    ...SHADOWS.card 
+  },
+  adminHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 10 },
+  adminAvatar: { 
+    width: 36, 
+    height: 36, 
+    borderRadius: RADIUS.md, 
+    backgroundColor: COLORS.primarySoft, 
+    borderWidth: 1,
+    borderColor: 'rgba(11, 18, 32, 0.15)',
+    alignItems: 'center', 
+    justifyContent: 'center',
+  },
+  adminInfo: { flex: 1, minWidth: 0 },
+  adminName: { fontSize: 14, fontWeight: '800', color: COLORS.text },
+  adminEmail: { fontSize: 11, color: COLORS.textMuted, marginTop: 1, fontWeight: '600' },
+  deleteBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.errorSoft,
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rightsOverview: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    alignItems: 'center',
+    gap: 6, 
+    marginBottom: 12, 
+    paddingBottom: 12, 
+    borderBottomWidth: 1, 
+    borderBottomColor: COLORS.border 
+  },
+  rightBadge: { 
+    backgroundColor: COLORS.surfaceMuted, 
+    paddingHorizontal: 8, 
+    paddingVertical: 4, 
+    borderRadius: RADIUS.sm, 
+    borderWidth: 1, 
+    borderColor: COLORS.border 
+  },
   rightBadgeText: { fontSize: 9, fontWeight: '800', color: COLORS.textMuted, textTransform: 'uppercase' },
   moreRights: { fontSize: 10, color: COLORS.accent, fontWeight: '700' },
   noRights: { fontSize: 11, color: COLORS.error, fontWeight: '600', fontStyle: 'italic' },
   cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  footerInfo: { fontSize: 11, fontWeight: '700', color: COLORS.accent },
+  footerInfo: { fontSize: 11, fontWeight: '800', color: COLORS.accent },
   
-  rightsScroll: { padding: 20 },
-  sheetSection: { fontSize: 11, fontWeight: '800', color: COLORS.textMuted, letterSpacing: 1, marginBottom: 20 },
-  permRow: { flexDirection: 'row', gap: 14, marginBottom: 20 },
-  permIcon: { marginTop: 2 },
+  rightsScroll: { paddingHorizontal: 20, paddingTop: 16 },
+  sheetSection: { fontSize: 10, fontWeight: '800', color: COLORS.textSubtle, letterSpacing: 0.5, marginBottom: 16 },
+  permRow: { flexDirection: 'row', gap: 12, marginBottom: 16, alignItems: 'flex-start' },
+  permIcon: { marginTop: 1 },
   permContent: { flex: 1 },
-  permLabel: { fontSize: 15, fontWeight: '700', color: COLORS.text },
-  permLabelActive: { color: COLORS.primary },
-  permDesc: { fontSize: 12, color: COLORS.textMuted, marginTop: 4, lineHeight: 18 },
-  saveBtn: { backgroundColor: COLORS.primary, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 20, ...SHADOWS.accent },
-  saveBtnText: { color: COLORS.white, fontSize: 14, fontWeight: '800' },
+  permLabel: { fontSize: 14, fontWeight: '700', color: COLORS.text },
+  permLabelActive: { color: COLORS.primary, fontWeight: '800' },
+  permDesc: { fontSize: 11, color: COLORS.textMuted, marginTop: 2, lineHeight: 16 },
+  saveBtn: { 
+    backgroundColor: COLORS.primary, 
+    height: 44, 
+    borderRadius: RADIUS.md, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    marginTop: 20, 
+  },
+  saveBtnText: { color: COLORS.white, fontSize: 13, fontWeight: '800' },
 
-  superAdminNotice: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.successSoft, padding: 12, borderRadius: 12, marginBottom: 20, marginHorizontal: 20 },
-  superAdminText: { fontSize: 12, fontWeight: '700', color: COLORS.success },
+  superAdminNotice: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 8, 
+    backgroundColor: COLORS.successSoft, 
+    padding: 10, 
+    borderRadius: RADIUS.md, 
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    marginBottom: 16, 
+  },
+  superAdminText: { fontSize: 11, fontWeight: '700', color: COLORS.success },
 
   inviteBox: { paddingVertical: 10 },
-  inputLabel: { fontSize: 10, fontWeight: '800', color: COLORS.textMuted, marginBottom: 12 },
-  inviteHint: { fontSize: 12, color: COLORS.textMuted, marginTop: 12, lineHeight: 18 },
-  promoteBtn: { backgroundColor: COLORS.success, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 24, ...SHADOWS.card },
-  promoteText: { color: COLORS.white, fontSize: 15, fontWeight: '800' },
+  inputLabel: { fontSize: 10, fontWeight: '800', color: COLORS.textSubtle, marginBottom: 8 },
+  inviteHint: { fontSize: 11, color: COLORS.textMuted, marginTop: 8, lineHeight: 16 },
+  promoteBtn: { 
+    backgroundColor: COLORS.success, 
+    height: 44, 
+    borderRadius: RADIUS.md, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    marginTop: 20, 
+  },
+  promoteText: { color: COLORS.white, fontSize: 13, fontWeight: '800' },
 });
