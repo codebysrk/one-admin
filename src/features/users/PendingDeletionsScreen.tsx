@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
 import { collection, onSnapshot, doc, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { FlashList } from '@shopify/flash-list';
 import { db } from '../../services/firebase';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
+import { AdminHeader, AdminScreen, EmptyState, LoadingState, StatusBadge } from '../../components/AdminUI';
 
 const IconWrapper = (name: any) => (props: any) => (
   <MaterialCommunityIcons name={name} {...props} />
@@ -12,13 +15,12 @@ const IconWrapper = (name: any) => (props: any) => (
 const UserMinus = IconWrapper('account-minus');
 const Trash2 = IconWrapper('trash-can-outline');
 const Clock = IconWrapper('clock-outline');
-const Copy = IconWrapper('content-copy');
-import * as Clipboard from 'expo-clipboard';
-import { AdminHeader, AdminScreen, EmptyState, LoadingState, StatusBadge } from '../../components/AdminUI';
+const ContentCopy = IconWrapper('content-copy');
 
 export const PendingDeletionsScreen = () => {
   const [deletedUsers, setDeletedUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'deleted_users'), orderBy('deletedAt', 'desc'));
@@ -30,9 +32,10 @@ export const PendingDeletionsScreen = () => {
     return () => unsubscribe();
   }, []);
 
-  const copyToClipboard = async (text: string) => {
+  const copyToClipboard = async (text: string, id: string) => {
     await Clipboard.setStringAsync(text);
-    Alert.alert('Copied', 'UID copied to clipboard. Use this in Firebase Console to delete the Auth account.');
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   const removeRecord = (id: string) => {
@@ -46,38 +49,59 @@ export const PendingDeletionsScreen = () => {
     );
   };
 
-  const renderItem = ({ item }: any) => (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={styles.userInfo}>
-          <View style={styles.iconBox}>
-            <UserMinus size={20} color={COLORS.error} />
+  const renderItem = ({ item }: any) => {
+    const isCopied = copiedId === item.id;
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <View style={styles.userInfo}>
+            <View style={styles.avatar}>
+              <UserMinus size={20} color={COLORS.error} />
+            </View>
+            <View style={styles.userCopy}>
+              <Text style={styles.userName} numberOfLines={1}>{item.name}</Text>
+              <Text style={styles.userEmail} numberOfLines={1}>{item.email}</Text>
+            </View>
           </View>
-          <View style={styles.userCopy}>
-            <Text style={styles.userName} numberOfLines={1}>{item.name}</Text>
-            <Text style={styles.userEmail} numberOfLines={1}>{item.email}</Text>
+          <TouchableOpacity 
+            accessibilityRole="button" 
+            accessibilityLabel={`Remove cleanup record for ${item.name}`} 
+            onPress={() => removeRecord(item.id)} 
+            style={styles.deleteBtn} 
+            activeOpacity={0.7}
+          >
+            <Trash2 size={16} color={COLORS.error} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.details}>
+          <TouchableOpacity 
+            style={styles.uidRow} 
+            onPress={() => copyToClipboard(item.uid, item.id)} 
+            activeOpacity={0.6}
+          >
+            <Text style={styles.uidText} numberOfLines={1}>UID: {item.uid}</Text>
+            <View style={styles.copyBadge}>
+              <ContentCopy size={11} color={isCopied ? COLORS.success : COLORS.accent} />
+              <Text style={[styles.copyBadgeText, isCopied && { color: COLORS.success }]}>
+                {isCopied ? 'Copied' : 'Copy'}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.metaRow}>
+            <View style={styles.timeRow}>
+              <Clock size={12} color={COLORS.textSubtle} style={{ marginRight: 4 }} />
+              <Text style={styles.timeText}>
+                Deleted: {new Date(item.deletedAt).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, day: '2-digit', month: 'short' })}
+              </Text>
+            </View>
+            <StatusBadge label="Pending Auth Deletion" tone="warning" />
           </View>
         </View>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Remove cleanup record for ${item.name}`} onPress={() => removeRecord(item.id)} style={styles.deleteBtn} activeOpacity={0.82}>
-          <Trash2 size={18} color={COLORS.error} />
-        </TouchableOpacity>
       </View>
-
-      <View style={styles.details}>
-        <TouchableOpacity style={styles.uidRow} onPress={() => copyToClipboard(item.uid)} activeOpacity={0.82}>
-          <Text style={styles.uidText} numberOfLines={1}>UID: {item.uid}</Text>
-          <Copy size={13} color={COLORS.primary} />
-        </TouchableOpacity>
-
-        <View style={styles.timeRow}>
-          <Clock size={12} color={COLORS.textSubtle} />
-          <Text style={styles.timeText}>Deleted: {new Date(item.deletedAt).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, day: '2-digit', month: 'short' })}</Text>
-        </View>
-      </View>
-
-      <StatusBadge label="Pending Auth Deletion" tone="warning" />
-    </View>
-  );
+    );
+  };
 
   return (
     <AdminScreen>
@@ -86,7 +110,7 @@ export const PendingDeletionsScreen = () => {
       {loading ? (
         <LoadingState label="Loading cleanup records..." />
       ) : (
-        <FlatList
+        <FlashList
           data={deletedUsers}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
@@ -100,17 +124,95 @@ export const PendingDeletionsScreen = () => {
 
 const styles = StyleSheet.create({
   listContent: { padding: SPACING.xl, paddingBottom: 40 },
-  card: { backgroundColor: COLORS.surface, borderRadius: RADIUS.md, padding: SPACING.lg, marginBottom: SPACING.lg, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 12 },
-  userInfo: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 },
+  card: { 
+    backgroundColor: COLORS.surface, 
+    borderRadius: RADIUS.lg, 
+    padding: 14, 
+    marginBottom: 12, 
+    borderWidth: 1, 
+    borderColor: COLORS.border, 
+    ...SHADOWS.card 
+  },
+  cardHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginBottom: 12, 
+    gap: 10 
+  },
+  userInfo: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 10, 
+    flex: 1, 
+    minWidth: 0 
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.errorSoft,
+    borderWidth: 1,
+    borderColor: 'rgba(225, 29, 72, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   userCopy: { flex: 1, minWidth: 0 },
-  iconBox: { width: 44, height: 44, borderRadius: RADIUS.md, backgroundColor: COLORS.errorSoft, justifyContent: 'center', alignItems: 'center' },
-  userName: { fontSize: 15, lineHeight: 20, fontWeight: '800', color: COLORS.text },
-  userEmail: { fontSize: 12, color: COLORS.textMuted, fontWeight: '600', marginTop: 3 },
-  deleteBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.md, backgroundColor: COLORS.errorSoft },
-  details: { gap: 10, marginBottom: 14 },
-  uidRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.surfaceMuted, padding: SPACING.md, borderRadius: RADIUS.md },
-  uidText: { fontSize: 11, color: COLORS.textMuted, flex: 1, fontFamily: 'monospace', fontWeight: '700' },
-  timeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  timeText: { fontSize: 11, color: COLORS.textSubtle, fontWeight: '700' },
+  userName: { fontSize: 14, fontWeight: '800', color: COLORS.text },
+  userEmail: { fontSize: 11, color: COLORS.textMuted, marginTop: 1, fontWeight: '600' },
+  deleteBtn: { 
+    width: 36, 
+    height: 36, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    borderRadius: RADIUS.md, 
+    backgroundColor: COLORS.errorSoft,
+    borderWidth: 1,
+    borderColor: '#FECDD3'
+  },
+  details: { gap: 10 },
+  uidRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.surfaceMuted, 
+    paddingHorizontal: 12, 
+    paddingVertical: 8, 
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border
+  },
+  uidText: { 
+    fontSize: 10, 
+    color: COLORS.textMuted, 
+    flex: 1, 
+    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace', 
+    fontWeight: '700' 
+  },
+  copyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: RADIUS.xs,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  copyBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: COLORS.accent,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 2,
+    flexWrap: 'wrap',
+    gap: 8
+  },
+  timeRow: { flexDirection: 'row', alignItems: 'center' },
+  timeText: { fontSize: 10, color: COLORS.textSubtle, fontWeight: '700' },
 });
