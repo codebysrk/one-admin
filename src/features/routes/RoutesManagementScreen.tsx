@@ -35,6 +35,7 @@ interface DraggableStopRowProps {
   stop: string;
   index: number;
   isDragging: boolean;
+  isAnyDragging: boolean;
   showLineAbove: boolean;
   showLineBelow: boolean;
   onLayout: (y: number, height: number) => void;
@@ -50,6 +51,7 @@ const DraggableStopRow = ({
   stop,
   index,
   isDragging,
+  isAnyDragging,
   showLineAbove,
   showLineBelow,
   onLayout,
@@ -64,8 +66,8 @@ const DraggableStopRow = ({
   const translateX = useRef(new Animated.Value(0)).current;
 
   // Use propsRef to avoid stale closures in PanResponder callbacks
-  const propsRef = useRef({ onDragStart, onDragMove, onDragEnd, onDelete, index });
-  propsRef.current = { onDragStart, onDragMove, onDragEnd, onDelete, index };
+  const propsRef = useRef({ onDragStart, onDragMove, onDragEnd, onDelete, index, isAnyDragging });
+  propsRef.current = { onDragStart, onDragMove, onDragEnd, onDelete, index, isAnyDragging };
 
   const verticalDragPanResponder = useRef(
     PanResponder.create({
@@ -94,6 +96,7 @@ const DraggableStopRow = ({
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (evt, gestureState) => {
+        if (propsRef.current.isAnyDragging) return false;
         return Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
       },
       onPanResponderMove: (evt, gestureState) => {
@@ -143,7 +146,7 @@ const DraggableStopRow = ({
       {/* Swipe to Delete Underlay Background */}
       {!isDragging && (
         <View style={styles.swipeDeleteBg}>
-          <Trash2 size={18} color={COLORS.white} />
+          <Trash2 size={18} color={COLORS.error} />
           <Text style={styles.swipeDeleteText}>Delete</Text>
         </View>
       )}
@@ -339,6 +342,7 @@ const StopSequenceEditor = ({ stops, onChangeStops }: StopSequenceEditorProps) =
             stop={stop}
             index={index}
             isDragging={isDragging}
+            isAnyDragging={activeDragIndex !== null}
             showLineAbove={showLineAbove}
             showLineBelow={showLineBelow}
             dragY={dragY}
@@ -910,7 +914,9 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 8,
-    backgroundColor: COLORS.error,
+    backgroundColor: COLORS.errorSoft,
+    borderWidth: 1,
+    borderColor: '#FECDD3',
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -919,7 +925,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   swipeDeleteText: {
-    color: COLORS.white,
+    color: COLORS.error,
     fontSize: 12,
     fontWeight: '800',
   },
