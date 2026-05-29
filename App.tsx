@@ -6,6 +6,7 @@ import { useAdminStore } from './src/store/useAdminStore';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AdminNavigator } from './src/navigation/AdminNavigator';
 import { COLORS } from './src/core/theme';
+import { ThemeProvider } from './src/core/ThemeContext';
 import { AdminPressable } from './src/components/AdminUI';
 import { checkAppUpdate } from './src/services/updateService';
 
@@ -100,13 +101,15 @@ export default function App() {
   }, []);
 
   return (
-    <ErrorBoundary>
-      <SafeAreaProvider>
-        <NavigationContainer ref={navigationRef}>
-          <AppBody />
-        </NavigationContainer>
-      </SafeAreaProvider>
-    </ErrorBoundary>
+    <ThemeProvider>
+      <ErrorBoundary>
+        <SafeAreaProvider>
+          <NavigationContainer ref={navigationRef}>
+            <AppBody />
+          </NavigationContainer>
+        </SafeAreaProvider>
+      </ErrorBoundary>
+    </ThemeProvider>
   );
 }
 

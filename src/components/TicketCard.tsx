@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import Animated, { LinearTransition } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { COLORS, RADIUS, SHADOWS, SPACING } from '../core/theme';
+import { useAppTheme, SPACING } from '../core/theme';
 import { StatusBadge } from './AdminUI';
 
 const IconWrapper = (name: any) => (props: any) => (
@@ -24,6 +25,9 @@ interface TicketCardProps {
 }
 
 const TicketCardInner = ({ ticket, showUserInfo = false, listUserName, onDelete }: TicketCardProps) => {
+  const { colors, radius, shadows } = useAppTheme();
+  const styles = useMemo(() => getStyles(colors, radius, shadows), [colors, radius, shadows]);
+  
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const userLabel = listUserName ?? ticket.userName;
@@ -39,7 +43,10 @@ const TicketCardInner = ({ ticket, showUserInfo = false, listUserName, onDelete 
   const isAC = ticket.busType === 'AC' || (ticket.route && ticket.route.toLowerCase().includes('ac'));
 
   return (
-    <View style={[styles.ticketContainer, expanded && styles.ticketContainerExpanded]}>
+    <Animated.View 
+      layout={LinearTransition.springify().damping(22).stiffness(200).mass(0.5)}
+      style={[styles.ticketContainer, expanded && styles.ticketContainerExpanded]}
+    >
       {/* Collapsed Header / Main Row */}
       <TouchableOpacity 
         style={styles.mainRow} 
@@ -48,7 +55,7 @@ const TicketCardInner = ({ ticket, showUserInfo = false, listUserName, onDelete 
       >
         <View style={styles.leftSection}>
           <View style={[styles.busBadge, isAC ? styles.acBadge : styles.nonAcBadge]}>
-            <Bus size={14} color={isAC ? COLORS.primary : COLORS.warning} />
+            <Bus size={14} color={isAC ? colors.primary : colors.warning} />
           </View>
           <View style={styles.routeCol}>
             <Text style={styles.routeName}>{ticket.route || 'Route'}</Text>
@@ -72,7 +79,7 @@ const TicketCardInner = ({ ticket, showUserInfo = false, listUserName, onDelete 
               label={ticket.status || 'Active'} 
               tone={ticket.status === 'Active' ? 'success' : ticket.status === 'Expired' ? 'neutral' : 'error'} 
             />
-            {expanded ? <ChevronUp size={16} color={COLORS.textSubtle} /> : <ChevronDown size={16} color={COLORS.textSubtle} />}
+            {expanded ? <ChevronUp size={16} color={colors.textSubtle} /> : <ChevronDown size={16} color={colors.textSubtle} />}
           </View>
         </View>
       </TouchableOpacity>
@@ -86,7 +93,7 @@ const TicketCardInner = ({ ticket, showUserInfo = false, listUserName, onDelete 
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Passenger</Text>
               <View style={styles.userValueContainer}>
-                <Users size={12} color={COLORS.textMuted} style={{ marginRight: 4 }} />
+                <Users size={12} color={colors.textMuted} style={{ marginRight: 4 }} />
                 <Text style={styles.detailValue}>{userLabel}</Text>
               </View>
             </View>
@@ -105,7 +112,7 @@ const TicketCardInner = ({ ticket, showUserInfo = false, listUserName, onDelete 
           {Number(ticket.fare) > Number(ticket.total || ticket.finalFare) && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Discounted Fare</Text>
-              <Text style={[styles.detailValue, { color: COLORS.success, fontWeight: '800' }]}>
+              <Text style={[styles.detailValue, { color: colors.success, fontWeight: '800' }]}>
                 ₹{ticket.total || ticket.finalFare}
               </Text>
             </View>
@@ -115,7 +122,7 @@ const TicketCardInner = ({ ticket, showUserInfo = false, listUserName, onDelete 
             <Text style={styles.detailLabel}>Transaction ID</Text>
             <TouchableOpacity onPress={handleCopyTid} style={styles.copyButton} activeOpacity={0.6}>
               <Text style={styles.tidText}>{ticket.tid}</Text>
-              <ContentCopy size={11} color={copied ? COLORS.success : COLORS.accent} />
+              <ContentCopy size={11} color={copied ? colors.success : colors.accent} />
               {copied && <Text style={styles.copiedText}>Copied!</Text>}
             </TouchableOpacity>
           </View>
@@ -126,28 +133,28 @@ const TicketCardInner = ({ ticket, showUserInfo = false, listUserName, onDelete 
               style={styles.deleteButton}
               activeOpacity={0.8}
             >
-              <Trash2 size={14} color={COLORS.error} />
+              <Trash2 size={14} color={colors.error} />
               <Text style={styles.deleteButtonText}>Void & Remove Ticket Record</Text>
             </TouchableOpacity>
           )}
         </View>
       )}
-    </View>
+    </Animated.View>
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, radius: any, shadows: any) => StyleSheet.create({
   ticketContainer: { 
     marginBottom: 8, 
-    borderRadius: RADIUS.md, 
-    backgroundColor: COLORS.surface, 
+    borderRadius: radius.md, 
+    backgroundColor: colors.surface, 
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     overflow: 'hidden',
-    ...SHADOWS.card 
+    ...shadows.card 
   },
   ticketContainerExpanded: {
-    borderColor: COLORS.accentMuted,
+    borderColor: colors.accentMuted,
   },
   mainRow: { 
     flexDirection: 'row', 
@@ -165,17 +172,17 @@ const styles = StyleSheet.create({
   busBadge: { 
     width: 28, 
     height: 28, 
-    borderRadius: RADIUS.sm, 
+    borderRadius: radius.sm, 
     alignItems: 'center', 
     justifyContent: 'center',
     borderWidth: 1,
   },
   acBadge: {
-    backgroundColor: COLORS.primarySoft,
+    backgroundColor: colors.primarySoft,
     borderColor: 'rgba(79, 70, 229, 0.1)',
   },
   nonAcBadge: {
-    backgroundColor: COLORS.warningSoft,
+    backgroundColor: colors.warningSoft,
     borderColor: 'rgba(217, 119, 6, 0.1)',
   },
   routeCol: {
@@ -185,11 +192,11 @@ const styles = StyleSheet.create({
   routeName: { 
     fontSize: 13, 
     fontWeight: '800', 
-    color: COLORS.text 
+    color: colors.text 
   },
   busTypeText: { 
     fontSize: 9, 
-    color: COLORS.textMuted, 
+    color: colors.textMuted, 
     fontWeight: '700',
     marginTop: 1 
   },
@@ -201,12 +208,12 @@ const styles = StyleSheet.create({
   directionText: { 
     fontSize: 12, 
     fontWeight: '700', 
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: 2
   },
   dateTimeText: { 
     fontSize: 10, 
-    color: COLORS.textSubtle,
+    color: colors.textSubtle,
     fontWeight: '600'
   },
   rightSection: { 
@@ -217,7 +224,7 @@ const styles = StyleSheet.create({
   fareText: { 
     fontSize: 14, 
     fontWeight: '800', 
-    color: COLORS.text 
+    color: colors.text 
   },
   badgeRow: { 
     flexDirection: 'row', 
@@ -227,11 +234,11 @@ const styles = StyleSheet.create({
   detailPanel: {
     paddingHorizontal: 14,
     paddingBottom: 14,
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
   },
   divider: { 
     height: 1, 
-    backgroundColor: COLORS.border, 
+    backgroundColor: colors.border, 
     marginBottom: 10 
   },
   detailRow: {
@@ -243,14 +250,14 @@ const styles = StyleSheet.create({
   detailLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.3
   },
   detailValue: {
     fontSize: 12,
     fontWeight: '700',
-    color: COLORS.text,
+    color: colors.text,
   },
   userValueContainer: {
     flexDirection: 'row',
@@ -259,23 +266,23 @@ const styles = StyleSheet.create({
   copyButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: RADIUS.xs,
+    borderRadius: radius.xs,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     gap: 4,
   },
   tidText: {
     fontSize: 11,
     fontWeight: '800',
-    color: COLORS.accent,
+    color: colors.accent,
     letterSpacing: 0.5
   },
   copiedText: {
     fontSize: 9,
-    color: COLORS.success,
+    color: colors.success,
     fontWeight: '800',
     marginLeft: 2,
   },
@@ -285,16 +292,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 10,
-    backgroundColor: COLORS.errorSoft,
+    backgroundColor: colors.errorSoft,
     borderWidth: 1,
     borderColor: '#FECDD3',
-    borderRadius: RADIUS.sm,
+    borderRadius: radius.sm,
     marginTop: 12,
   },
   deleteButtonText: {
     fontSize: 12,
     fontWeight: '800',
-    color: COLORS.error,
+    color: colors.error,
   },
 });
 

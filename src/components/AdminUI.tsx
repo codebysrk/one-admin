@@ -27,6 +27,7 @@ const X = IconWrapper('close');
 const MessageSquare = IconWrapper('message-reply-text');
 const AlertCircle = IconWrapper('alert-circle');
 import { Modal } from 'react-native';
+import { useTheme } from '../core/ThemeContext';
 import { COLORS, RADIUS, SHADOWS, SPACING, TYPOGRAPHY } from '../core/theme';
 export { AdminBottomSheet } from './BottomSheet';
 export { ConfirmationModal } from './ConfirmationModal';
@@ -77,21 +78,27 @@ type SectionHeaderProps = {
 
 type BadgeTone = 'success' | 'warning' | 'error' | 'info' | 'neutral';
 
-const toneMap = {
-  success: { bg: COLORS.successSoft, fg: COLORS.success, border: '#BBF7D0' },
-  warning: { bg: COLORS.warningSoft, fg: COLORS.warning, border: '#FED7AA' },
-  error: { bg: COLORS.errorSoft, fg: COLORS.error, border: '#FECDD3' },
-  info: { bg: COLORS.infoSoft, fg: COLORS.info, border: '#BFDBFE' },
-  neutral: { bg: COLORS.surfaceMuted, fg: COLORS.textMuted, border: COLORS.border },
-};
+function useToneMap() {
+  const { colors } = useTheme();
+  return {
+    success: { bg: colors.successSoft, fg: colors.success, border: colors.success + '44' },
+    warning: { bg: colors.warningSoft, fg: colors.warning, border: colors.warning + '44' },
+    error: { bg: colors.errorSoft, fg: colors.error, border: colors.error + '44' },
+    info: { bg: colors.infoSoft, fg: colors.info, border: colors.info + '44' },
+    neutral: { bg: colors.surfaceMuted, fg: colors.textMuted, border: colors.border },
+  };
+}
 
-const buttonTones = {
-  primary: { bg: COLORS.primary, fg: COLORS.white, border: COLORS.primary },
-  accent: { bg: COLORS.accent, fg: COLORS.white, border: COLORS.accent },
-  success: { bg: COLORS.success, fg: COLORS.white, border: COLORS.success },
-  danger: { bg: COLORS.error, fg: COLORS.white, border: COLORS.error },
-  neutral: { bg: COLORS.surface, fg: COLORS.text, border: COLORS.border },
-};
+function useButtonTones() {
+  const { colors } = useTheme();
+  return {
+    primary: { bg: colors.primary, fg: colors.white, border: colors.primary },
+    accent: { bg: colors.accent, fg: colors.white, border: colors.accent },
+    success: { bg: colors.success, fg: colors.white, border: colors.success },
+    danger: { bg: colors.error, fg: colors.white, border: colors.error },
+    neutral: { bg: colors.surface, fg: colors.text, border: colors.border },
+  };
+}
 
 export const AdminPressable = ({
   children,
@@ -112,42 +119,53 @@ export const AdminPressable = ({
   </Pressable>
 );
 
-export const AdminScreen = ({ children, style }: ScreenProps) => (
-  <View style={[styles.screen, style]}>{children}</View>
-);
+export const AdminScreen = ({ children, style }: ScreenProps) => {
+  const { colors } = useTheme();
+  return (
+    <View style={[{ flex: 1, backgroundColor: colors.background }, style]}>
+      {children}
+    </View>
+  );
+};
 
-export const AdminHeader = ({ title, subtitle, action, compact }: HeaderProps) => (
-  <LinearGradient colors={['#4F46E5', '#3730A3']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.headerShell}>
+export const AdminHeader = ({ title, subtitle, action, compact }: HeaderProps) => {
+  const { colors } = useTheme();
+  const s = useAdminUIStyles();
+  return (
+  <LinearGradient colors={['#4F46E5', '#3730A3']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.headerShell}>
     <StatusBar barStyle="light-content" />
     <SafeAreaView edges={['top']}>
-      <View style={[styles.header, compact && styles.headerCompact]}>
-        <View style={styles.headerCopy}>
-          <View style={styles.eyebrowPill}>
-            <Text style={styles.eyebrow}>One Delhi • Admin System</Text>
+      <View style={[s.header, compact && s.headerCompact]}>
+        <View style={s.headerCopy}>
+          <View style={s.eyebrowPill}>
+            <Text style={s.eyebrow}>One Delhi • Admin System</Text>
           </View>
-          <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
-          {subtitle ? <Text style={styles.headerSubtitle} numberOfLines={2}>{subtitle}</Text> : null}
+          <Text style={s.headerTitle} numberOfLines={1}>{title}</Text>
+          {subtitle ? <Text style={s.headerSubtitle} numberOfLines={2}>{subtitle}</Text> : null}
         </View>
-        {action ? <View style={styles.headerAction}>{action}</View> : null}
+        {action ? <View style={s.headerAction}>{action}</View> : null}
       </View>
     </SafeAreaView>
   </LinearGradient>
-);
+  );
+};
 
 export const SearchField = ({ placeholderTextColor, style, value, onChangeText, ...props }: SearchFieldProps) => {
+  const s = useAdminUIStyles();
+  const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
 
   return (
-    <View style={[styles.searchBox, focused && styles.searchBoxFocused]}>
-      <Search size={18} color={focused ? COLORS.accent : COLORS.textSubtle} />
+    <View style={[s.searchBox, focused && s.searchBoxFocused]}>
+      <Search size={18} color={focused ? colors.accent : colors.textSubtle} />
       <TextInput
         {...props}
         value={value}
         onChangeText={onChangeText}
-        style={[styles.searchInput, style]}
-        placeholderTextColor={placeholderTextColor || COLORS.textSubtle}
+        style={[s.searchInput, style]}
+        placeholderTextColor={placeholderTextColor || colors.textSubtle}
         autoCapitalize="none"
-        selectionColor={COLORS.accent}
+        selectionColor={colors.accent}
         onFocus={(event) => {
           setFocused(true);
           props.onFocus?.(event);
@@ -158,28 +176,32 @@ export const SearchField = ({ placeholderTextColor, style, value, onChangeText, 
         }}
       />
       {value ? (
-        <AdminPressable accessibilityRole="button" accessibilityLabel="Clear search" onPress={() => onChangeText('')} style={styles.clearSearch}>
-          <X size={14} color={COLORS.textMuted} />
+        <AdminPressable accessibilityRole="button" accessibilityLabel="Clear search" onPress={() => onChangeText('')} style={s.clearSearch}>
+          <X size={14} color={colors.textMuted} />
         </AdminPressable>
       ) : null}
     </View>
   );
 };
 
-export const Card = ({ children, style }: ScreenProps) => (
-  <View style={[styles.card, style]}>{children}</View>
-);
+export const Card = ({ children, style }: ScreenProps) => {
+  const s = useAdminUIStyles();
+  return <View style={[s.card, style]}>{children}</View>;
+};
 
-export const SectionHeader = ({ icon, title, caption, action }: SectionHeaderProps) => (
-  <View style={styles.sectionHeader}>
-    {icon ? <View style={styles.sectionIcon}>{icon}</View> : null}
-    <View style={styles.sectionCopy}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {caption ? <Text style={styles.sectionCaption}>{caption}</Text> : null}
+export const SectionHeader = ({ icon, title, caption, action }: SectionHeaderProps) => {
+  const s = useAdminUIStyles();
+  return (
+    <View style={s.sectionHeader}>
+      {icon ? <View style={s.sectionIcon}>{icon}</View> : null}
+      <View style={s.sectionCopy}>
+        <Text style={s.sectionTitle}>{title}</Text>
+        {caption ? <Text style={s.sectionCaption}>{caption}</Text> : null}
+      </View>
+      {action ? <View style={s.sectionAction}>{action}</View> : null}
     </View>
-    {action ? <View style={styles.sectionAction}>{action}</View> : null}
-  </View>
-);
+  );
+};
 
 export const Button = ({
   title,
@@ -191,6 +213,8 @@ export const Button = ({
   style,
   ...props
 }: ButtonProps) => {
+  const s = useAdminUIStyles();
+  const buttonTones = useButtonTones();
   const colors = buttonTones[tone];
 
   return (
@@ -199,8 +223,8 @@ export const Button = ({
       disabled={disabled || loading}
       accessibilityRole="button"
       style={[
-        styles.button,
-        fullWidth ? styles.buttonFull : null,
+        s.button,
+        fullWidth ? s.buttonFull : null,
         { backgroundColor: colors.bg, borderColor: colors.border },
         tone === 'accent' ? SHADOWS.accent : null,
         style,
@@ -211,7 +235,7 @@ export const Button = ({
       ) : (
         <>
           {icon}
-          <Text style={[styles.buttonText, { color: colors.fg }]} numberOfLines={1}>{title}</Text>
+          <Text style={[s.buttonText, { color: colors.fg }]} numberOfLines={1}>{title}</Text>
         </>
       )}
     </AdminPressable>
@@ -229,11 +253,12 @@ export const IconButton = ({
   tone?: 'primary' | 'success' | 'danger' | 'neutral';
   accessibilityLabel: string;
 }) => {
+  const s = useAdminUIStyles();
   const toneStyle = {
-    primary: styles.iconPrimary,
-    success: styles.iconSuccess,
-    danger: styles.iconDanger,
-    neutral: styles.iconNeutral,
+    primary: s.iconPrimary,
+    success: s.iconSuccess,
+    danger: s.iconDanger,
+    neutral: s.iconNeutral,
   }[tone];
 
   return (
@@ -241,7 +266,7 @@ export const IconButton = ({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
-      style={[styles.iconButton, toneStyle]}
+      style={[s.iconButton, toneStyle]}
     >
       {children}
     </AdminPressable>
@@ -264,18 +289,20 @@ export const FormField = ({
   inputStyle?: TextInputProps['style'];
   right?: React.ReactNode;
 }) => {
+  const s = useAdminUIStyles();
+  const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
 
   return (
     <View style={containerStyle}>
-      <Text style={[styles.formLabel, focused && styles.formLabelFocused]}>{label}</Text>
-      <View style={[styles.inputFrame, focused && styles.inputFrameFocused, error ? styles.inputFrameError : null]}>
-        {icon ? <View style={styles.inputIcon}>{icon}</View> : null}
+      <Text style={[s.formLabel, focused && s.formLabelFocused]}>{label}</Text>
+      <View style={[s.inputFrame, focused && s.inputFrameFocused, error ? s.inputFrameError : null]}>
+        {icon ? <View style={s.inputIcon}>{icon}</View> : null}
         <TextInput
           {...props}
-          style={[styles.formInput, inputStyle]}
-          placeholderTextColor={props.placeholderTextColor || COLORS.textSubtle}
-          selectionColor={error ? COLORS.error : COLORS.accent}
+          style={[s.formInput, inputStyle]}
+          placeholderTextColor={props.placeholderTextColor || colors.textSubtle}
+          selectionColor={error ? colors.error : colors.accent}
           onFocus={(event) => {
             setFocused(true);
             props.onFocus?.(event);
@@ -287,37 +314,46 @@ export const FormField = ({
         />
         {right}
       </View>
-      {error ? <Text style={styles.formError}>{error}</Text> : null}
+      {error ? <Text style={s.formError}>{error}</Text> : null}
     </View>
   );
 };
 
 export const StatusBadge = React.memo(({ label, tone = 'neutral' }: { label: string; tone?: BadgeTone }) => {
+  const s = useAdminUIStyles();
+  const toneMap = useToneMap();
   const colors = toneMap[tone];
   return (
-    <View style={[styles.badge, { backgroundColor: colors.bg, borderColor: colors.border }]}>
-      <Text style={[styles.badgeText, { color: colors.fg }]} numberOfLines={1}>{label}</Text>
+    <View style={[s.badge, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+      <Text style={[s.badgeText, { color: colors.fg }]} numberOfLines={1}>{label}</Text>
     </View>
   );
 });
 
-export const KeyValueRow = React.memo(({ label, value }: { label: string; value?: string | number | null }) => (
-  <View style={styles.keyValueRow}>
-    <Text style={styles.keyLabel}>{label}</Text>
-    <Text style={styles.keyValue} numberOfLines={1}>{value || 'Unknown'}</Text>
-  </View>
-));
+export const KeyValueRow = React.memo(({ label, value }: { label: string; value?: string | number | null }) => {
+  const s = useAdminUIStyles();
+  return (
+    <View style={s.keyValueRow}>
+      <Text style={s.keyLabel}>{label}</Text>
+      <Text style={s.keyValue} numberOfLines={1}>{value || 'Unknown'}</Text>
+    </View>
+  );
+});
 
-export const EmptyState = React.memo(({ icon, title, message, action }: EmptyStateProps) => (
-  <View style={styles.empty}>
-    {icon ? <View style={styles.emptyIcon}>{icon}</View> : null}
-    <Text style={styles.emptyTitle}>{title}</Text>
-    {message ? <Text style={styles.emptyMessage}>{message}</Text> : null}
-    {action ? <View style={styles.emptyAction}>{action}</View> : null}
-  </View>
-));
+export const EmptyState = React.memo(({ icon, title, message, action }: EmptyStateProps) => {
+  const s = useAdminUIStyles();
+  return (
+    <View style={s.empty}>
+      {icon ? <View style={s.emptyIcon}>{icon}</View> : null}
+      <Text style={s.emptyTitle}>{title}</Text>
+      {message ? <Text style={s.emptyMessage}>{message}</Text> : null}
+      {action ? <View style={s.emptyAction}>{action}</View> : null}
+    </View>
+  );
+});
 
 export const SkeletonBlock = React.memo(({ style }: { style?: StyleProp<ViewStyle> }) => {
+  const s = useAdminUIStyles();
   const opacity = useRef(new Animated.Value(0.45)).current;
 
   useEffect(() => {
@@ -331,7 +367,7 @@ export const SkeletonBlock = React.memo(({ style }: { style?: StyleProp<ViewStyl
     return () => animation.stop();
   }, [opacity]);
 
-  return <Animated.View style={[styles.skeleton, { opacity }, style]} />;
+  return <Animated.View style={[s.skeleton, { opacity }, style]} />;
 });
 
 export const LoadingState = React.memo(({
@@ -340,26 +376,30 @@ export const LoadingState = React.memo(({
 }: {
   label?: string;
   compact?: boolean;
-}) => (
-  <View style={[styles.loading, compact && styles.loadingCompact]}>
-    <View style={styles.loadingCard}>
-      <View style={styles.loadingHeader}>
-        <ActivityIndicator color={COLORS.accent} />
-        <Text style={styles.loadingText}>{label}</Text>
+}) => {
+  const s = useAdminUIStyles();
+  const { colors } = useTheme();
+  return (
+  <View style={[s.loading, compact && s.loadingCompact]}>
+    <View style={s.loadingCard}>
+      <View style={s.loadingHeader}>
+        <ActivityIndicator color={colors.accent} />
+        <Text style={s.loadingText}>{label}</Text>
       </View>
-      <SkeletonBlock style={styles.skeletonTitle} />
-      <SkeletonBlock style={styles.skeletonLine} />
-      <SkeletonBlock style={styles.skeletonShort} />
+      <SkeletonBlock style={s.skeletonTitle} />
+      <SkeletonBlock style={s.skeletonLine} />
+      <SkeletonBlock style={s.skeletonShort} />
     </View>
     {!compact ? (
-      <View style={styles.loadingCard}>
-        <SkeletonBlock style={styles.skeletonTitle} />
-        <SkeletonBlock style={styles.skeletonLine} />
-        <SkeletonBlock style={styles.skeletonShort} />
+      <View style={s.loadingCard}>
+        <SkeletonBlock style={s.skeletonTitle} />
+        <SkeletonBlock style={s.skeletonLine} />
+        <SkeletonBlock style={s.skeletonShort} />
       </View>
     ) : null}
   </View>
-));
+  );
+});
 
 export const ReasonModal = ({ 
   visible, 
@@ -374,6 +414,8 @@ export const ReasonModal = ({
   title: string;
   placeholder?: string;
 }) => {
+  const s = useAdminUIStyles();
+  const { colors } = useTheme();
   const PRESET_REASONS = [
     "Test Data / Debugging",
     "Duplicate Record",
@@ -407,17 +449,17 @@ export const ReasonModal = ({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={() => { reset(); onClose(); }}>
       <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
-          <View style={styles.modalHeader}>
-            <View style={styles.modalIconBox}>
-              <MessageSquare size={20} color={COLORS.primary} />
+        <View style={s.modalCard}>
+          <View style={s.modalHeader}>
+            <View style={s.modalIconBox}>
+              <MessageSquare size={20} color={colors.primary} />
             </View>
-            <Text style={styles.modalTitle}>{title}</Text>
+            <Text style={s.modalTitle}>{title}</Text>
           </View>
           
-          <View style={styles.modalBody}>
-            <Text style={styles.modalLabel}>Select Reason</Text>
-            <View style={styles.chipGrid}>
+          <View style={s.modalBody}>
+            <Text style={s.modalLabel}>Select Reason</Text>
+            <View style={s.chipGrid}>
               {PRESET_REASONS.map((preset) => (
                 <TouchableOpacity 
                   key={preset}
@@ -426,13 +468,13 @@ export const ReasonModal = ({
                     setError(false);
                   }}
                   style={[
-                    styles.reasonChip,
-                    selectedPreset === preset && styles.reasonChipActive
+                    s.reasonChip,
+                    selectedPreset === preset && s.reasonChipActive
                   ]}
                 >
                   <Text style={[
-                    styles.reasonChipText,
-                    selectedPreset === preset && styles.reasonChipTextActive
+                    s.reasonChipText,
+                    selectedPreset === preset && s.reasonChipTextActive
                   ]}>{preset}</Text>
                 </TouchableOpacity>
               ))}
@@ -440,11 +482,11 @@ export const ReasonModal = ({
 
             {selectedPreset === 'Other' && (
               <View style={{ marginTop: 16 }}>
-                <Text style={styles.modalLabel}>Details</Text>
+                <Text style={s.modalLabel}>Details</Text>
                 <TextInput
-                  style={[styles.modalInput, error && styles.modalInputError]}
+                  style={[s.modalInput, error && s.modalInputError]}
                   placeholder={placeholder}
-                  placeholderTextColor={COLORS.textSubtle}
+                  placeholderTextColor={colors.textSubtle}
                   multiline
                   numberOfLines={3}
                   value={reason}
@@ -456,19 +498,19 @@ export const ReasonModal = ({
               </View>
             )}
             
-            {error && <Text style={styles.modalError}>Please select or provide a reason.</Text>}
+            {error && <Text style={s.modalError}>Please select or provide a reason.</Text>}
           </View>
 
-          <View style={styles.modalActions}>
-            <TouchableOpacity style={styles.modalCancel} onPress={() => { reset(); onClose(); }}>
-              <Text style={styles.modalCancelText}>Cancel</Text>
+          <View style={s.modalActions}>
+            <TouchableOpacity style={s.modalCancel} onPress={() => { reset(); onClose(); }}>
+              <Text style={s.modalCancelText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={[styles.modalConfirm, (!selectedPreset || (selectedPreset === 'Other' && !reason.trim())) && { opacity: 0.5 }]} 
+              style={[s.modalConfirm, (!selectedPreset || (selectedPreset === 'Other' && !reason.trim())) && { opacity: 0.5 }]} 
               onPress={handleConfirm}
               disabled={!selectedPreset || (selectedPreset === 'Other' && !reason.trim())}
             >
-              <Text style={styles.modalConfirmText}>Confirm Action</Text>
+              <Text style={s.modalConfirmText}>Confirm Action</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -477,6 +519,91 @@ export const ReasonModal = ({
   );
 };
 
+// --- Dynamic styles hook ---
+function useAdminUIStyles() {
+  const { colors } = useTheme();
+  return React.useMemo(() => StyleSheet.create({
+    pressed: { opacity: 0.86, transform: [{ scale: 0.985 }] },
+    disabled: { opacity: 0.62 },
+    headerShell: { borderBottomLeftRadius: RADIUS.xxl, borderBottomRightRadius: RADIUS.xxl, ...SHADOWS.floating },
+    header: { minHeight: 118, paddingHorizontal: SPACING.xl, paddingTop: SPACING.md, paddingBottom: SPACING.xl, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.md },
+    headerCompact: { minHeight: 94, paddingBottom: SPACING.lg },
+    headerCopy: { flex: 1, minWidth: 0 },
+    eyebrowPill: { alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 5, borderRadius: RADIUS.pill, backgroundColor: colors.glass, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', marginBottom: 10 },
+    eyebrow: { color: '#E0E7FF', fontSize: 9, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 },
+    headerTitle: { color: colors.white, fontSize: 24, lineHeight: 30, fontWeight: '800' },
+    headerSubtitle: { color: '#C7D2FE', fontSize: 12, lineHeight: 18, fontWeight: '600', marginTop: 4 },
+    headerAction: { flexShrink: 0 },
+    searchBox: { minHeight: 50, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: SPACING.md, gap: SPACING.sm, ...SHADOWS.card },
+    searchBoxFocused: { borderColor: colors.accent, backgroundColor: colors.surfaceElevated },
+    searchInput: { flex: 1, minWidth: 0, color: colors.text, fontSize: TYPOGRAPHY.body, fontWeight: '600', paddingVertical: 0, minHeight: 46 },
+    clearSearch: { width: 28, height: 28, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
+    card: { backgroundColor: colors.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: colors.border, padding: SPACING.lg, marginBottom: SPACING.lg, ...SHADOWS.card },
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', marginTop: SPACING.sm, marginBottom: SPACING.md, gap: SPACING.md },
+    sectionIcon: { width: 36, height: 36, borderRadius: RADIUS.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+    sectionCopy: { flex: 1, minWidth: 0 },
+    sectionTitle: { color: colors.text, fontSize: TYPOGRAPHY.section, lineHeight: 22, fontWeight: '800' },
+    sectionCaption: { color: colors.textMuted, fontSize: TYPOGRAPHY.caption, lineHeight: 16, fontWeight: '600', marginTop: 2 },
+    sectionAction: { flexShrink: 0 },
+    button: { minHeight: 50, borderRadius: RADIUS.md, borderWidth: 1, paddingHorizontal: SPACING.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm },
+    buttonFull: { width: '100%' },
+    buttonText: { fontSize: TYPOGRAPHY.body, lineHeight: 18, fontWeight: '800' },
+    iconButton: { width: 46, height: 46, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center' },
+    iconPrimary: { backgroundColor: colors.accent, ...SHADOWS.accent },
+    iconSuccess: { backgroundColor: colors.success },
+    iconDanger: { backgroundColor: colors.errorSoft, borderWidth: 1, borderColor: colors.error + '44' },
+    iconNeutral: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+    formLabel: { fontSize: TYPOGRAPHY.caption, lineHeight: 15, fontWeight: '800', color: colors.textMuted, marginBottom: 7, textTransform: 'uppercase', letterSpacing: 0 },
+    formLabelFocused: { color: colors.accent },
+    inputFrame: { minHeight: 50, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: SPACING.md, gap: SPACING.sm },
+    inputFrameFocused: { borderColor: colors.accent, ...SHADOWS.card },
+    inputFrameError: { borderColor: colors.error, backgroundColor: colors.errorSoft },
+    inputIcon: { width: 22, alignItems: 'center' },
+    formInput: { flex: 1, minWidth: 0, minHeight: 48, color: colors.text, fontSize: TYPOGRAPHY.body, fontWeight: '700', paddingVertical: 0 },
+    formError: { color: colors.error, fontSize: TYPOGRAPHY.caption, lineHeight: 16, fontWeight: '700', marginTop: 6 },
+    badge: { alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 5, borderRadius: RADIUS.pill, borderWidth: 1, maxWidth: '100%' },
+    badgeText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0 },
+    keyValueRow: { minHeight: 34, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.md },
+    keyLabel: { color: colors.textMuted, fontSize: TYPOGRAPHY.caption, fontWeight: '800', textTransform: 'uppercase' },
+    keyValue: { color: colors.text, flex: 1, textAlign: 'right', fontSize: TYPOGRAPHY.bodySmall, fontWeight: '700' },
+    empty: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACING.xl, paddingTop: 72, paddingBottom: 40 },
+    emptyIcon: { width: 72, height: 72, borderRadius: RADIUS.xxl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.lg, ...SHADOWS.card },
+    emptyTitle: { color: colors.text, fontSize: TYPOGRAPHY.section, lineHeight: 23, fontWeight: '800', textAlign: 'center' },
+    emptyMessage: { color: colors.textMuted, fontSize: TYPOGRAPHY.bodySmall, lineHeight: 19, textAlign: 'center', marginTop: 6, fontWeight: '600' },
+    emptyAction: { marginTop: SPACING.lg },
+    loading: { flex: 1, padding: SPACING.xl, gap: SPACING.lg, justifyContent: 'center' },
+    loadingCompact: { paddingVertical: SPACING.lg },
+    loadingCard: { backgroundColor: colors.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: colors.border, padding: SPACING.lg, gap: SPACING.md, ...SHADOWS.card },
+    loadingHeader: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, marginBottom: SPACING.xs },
+    loadingText: { color: colors.textMuted, fontSize: TYPOGRAPHY.bodySmall, fontWeight: '800' },
+    skeleton: { backgroundColor: colors.surfacePressed, borderRadius: RADIUS.sm },
+    skeletonTitle: { width: '48%', height: 16 },
+    skeletonLine: { width: '100%', height: 12 },
+    skeletonShort: { width: '72%', height: 12 },
+    modalOverlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
+    modalCard: { width: '100%', backgroundColor: colors.surface, borderRadius: RADIUS.lg, padding: SPACING.xl, ...SHADOWS.floating },
+    modalHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+    modalIconBox: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+    modalTitle: { fontSize: 17, fontWeight: '800', color: colors.text, flex: 1 },
+    modalBody: { marginBottom: 24 },
+    modalLabel: { fontSize: 11, fontWeight: '800', color: colors.textMuted, textTransform: 'uppercase', marginBottom: 8 },
+    modalInput: { backgroundColor: colors.surfaceMuted, borderRadius: RADIUS.md, padding: 12, fontSize: 14, color: colors.text, minHeight: 100, textAlignVertical: 'top', borderWidth: 1, borderColor: colors.border },
+    modalInputError: { borderColor: colors.error, backgroundColor: colors.errorSoft },
+    modalError: { color: colors.error, fontSize: 11, fontWeight: '700', marginTop: 6 },
+    modalActions: { flexDirection: 'row', gap: 12 },
+    modalCancel: { flex: 1, height: 48, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
+    modalCancelText: { fontSize: 14, fontWeight: '700', color: colors.textMuted },
+    modalConfirm: { flex: 2, height: 48, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
+    modalConfirmText: { fontSize: 14, fontWeight: '800', color: colors.white },
+    chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    reasonChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: RADIUS.md, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border },
+    reasonChipActive: { backgroundColor: colors.primarySoft, borderColor: colors.borderStrong },
+    reasonChipText: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
+    reasonChipTextActive: { color: colors.text },
+  }), [colors]);
+}
+
+// Keep legacy export for any direct style imports
 export const styles = StyleSheet.create({
   screen: {
     flex: 1,
