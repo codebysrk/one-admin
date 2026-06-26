@@ -59,11 +59,15 @@ async function mapTicketsWithUserNames(ticketData: any[]) {
 export const AllTicketsScreen = () => {
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmModal, setConfirmModal] = useState({ visible: false, ticketId: '' });
   const [reasonModal, setReasonModal] = useState({ visible: false, ticketId: '' });
 
-  useEffect(() => {
+  const unsubscribeRef = React.useRef<(() => void) | null>(null);
+
+  const subscribe = useCallback(() => {
+    if (unsubscribeRef.current) unsubscribeRef.current();
     let cancelled = false;
     const q = query(collection(db, 'tickets'), orderBy('timestamp', 'desc'), limit(100));
     const unsubscribe = onSnapshot(q, async (snapshot) => {
@@ -72,13 +76,21 @@ export const AllTicketsScreen = () => {
       if (!cancelled) {
         setTickets(ticketsWithUsers);
         setLoading(false);
+        setRefreshing(false);
       }
     });
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
+    unsubscribeRef.current = () => { cancelled = true; unsubscribe(); };
   }, []);
+
+  useEffect(() => {
+    subscribe();
+    return () => { unsubscribeRef.current?.(); };
+  }, [subscribe]);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    subscribe();
+  }, [subscribe]);
 
   const filteredTickets = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -153,6 +165,8 @@ export const AllTicketsScreen = () => {
           keyExtractor={(item: any) => item.id}
           renderItem={renderTicket}
           contentContainerStyle={styles.list}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
           ListEmptyComponent={<EmptyState icon={<Ticket size={30} color={COLORS.textSubtle} />} title="No bookings found" message="Try a different route, user, or ticket ID." />}
         />
       )}

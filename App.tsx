@@ -4,6 +4,7 @@ import { StyleSheet, View, Text, Platform } from 'react-native';
 import { LoginScreen } from './src/features/auth/LoginScreen';
 import { useAdminStore } from './src/store/useAdminStore';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AdminNavigator } from './src/navigation/AdminNavigator';
 import { COLORS } from './src/core/theme';
 import { ThemeProvider } from './src/core/ThemeContext';
@@ -103,11 +104,13 @@ export default function App() {
   return (
     <ThemeProvider>
       <ErrorBoundary>
-        <SafeAreaProvider>
-          <NavigationContainer ref={navigationRef}>
-            <AppBody />
-          </NavigationContainer>
-        </SafeAreaProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <SafeAreaProvider>
+            <NavigationContainer ref={navigationRef}>
+              <AppBody />
+            </NavigationContainer>
+          </SafeAreaProvider>
+        </GestureHandlerRootView>
       </ErrorBoundary>
     </ThemeProvider>
   );

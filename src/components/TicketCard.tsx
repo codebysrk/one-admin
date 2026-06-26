@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import Animated, { LinearTransition } from 'react-native-reanimated';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, I18nManager } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { SPACING } from '../core/theme';
@@ -31,6 +31,7 @@ const TicketCardInner = ({ ticket, showUserInfo = false, listUserName, onDelete 
   
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const swipeableRef = useRef<Swipeable>(null);
   const userLabel = listUserName ?? ticket.userName;
 
   const handleCopyTid = async () => {
@@ -43,116 +44,150 @@ const TicketCardInner = ({ ticket, showUserInfo = false, listUserName, onDelete 
 
   const isAC = ticket.busType === 'AC' || (ticket.route && ticket.route.toLowerCase().includes('ac'));
 
+  const handleSwipeDelete = useCallback(() => {
+    swipeableRef.current?.close();
+    onDelete?.(ticket.id);
+  }, [onDelete, ticket.id]);
+
+  const renderRightActions = useCallback(
+    (_progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
+      const opacity = dragX.interpolate({
+        inputRange: [-80, -40],
+        outputRange: [1, 0],
+        extrapolate: 'clamp',
+      });
+      return (
+        <Animated.View style={[styles.swipeDeleteAction, { opacity }]}>
+          <TouchableOpacity
+            style={styles.swipeDeleteBtn}
+            onPress={handleSwipeDelete}
+            activeOpacity={0.8}
+          >
+            <Trash2 size={20} color={colors.white} />
+            <Text style={styles.swipeDeleteText}>Delete</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      );
+    },
+    [styles, colors.white, handleSwipeDelete]
+  );
+
   return (
-    <View 
-      style={[styles.ticketContainer, expanded && styles.ticketContainerExpanded]}
+    <Swipeable
+      ref={swipeableRef}
+      renderRightActions={onDelete ? renderRightActions : undefined}
+      rightThreshold={40}
+      friction={2}
+      overshootRight={false}
     >
-      <TouchableOpacity 
-        style={styles.mainCardButton} 
-        onPress={() => setExpanded(!expanded)}
-        activeOpacity={0.8}
-      >
-        {/* Top Header Row */}
-        <View style={styles.headerRow}>
-          <View style={styles.routeBadgeWrapper}>
-            <View style={[styles.busBadge, isAC ? styles.acBadge : styles.nonAcBadge]}>
-              <Bus size={14} color={isAC ? (isDark ? colors.text : colors.primary) : colors.warning} />
-            </View>
-            <Text style={styles.routeName}>{ticket.route || 'Route'}</Text>
-            <Text style={styles.busTypeText}>{isAC ? 'AC' : 'Non-AC'}</Text>
-          </View>
-          
-          <View style={styles.rightHeader}>
-            <StatusBadge 
-              label={ticket.status || 'Active'} 
-              tone={ticket.status === 'Active' ? 'success' : ticket.status === 'Expired' ? 'neutral' : 'error'} 
-            />
-            {expanded ? <ChevronUp size={16} color={colors.textSubtle} /> : <ChevronDown size={16} color={colors.textSubtle} />}
-          </View>
-        </View>
-
-        {/* Journey Route Stops (Stacked vertically to prevent truncation) */}
-        <View style={styles.journeyWrapper}>
-          <View style={styles.journeyTimeline}>
-            <View style={styles.timelineDot} />
-            <View style={styles.timelineLine} />
-            <View style={[styles.timelineDot, styles.timelineDotDest]} />
-          </View>
-          <View style={styles.journeyStops}>
-            <Text style={styles.stopText} numberOfLines={1}>
-              {ticket.source}
-            </Text>
-            <Text style={[styles.stopText, styles.destStopText]} numberOfLines={1}>
-              {ticket.dest}
-            </Text>
-          </View>
-        </View>
-
-        {/* Quick Info Footer Row */}
-        <View style={styles.quickInfoRow}>
-          <Text style={styles.dateTimeText}>
-            {ticket.date} • {ticket.time}
-          </Text>
-          <Text style={styles.fareText}>₹{ticket.total || ticket.fare}</Text>
-        </View>
-      </TouchableOpacity>
-
-      {/* Expanded Detail Panel */}
-      {expanded && (
-        <View style={styles.detailPanel}>
-          <View style={styles.divider} />
-          
-          {showUserInfo && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Passenger</Text>
-              <View style={styles.userValueContainer}>
-                <Users size={12} color={colors.textMuted} style={{ marginRight: 4 }} />
-                <Text style={styles.detailValue}>{userLabel}</Text>
+      <View style={[styles.ticketContainer, expanded && styles.ticketContainerExpanded]}>
+        <TouchableOpacity 
+          style={styles.mainCardButton} 
+          onPress={() => setExpanded(!expanded)}
+          activeOpacity={0.8}
+        >
+          {/* Top Header Row */}
+          <View style={styles.headerRow}>
+            <View style={styles.routeBadgeWrapper}>
+              <View style={[styles.busBadge, isAC ? styles.acBadge : styles.nonAcBadge]}>
+                <Bus size={14} color={isAC ? (isDark ? colors.text : colors.primary) : colors.warning} />
               </View>
+              <Text style={styles.routeName}>{ticket.route || 'Route'}</Text>
+              <Text style={styles.busTypeText}>{isAC ? 'AC' : 'Non-AC'}</Text>
             </View>
-          )}
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Quantity</Text>
-            <Text style={styles.detailValue}>{ticket.qty} Ticket(s)</Text>
+            
+            <View style={styles.rightHeader}>
+              <StatusBadge 
+                label={ticket.status || 'Active'} 
+                tone={ticket.status === 'Active' ? 'success' : ticket.status === 'Expired' ? 'neutral' : 'error'} 
+              />
+              {expanded ? <ChevronUp size={16} color={colors.textSubtle} /> : <ChevronDown size={16} color={colors.textSubtle} />}
+            </View>
           </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Original Fare</Text>
-            <Text style={styles.detailValue}>₹{ticket.fare}</Text>
-          </View>
-
-          {Number(ticket.fare) > Number(ticket.total || ticket.finalFare) && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Discounted Fare</Text>
-              <Text style={[styles.detailValue, { color: colors.success, fontWeight: '800' }]}>
-                ₹{ticket.total || ticket.finalFare}
+          {/* Journey Route Stops */}
+          <View style={styles.journeyWrapper}>
+            <View style={styles.journeyTimeline}>
+              <View style={styles.timelineDot} />
+              <View style={styles.timelineLine} />
+              <View style={[styles.timelineDot, styles.timelineDotDest]} />
+            </View>
+            <View style={styles.journeyStops}>
+              <Text style={styles.stopText} numberOfLines={1}>
+                {ticket.source}
+              </Text>
+              <Text style={[styles.stopText, styles.destStopText]} numberOfLines={1}>
+                {ticket.dest}
               </Text>
             </View>
-          )}
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Transaction ID</Text>
-            <TouchableOpacity onPress={handleCopyTid} style={styles.copyButton} activeOpacity={0.6}>
-              <Text style={styles.tidText}>{ticket.tid}</Text>
-              <ContentCopy size={11} color={copied ? colors.success : colors.accent} />
-              {copied && <Text style={styles.copiedText}>Copied!</Text>}
-            </TouchableOpacity>
           </View>
 
-          {onDelete && (
-            <TouchableOpacity 
-              onPress={() => onDelete(ticket.id)} 
-              style={styles.deleteButton}
-              activeOpacity={0.8}
-            >
-              <Trash2 size={14} color={colors.error} />
-              <Text style={styles.deleteButtonText}>Void & Remove Ticket Record</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-    </View>
+          {/* Quick Info Footer Row */}
+          <View style={styles.quickInfoRow}>
+            <Text style={styles.dateTimeText}>
+              {ticket.date} • {ticket.time}
+            </Text>
+            <Text style={styles.fareText}>₹{ticket.total || ticket.fare}</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Expanded Detail Panel */}
+        {expanded && (
+          <View style={styles.detailPanel}>
+            <View style={styles.divider} />
+            
+            {showUserInfo && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Passenger</Text>
+                <View style={styles.userValueContainer}>
+                  <Users size={12} color={colors.textMuted} style={{ marginRight: 4 }} />
+                  <Text style={styles.detailValue}>{userLabel}</Text>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Quantity</Text>
+              <Text style={styles.detailValue}>{ticket.qty} Ticket(s)</Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Original Fare</Text>
+              <Text style={styles.detailValue}>₹{ticket.fare}</Text>
+            </View>
+
+            {Number(ticket.fare) > Number(ticket.total || ticket.finalFare) && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Discounted Fare</Text>
+                <Text style={[styles.detailValue, { color: colors.success, fontWeight: '800' }]}>
+                  ₹{ticket.total || ticket.finalFare}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Transaction ID</Text>
+              <TouchableOpacity onPress={handleCopyTid} style={styles.copyButton} activeOpacity={0.6}>
+                <Text style={styles.tidText}>{ticket.tid}</Text>
+                <ContentCopy size={11} color={copied ? colors.success : colors.accent} />
+                {copied && <Text style={styles.copiedText}>Copied!</Text>}
+              </TouchableOpacity>
+            </View>
+
+            {onDelete && (
+              <TouchableOpacity 
+                onPress={() => onDelete(ticket.id)} 
+                style={styles.deleteButton}
+                activeOpacity={0.8}
+              >
+                <Trash2 size={14} color={colors.error} />
+                <Text style={styles.deleteButtonText}>Void & Remove Ticket Record</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </View>
+    </Swipeable>
   );
 };
 
@@ -349,6 +384,27 @@ const getStyles = (colors: any, radius: any, shadows: any, isDark: boolean) => S
     fontSize: 12,
     fontWeight: '800',
     color: colors.error,
+  },
+  swipeDeleteAction: {
+    marginBottom: 10,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  swipeDeleteBtn: {
+    width: 80,
+    flex: 1,
+    backgroundColor: colors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: radius.lg,
+  },
+  swipeDeleteText: {
+    color: colors.white,
+    fontSize: 11,
+    fontWeight: '800',
   },
 });
 

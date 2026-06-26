@@ -6,8 +6,7 @@ const AnyFlashList = FlashList as any;
 import { collection, query, where, orderBy, onSnapshot, doc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useTheme } from '../../core/ThemeContext';
-import { RADIUS, SPACING  } from '../../core/theme';
-
+import { RADIUS, SPACING } from '../../core/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const IconWrapper = (name: any) => (props: any) => (
@@ -27,28 +26,42 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
   const { userId, userName } = route.params;
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [confirmModal, setConfirmModal] = useState({ visible: false, ticketId: '' });
   const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
   const [deleteAllReason, setDeleteAllReason] = useState(false);
 
-  useEffect(() => {
+  const unsubscribeRef = React.useRef<(() => void) | null>(null);
+
+  const subscribe = useCallback(() => {
+    if (unsubscribeRef.current) unsubscribeRef.current();
     const q = query(
       collection(db, 'tickets'),
       where('userId', '==', userId),
       orderBy('timestamp', 'desc')
     );
-
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setTickets(data);
       setLoading(false);
+      setRefreshing(false);
     }, (err) => {
       if (__DEV__) console.warn('User tickets listener:', err);
       setLoading(false);
+      setRefreshing(false);
     });
-
-    return () => unsubscribe();
+    unsubscribeRef.current = () => unsubscribe();
   }, [userId]);
+
+  useEffect(() => {
+    subscribe();
+    return () => { unsubscribeRef.current?.(); };
+  }, [subscribe]);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    subscribe();
+  }, [subscribe]);
 
   const handleDelete = useCallback((id: string) => {
     setConfirmModal({ visible: true, ticketId: id });
@@ -115,8 +128,8 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
           <Text style={styles.headerSubtitle} numberOfLines={1}>{userName}</Text>
         </View>
         {tickets.length > 0 && !loading && (
-          <TouchableOpacity 
-            onPress={handleDeleteAll} 
+          <TouchableOpacity
+            onPress={handleDeleteAll}
             style={styles.deleteAllBtn}
             accessibilityRole="button"
             accessibilityLabel="Delete all tickets"
@@ -135,6 +148,8 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
           keyExtractor={(item: any) => item.id}
           renderItem={renderTicket}
           contentContainerStyle={styles.listContent}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
           ListEmptyComponent={<EmptyState icon={<Ticket size={30} color={colors.textSubtle} />} title="No tickets found" message="This user has no booking history yet." />}
         />
       )}
