@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useTransition } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { collection, onSnapshot, doc, updateDoc, query, orderBy, setDoc, deleteDoc, where } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, query, orderBy, setDoc, deleteDoc, where, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useTheme } from '../../core/ThemeContext';
 import { RADIUS, SHADOWS, SPACING  } from '../../core/theme';
@@ -194,6 +194,17 @@ export const UsersListScreen = () => {
     } else if (type === 'DELETE_USER') {
       try {
         const { id: uid, email, name } = user;
+
+        // User ke saare devices delete karo
+        const devicesSnap = await getDocs(
+          query(collection(db, 'devices'), where('userId', '==', uid))
+        );
+        if (!devicesSnap.empty) {
+          const batch = writeBatch(db);
+          devicesSnap.docs.forEach((d) => batch.delete(d.ref));
+          await batch.commit();
+        }
+
         await setDoc(doc(db, 'deleted_users', uid), { uid, email, name, deletedAt: new Date().toISOString(), status: 'PENDING_AUTH_DELETION' });
         await deleteDoc(doc(db, 'users', uid));
         await logActivity({
@@ -204,7 +215,7 @@ export const UsersListScreen = () => {
           targetType: 'USER',
           notes: reason
         });
-        Alert.alert('Success', 'User moved to Cleanup list.');
+        Alert.alert('Success', 'User and their devices have been removed.');
       } catch (err) {
         Alert.alert('Error', 'Deletion failed');
       }
