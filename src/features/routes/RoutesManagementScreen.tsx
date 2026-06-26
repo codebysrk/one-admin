@@ -4,7 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
+import { useTheme } from '../../core/ThemeContext';
+import { RADIUS, SHADOWS, SPACING  } from '../../core/theme';
+
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const IconWrapper = (name: any) => (props: any) => (
@@ -62,6 +64,8 @@ const DraggableStopRow = ({
   onDelete,
   dragY,
 }: DraggableStopRowProps) => {
+  const { colors, isDark } = useTheme();
+  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
 
   const translateX = useRef(new Animated.Value(0)).current;
 
@@ -146,7 +150,7 @@ const DraggableStopRow = ({
       {/* Swipe to Delete Underlay Background */}
       {!isDragging && (
         <View style={styles.swipeDeleteBg}>
-          <Trash2 size={18} color={COLORS.error} />
+          <Trash2 size={18} color={colors.error} />
           <Text style={styles.swipeDeleteText}>Delete</Text>
         </View>
       )}
@@ -163,13 +167,13 @@ const DraggableStopRow = ({
           },
           isDragging && {
             zIndex: 99,
-            backgroundColor: COLORS.surfacePressed,
+            backgroundColor: colors.surfacePressed,
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.1,
             shadowRadius: 6,
             elevation: 5,
-            borderColor: COLORS.accent,
+            borderColor: colors.accent,
             opacity: 0.9,
           }
         ]}
@@ -185,14 +189,14 @@ const DraggableStopRow = ({
           value={stop}
           onChangeText={onChangeText}
           placeholder={`Stop #${index + 1}`}
-          placeholderTextColor={COLORS.textSubtle}
+          placeholderTextColor={colors.textSubtle}
         />
 
         <View 
           {...verticalDragPanResponder.panHandlers} 
           style={styles.dragHandle}
         >
-          <DragIcon size={18} color={COLORS.textSubtle} />
+          <DragIcon size={18} color={colors.textSubtle} />
         </View>
       </Animated.View>
 
@@ -207,6 +211,8 @@ interface StopSequenceEditorProps {
 }
 
 const StopSequenceEditor = ({ stops, onChangeStops }: StopSequenceEditorProps) => {
+  const { colors, isDark } = useTheme();
+  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
   const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [bulkText, setBulkText] = useState('');
   
@@ -360,7 +366,7 @@ const StopSequenceEditor = ({ stops, onChangeStops }: StopSequenceEditorProps) =
 
       {stops.length === 0 && (
         <View style={{ paddingVertical: 12, alignItems: 'center' }}>
-          <Text style={{ fontSize: 13, color: COLORS.textSubtle, fontStyle: 'italic' }}>
+          <Text style={{ fontSize: 13, color: colors.textSubtle, fontStyle: 'italic' }}>
             No stops in this sequence yet.
           </Text>
         </View>
@@ -368,7 +374,7 @@ const StopSequenceEditor = ({ stops, onChangeStops }: StopSequenceEditorProps) =
 
       <View style={styles.editorFooter}>
         <TouchableOpacity style={styles.addStopBtn} onPress={handleAddStop}>
-          <Plus size={14} color={COLORS.accent} />
+          <Plus size={14} color={colors.accent} />
           <Text style={styles.addStopBtnText}>Add Stop</Text>
         </TouchableOpacity>
 
@@ -379,7 +385,7 @@ const StopSequenceEditor = ({ stops, onChangeStops }: StopSequenceEditorProps) =
             setIsBulkOpen(true);
           }}
         >
-          <ContentPaste size={14} color={COLORS.textMuted} />
+          <ContentPaste size={14} color={colors.textMuted} />
           <Text style={styles.bulkImportToggleBtnText}>Bulk Edit</Text>
         </TouchableOpacity>
 
@@ -397,7 +403,7 @@ const StopSequenceEditor = ({ stops, onChangeStops }: StopSequenceEditorProps) =
           disabled={stops.length === 0}
           style={[styles.clearAllBtn, stops.length === 0 && { opacity: 0.5 }]}
         >
-          <X size={14} color={COLORS.error} />
+          <X size={14} color={colors.error} />
           <Text style={styles.clearAllBtnText}>Clear All</Text>
         </TouchableOpacity>
       </View>
@@ -412,7 +418,7 @@ const StopSequenceEditor = ({ stops, onChangeStops }: StopSequenceEditorProps) =
           <View style={styles.bulkModalCard}>
             <View style={styles.bulkModalHeader}>
               <View style={styles.bulkModalIconBox}>
-                <ContentPaste size={20} color={COLORS.primary} />
+                <ContentPaste size={20} color={isDark ? colors.text : colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.bulkModalTitle}>Bulk Edit Sequence</Text>
@@ -422,7 +428,7 @@ const StopSequenceEditor = ({ stops, onChangeStops }: StopSequenceEditorProps) =
                 style={styles.bulkModalCloseBtn}
                 onPress={() => setIsBulkOpen(false)}
               >
-                <X size={18} color={COLORS.textMuted} />
+                <X size={18} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
@@ -432,7 +438,7 @@ const StopSequenceEditor = ({ stops, onChangeStops }: StopSequenceEditorProps) =
                 value={bulkText}
                 onChangeText={setBulkText}
                 placeholder={"Example:\nStop A\nStop B\nStop C"}
-                placeholderTextColor={COLORS.textSubtle}
+                placeholderTextColor={colors.textSubtle}
                 multiline
                 autoFocus
               />
@@ -477,6 +483,8 @@ const StopSequenceEditor = ({ stops, onChangeStops }: StopSequenceEditorProps) =
 };
 
 export const RoutesManagementScreen = () => {
+  const { colors, isDark } = useTheme();
+  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
   const [routes, setRoutes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmModal, setConfirmModal] = useState({ visible: false, routeId: '' });
@@ -613,7 +621,7 @@ export const RoutesManagementScreen = () => {
     <TouchableOpacity style={styles.routeCard} onPress={() => startEdit(item)} activeOpacity={0.82}>
       <View style={styles.cardHeader}>
         <View style={styles.routeIconBox}>
-          <Bus size={22} color={COLORS.white} />
+          <Bus size={22} color={colors.white} />
         </View>
         <View style={styles.routeMeta}>
           <Text style={styles.routeTitle}>{item.route}</Text>
@@ -623,25 +631,25 @@ export const RoutesManagementScreen = () => {
           onPress={() => setConfirmModal({ visible: true, routeId: item.id })} 
           style={styles.miniBtn}
         >
-          <Trash2 size={16} color={COLORS.error} />
+          <Trash2 size={16} color={colors.error} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.pathPreview}>
         <View style={styles.pathNode}>
-           <MapPin size={12} color={COLORS.success} />
+           <MapPin size={12} color={colors.success} />
            <Text style={styles.pathText} numberOfLines={1}>{item.directions?.up?.from || 'Origin'}</Text>
         </View>
         <View style={styles.pathConnector} />
         <View style={styles.pathNode}>
-           <MapPin size={12} color={COLORS.error} />
+           <MapPin size={12} color={colors.error} />
            <Text style={styles.pathText} numberOfLines={1}>{item.directions?.up?.to || 'Dest'}</Text>
         </View>
       </View>
 
       <View style={styles.cardFooter}>
          <Text style={styles.footerInfo}>Tap to configure network</Text>
-         <ChevronRight size={14} color={COLORS.accent} />
+         <ChevronRight size={14} color={colors.accent} />
       </View>
     </TouchableOpacity>
   );
@@ -658,13 +666,13 @@ export const RoutesManagementScreen = () => {
               accessibilityLabel="Import JSON" 
               onPress={handleImportJSON}
             >
-              <FileJson size={20} color={COLORS.text} />
+              <FileJson size={20} color={colors.text} />
             </IconButton>
             <IconButton 
               accessibilityLabel="New route" 
               onPress={() => { resetForm(); setModalVisible(true); }}
             >
-              <Plus size={20} color={COLORS.white} />
+              <Plus size={20} color={colors.white} />
             </IconButton>
           </View>
         )}
@@ -682,7 +690,7 @@ export const RoutesManagementScreen = () => {
           keyExtractor={(item) => item.id}
           renderItem={renderRouteItem}
           contentContainerStyle={styles.list}
-          ListEmptyComponent={<EmptyState icon={<Bus size={30} color={COLORS.textSubtle} />} title="No routes found" message="Try a different route number or create one." />}
+          ListEmptyComponent={<EmptyState icon={<Bus size={30} color={colors.textSubtle} />} title="No routes found" message="Try a different route number or create one." />}
         />
       )}
 
@@ -697,14 +705,14 @@ export const RoutesManagementScreen = () => {
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
                 <View style={styles.idSection}>
                    <View style={styles.idInputBox}>
-                      <Hash size={18} color={COLORS.accent} />
+                      <Hash size={18} color={colors.accent} />
                       <TextInput 
                         style={styles.idInput} 
                         placeholder="Route Number (e.g. 469)" 
                         value={routeNumber} 
                         onChangeText={setRouteNumber} 
                         editable={!editingRoute} 
-                        placeholderTextColor={COLORS.textSubtle}
+                        placeholderTextColor={colors.textSubtle}
                       />
                    </View>
                    <Text style={styles.hint}>This is the unique identifier for this route.</Text>
@@ -727,18 +735,18 @@ export const RoutesManagementScreen = () => {
                       <View style={styles.journeyIcons}>
                          <View style={styles.dot} />
                          <View style={styles.line} />
-                         <MapPin size={14} color={COLORS.error} />
+                         <MapPin size={14} color={colors.error} />
                       </View>
                       <View style={styles.journeyInputs}>
-                         <TextInput style={styles.inlineInput} placeholder="Origin Stop" value={upFrom} onChangeText={setUpFrom} placeholderTextColor={COLORS.textSubtle} />
+                         <TextInput style={styles.inlineInput} placeholder="Origin Stop" value={upFrom} onChangeText={setUpFrom} placeholderTextColor={colors.textSubtle} />
                          <View style={styles.divider} />
-                         <TextInput style={styles.inlineInput} placeholder="Destination Stop" value={upTo} onChangeText={setUpTo} placeholderTextColor={COLORS.textSubtle} />
+                         <TextInput style={styles.inlineInput} placeholder="Destination Stop" value={upTo} onChangeText={setUpTo} placeholderTextColor={colors.textSubtle} />
                       </View>
                    </View>
 
                    <View style={styles.stopsSection}>
                       <View style={styles.stopsHeader}>
-                         <Map size={14} color={COLORS.textMuted} />
+                         <Map size={14} color={colors.textMuted} />
                          <Text style={styles.stopsLabel}>STOP SEQUENCE</Text>
                       </View>
                       <StopSequenceEditor stops={upStops} onChangeStops={setUpStops} />
@@ -762,18 +770,18 @@ export const RoutesManagementScreen = () => {
                       <View style={styles.journeyIcons}>
                          <View style={styles.dot} />
                          <View style={styles.line} />
-                         <MapPin size={14} color={COLORS.error} />
+                         <MapPin size={14} color={colors.error} />
                       </View>
                       <View style={styles.journeyInputs}>
-                         <TextInput style={styles.inlineInput} placeholder="Origin Stop" value={downFrom} onChangeText={setDownFrom} placeholderTextColor={COLORS.textSubtle} />
+                         <TextInput style={styles.inlineInput} placeholder="Origin Stop" value={downFrom} onChangeText={setDownFrom} placeholderTextColor={colors.textSubtle} />
                          <View style={styles.divider} />
-                         <TextInput style={styles.inlineInput} placeholder="Destination Stop" value={downTo} onChangeText={setDownTo} placeholderTextColor={COLORS.textSubtle} />
+                         <TextInput style={styles.inlineInput} placeholder="Destination Stop" value={downTo} onChangeText={setDownTo} placeholderTextColor={colors.textSubtle} />
                       </View>
                    </View>
 
                    <View style={styles.stopsSection}>
                       <View style={styles.stopsHeader}>
-                         <Map size={14} color={COLORS.textMuted} />
+                         <Map size={14} color={colors.textMuted} />
                          <Text style={styles.stopsLabel}>STOP SEQUENCE</Text>
                       </View>
                       <StopSequenceEditor stops={downStops} onChangeStops={setDownStops} />
@@ -784,7 +792,7 @@ export const RoutesManagementScreen = () => {
 
         <View style={styles.sheetFooter}>
           <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-             <LinearGradient colors={[COLORS.accent, '#3730A3']} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.saveGrad}>
+             <LinearGradient colors={[colors.accent, '#3730A3']} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.saveGrad}>
                 <Text style={styles.saveText}>Save Configuration</Text>
              </LinearGradient>
           </TouchableOpacity>
@@ -813,59 +821,59 @@ export const RoutesManagementScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   searchBar: { paddingHorizontal: 20, paddingTop: 16 },
   list: { padding: 20, paddingBottom: 40 },
-  routeCard: { backgroundColor: COLORS.surface, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
+  routeCard: { backgroundColor: colors.surface, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: colors.border, ...SHADOWS.card },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  routeIconBox: { width: 44, height: 44, borderRadius: 12, backgroundColor: COLORS.accent, justifyContent: 'center', alignItems: 'center', ...SHADOWS.accent },
+  routeIconBox: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.accent, justifyContent: 'center', alignItems: 'center', ...SHADOWS.accent },
   routeMeta: { flex: 1, marginLeft: 14 },
-  routeTitle: { fontSize: 18, fontWeight: '800', color: COLORS.text },
-  stopInfo: { fontSize: 12, color: COLORS.textMuted, fontWeight: '600', marginTop: 2 },
-  miniBtn: { padding: 8, backgroundColor: COLORS.errorSoft, borderRadius: 8 },
-  pathPreview: { backgroundColor: COLORS.surfaceMuted, padding: 12, borderRadius: 12, marginBottom: 16 },
+  routeTitle: { fontSize: 18, fontWeight: '800', color: colors.text },
+  stopInfo: { fontSize: 12, color: colors.textMuted, fontWeight: '600', marginTop: 2 },
+  miniBtn: { padding: 8, backgroundColor: colors.errorSoft, borderRadius: 8 },
+  pathPreview: { backgroundColor: colors.surfaceMuted, padding: 12, borderRadius: 12, marginBottom: 16 },
   pathNode: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  pathText: { fontSize: 12, fontWeight: '700', color: COLORS.text, flex: 1 },
-  pathConnector: { width: 1, height: 8, backgroundColor: COLORS.border, marginLeft: 5, marginVertical: 2 },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 12 },
-  footerInfo: { fontSize: 11, fontWeight: '700', color: COLORS.accent },
+  pathText: { fontSize: 12, fontWeight: '700', color: colors.text, flex: 1 },
+  pathConnector: { width: 1, height: 8, backgroundColor: colors.border, marginLeft: 5, marginVertical: 2 },
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12 },
+  footerInfo: { fontSize: 11, fontWeight: '700', color: colors.accent },
   
   modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.8)', justifyContent: 'center', alignItems: 'center' },
-  sheetTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text },
-  sheetSubtitle: { fontSize: 12, color: COLORS.textMuted, fontWeight: '600', marginTop: 4 },
-  closeBtn: { padding: 8, backgroundColor: COLORS.surfaceMuted, borderRadius: 10 },
+  sheetTitle: { fontSize: 22, fontWeight: '800', color: colors.text },
+  sheetSubtitle: { fontSize: 12, color: colors.textMuted, fontWeight: '600', marginTop: 4 },
+  closeBtn: { padding: 8, backgroundColor: colors.surfaceMuted, borderRadius: 10 },
   formScroll: { padding: 20, paddingBottom: 30 },
 
   idSection: { marginBottom: 16 },
-  idInputBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: 14, paddingHorizontal: 16, gap: 12 },
-  idInput: { flex: 1, height: 50, fontSize: 16, fontWeight: '800', color: COLORS.text },
-  hint: { fontSize: 11, color: COLORS.textSubtle, marginTop: 4, fontWeight: '600', marginLeft: 4 },
+  idInputBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 14, paddingHorizontal: 16, gap: 12 },
+  idInput: { flex: 1, height: 50, fontSize: 16, fontWeight: '800', color: colors.text },
+  hint: { fontSize: 11, color: colors.textSubtle, marginTop: 4, fontWeight: '600', marginLeft: 4 },
 
-  segmentCard: { backgroundColor: COLORS.white, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
+  segmentCard: { backgroundColor: colors.white, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: colors.border, ...SHADOWS.card },
   segmentHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   segmentIcon: { width: 34, height: 34, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  segmentTitle: { fontSize: 13, fontWeight: '900', color: COLORS.text, letterSpacing: 0.5 },
-  segmentSub: { fontSize: 11, color: COLORS.textMuted, fontWeight: '600' },
-  countBadge: { backgroundColor: COLORS.surfaceMuted, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border },
-  countText: { fontSize: 12, fontWeight: '900', color: COLORS.primary },
+  segmentTitle: { fontSize: 13, fontWeight: '900', color: colors.text, letterSpacing: 0.5 },
+  segmentSub: { fontSize: 11, color: colors.textMuted, fontWeight: '600' },
+  countBadge: { backgroundColor: colors.surfaceMuted, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
+  countText: { fontSize: 12, fontWeight: '900', color: colors.background === '#000000' ? colors.text : colors.primary },
 
-  journeyBox: { flexDirection: 'row', backgroundColor: COLORS.surfaceMuted, borderRadius: 16, padding: 12, marginBottom: 16 },
+  journeyBox: { flexDirection: 'row', backgroundColor: colors.surfaceMuted, borderRadius: 16, padding: 12, marginBottom: 16 },
   journeyIcons: { alignItems: 'center', paddingVertical: 10, paddingRight: 12 },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.success },
-  line: { width: 1.5, flex: 1, backgroundColor: COLORS.border, marginVertical: 4 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.success },
+  line: { width: 1.5, flex: 1, backgroundColor: colors.border, marginVertical: 4 },
   journeyInputs: { flex: 1, gap: 4 },
-  inlineInput: { height: 40, fontSize: 14, fontWeight: '700', color: COLORS.text, paddingHorizontal: 4 },
-  divider: { height: 1, backgroundColor: COLORS.border, marginVertical: 4 },
+  inlineInput: { height: 40, fontSize: 14, fontWeight: '700', color: colors.text, paddingHorizontal: 4 },
+  divider: { height: 1, backgroundColor: colors.border, marginVertical: 4 },
 
-  stopsSection: { backgroundColor: COLORS.surface, borderRadius: 16, padding: 12, borderWidth: 1, borderColor: COLORS.border },
+  stopsSection: { backgroundColor: colors.surface, borderRadius: 16, padding: 12, borderWidth: 1, borderColor: colors.border },
   stopsHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  stopsLabel: { fontSize: 10, fontWeight: '900', color: COLORS.textMuted, letterSpacing: 0.5 },
+  stopsLabel: { fontSize: 10, fontWeight: '900', color: colors.textMuted, letterSpacing: 0.5 },
   stopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     borderRadius: 12,
     height: 48,
     paddingHorizontal: 10,
@@ -876,23 +884,23 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: COLORS.accentSoft,
+    backgroundColor: colors.accentSoft,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.accentMuted,
+    borderColor: colors.accentMuted,
   },
   stopBadgeText: {
     fontSize: 12,
     fontWeight: '800',
-    color: COLORS.accent,
+    color: colors.accent,
   },
   stopInput: {
     flex: 1,
     height: 44,
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.text,
     paddingHorizontal: 4,
   },
   dragHandle: {
@@ -903,7 +911,7 @@ const styles = StyleSheet.create({
   },
   dropLine: {
     height: 4,
-    backgroundColor: COLORS.accent,
+    backgroundColor: colors.accent,
     borderRadius: 2,
     marginVertical: 4,
     width: '100%',
@@ -914,7 +922,7 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 8,
-    backgroundColor: COLORS.errorSoft,
+    backgroundColor: colors.errorSoft,
     borderWidth: 1,
     borderColor: '#FECDD3',
     borderRadius: 12,
@@ -925,7 +933,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   swipeDeleteText: {
-    color: COLORS.error,
+    color: colors.error,
     fontSize: 12,
     fontWeight: '800',
   },
@@ -945,15 +953,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: COLORS.accent,
-    backgroundColor: COLORS.accentSoft,
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
     flex: 1,
     minWidth: 120,
   },
   addStopBtnText: {
     fontSize: 13,
     fontWeight: '800',
-    color: COLORS.accent,
+    color: colors.accent,
   },
   bulkImportToggleBtn: {
     flexDirection: 'row',
@@ -964,13 +972,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.surfaceMuted,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
   },
   bulkImportToggleBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: COLORS.textMuted,
+    color: colors.textMuted,
   },
   clearAllBtn: {
     flexDirection: 'row',
@@ -982,21 +990,21 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#FECDD3',
-    backgroundColor: COLORS.errorSoft,
+    backgroundColor: colors.errorSoft,
   },
   clearAllBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: COLORS.error,
+    color: colors.error,
   },
   bulkModalCard: {
     width: '90%',
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: 24,
     padding: 20,
     ...SHADOWS.floating,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   bulkModalHeader: {
     flexDirection: 'row',
@@ -1008,24 +1016,24 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: COLORS.accentSoft,
+    backgroundColor: colors.accentSoft,
     justifyContent: 'center',
     alignItems: 'center',
   },
   bulkModalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: COLORS.text,
+    color: colors.text,
   },
   bulkModalSub: {
     fontSize: 11,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     fontWeight: '600',
     marginTop: 2,
   },
   bulkModalCloseBtn: {
     padding: 6,
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 8,
   },
   bulkModalBody: {
@@ -1033,14 +1041,14 @@ const styles = StyleSheet.create({
   },
   bulkModalInput: {
     height: 180,
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     borderRadius: 16,
     padding: 14,
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.text,
     textAlignVertical: 'top',
     lineHeight: 20,
   },
@@ -1048,32 +1056,32 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.accentSoft,
+    backgroundColor: colors.accentSoft,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
     marginTop: 10,
     gap: 6,
     borderWidth: 1,
-    borderColor: COLORS.accentMuted,
+    borderColor: colors.accentMuted,
   },
   detectedDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: COLORS.accent,
+    backgroundColor: colors.accent,
   },
   detectedText: {
     fontSize: 12,
     fontWeight: '800',
-    color: COLORS.accent,
+    color: colors.accent,
   },
   bulkModalActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    borderTopColor: colors.border,
     paddingTop: 16,
   },
   bulkActions: {
@@ -1089,26 +1097,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   bulkBtnPrimary: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: colors.accent,
   },
   bulkBtnSecondary: {
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   bulkBtnTextPrimary: {
     fontSize: 12,
     fontWeight: '800',
-    color: COLORS.white,
+    color: colors.white,
   },
   bulkBtnTextSecondary: {
     fontSize: 12,
     fontWeight: '700',
-    color: COLORS.textMuted,
+    color: colors.textMuted,
   },
 
-  sheetFooter: { padding: 12, borderTopWidth: 1, borderTopColor: COLORS.border, backgroundColor: COLORS.surface, paddingBottom: Platform.OS === 'ios' ? 30 : 12 },
+  sheetFooter: { padding: 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface, paddingBottom: Platform.OS === 'ios' ? 30 : 12 },
   saveBtn: { borderRadius: 10, overflow: 'hidden', ...SHADOWS.card },
   saveGrad: { height: 46, alignItems: 'center', justifyContent: 'center' },
-  saveText: { color: COLORS.white, fontSize: 14, fontWeight: '800' },
+  saveText: { color: colors.white, fontSize: 14, fontWeight: '800' },
 });

@@ -2,9 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
+const AnyFlashList = FlashList as any;
 import { collection, query, where, orderBy, onSnapshot, doc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import { COLORS, RADIUS, SPACING } from '../../core/theme';
+import { useTheme } from '../../core/ThemeContext';
+import { RADIUS, SPACING  } from '../../core/theme';
+
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const IconWrapper = (name: any) => (props: any) => (
@@ -19,6 +22,8 @@ import { logActivity } from '../../services/logService';
 import { TicketCard } from '../../components/TicketCard';
 
 export const UserTicketsScreen = ({ navigation, route }: any) => {
+  const { colors, isDark } = useTheme();
+  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
   const { userId, userName } = route.params;
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,7 +108,7 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
       <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Go back">
-          <ArrowLeft size={20} color={COLORS.primary} />
+          <ArrowLeft size={20} color={isDark ? colors.text : colors.primary} />
         </TouchableOpacity>
         <View style={styles.headerCopy}>
           <Text style={styles.headerTitle}>Tickets History ({tickets.length})</Text>
@@ -116,7 +121,7 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
             accessibilityRole="button"
             accessibilityLabel="Delete all tickets"
           >
-            <Trash2 size={20} color={COLORS.error} />
+            <Trash2 size={20} color={colors.error} />
           </TouchableOpacity>
         )}
       </View>
@@ -124,12 +129,13 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
       {loading ? (
         <LoadingState label="Loading tickets..." />
       ) : (
-        <FlashList
+        <AnyFlashList
           data={tickets}
-          keyExtractor={(item) => item.id}
+          estimatedItemSize={150}
+          keyExtractor={(item: any) => item.id}
           renderItem={renderTicket}
           contentContainerStyle={styles.listContent}
-          ListEmptyComponent={<EmptyState icon={<Ticket size={30} color={COLORS.textSubtle} />} title="No tickets found" message="This user has no booking history yet." />}
+          ListEmptyComponent={<EmptyState icon={<Ticket size={30} color={colors.textSubtle} />} title="No tickets found" message="This user has no booking history yet." />}
         />
       )}
 
@@ -167,13 +173,13 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.lg, backgroundColor: COLORS.surface, borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 14 },
+const getStyles = (colors: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.lg, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border, gap: 14 },
   headerCopy: { flex: 1, minWidth: 0 },
-  backBtn: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.md, backgroundColor: COLORS.surfaceMuted },
-  headerTitle: { fontSize: 18, lineHeight: 23, fontWeight: '800', color: COLORS.primary },
-  headerSubtitle: { fontSize: 13, color: COLORS.textMuted, fontWeight: '600', marginTop: 2 },
+  backBtn: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.md, backgroundColor: colors.surfaceMuted },
+  headerTitle: { fontSize: 18, lineHeight: 23, fontWeight: '800', color: colors.background === '#000000' ? colors.text : colors.primary },
+  headerSubtitle: { fontSize: 13, color: colors.textMuted, fontWeight: '600', marginTop: 2 },
   listContent: { padding: SPACING.xl, paddingBottom: 40 },
-  deleteAllBtn: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.md, backgroundColor: COLORS.errorSoft },
+  deleteAllBtn: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.md, backgroundColor: colors.errorSoft },
 });

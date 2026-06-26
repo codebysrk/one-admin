@@ -23,7 +23,8 @@ const IndianRupee = IconWrapper('currency-inr');
 const MapPin = IconWrapper('map-marker');
 const ArrowUpRight = IconWrapper('arrow-top-right');
 import { useAdminStore } from '../../store/useAdminStore';
-import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
+import { useTheme } from '../../core/ThemeContext';
+import { RADIUS, SHADOWS, SPACING } from '../../core/theme';
 import { db } from '../../services/firebase';
 import { AdminPressable, Card, SectionHeader, LoadingState, SkeletonBlock } from '../../components/AdminUI';
 
@@ -39,7 +40,10 @@ const formatLogTime = (timestamp: any) => {
   return isToday ? `Today, ${timeStr}` : `${date.toLocaleDateString([], { day: '2-digit', month: 'short' })}, ${timeStr}`;
 };
 
-const CompactHeader = React.memo(({ admin, onProfilePress }: any) => (
+const CompactHeader = React.memo(({ admin, onProfilePress }: any) => {
+  const { colors, isDark } = useTheme();
+  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
+  return (
   <LinearGradient colors={['#4F46E5', '#3730A3']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.headerGradient}>
     <SafeAreaView edges={['top']}>
       <View style={styles.header}>
@@ -48,46 +52,49 @@ const CompactHeader = React.memo(({ admin, onProfilePress }: any) => (
           <Text style={styles.adminName} numberOfLines={1}>{admin?.name || 'Administrator'}</Text>
         </View>
         <AdminPressable accessibilityRole="button" accessibilityLabel="Open profile settings" onPress={onProfilePress} style={styles.profileBtn}>
-          <UserCircle size={28} color={COLORS.white} />
+          <UserCircle size={28} color={colors.white} />
         </AdminPressable>
       </View>
     </SafeAreaView>
   </LinearGradient>
-));
+  );
+});
 
 const StatsGrid = React.memo(({ stats, weeklyRevenue, loading }: any) => {
+  const { colors, isDark } = useTheme();
+  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
   const cards = [
     {
       key: 'weekly',
       label: 'Weekly Earnings',
       icon: TrendingUp,
       value: loading ? '...' : `₹${weeklyRevenue.toLocaleString('en-IN')}`,
-      tone: COLORS.primary,
-      bg: COLORS.primarySoft,
+      tone: colors.primary,
+      bg: colors.primarySoft,
     },
     {
       key: 'revenue',
       label: 'Total Revenue',
       icon: IndianRupee,
       value: loading ? '...' : `₹${stats.revenue > 1000 ? (stats.revenue / 1000).toFixed(1) + 'k' : stats.revenue}`,
-      tone: COLORS.success,
-      bg: COLORS.successSoft,
+      tone: colors.success,
+      bg: colors.successSoft,
     },
     {
       key: 'users',
       label: 'Active Users',
       icon: Users,
       value: loading ? '...' : stats.users.toLocaleString('en-IN'),
-      tone: COLORS.accent,
-      bg: COLORS.accentSoft,
+      tone: colors.accent,
+      bg: colors.accentSoft,
     },
     {
       key: 'routes',
       label: 'Routes',
       icon: Bus,
       value: loading ? '...' : stats.routes.toLocaleString('en-IN'),
-      tone: COLORS.warning,
-      bg: COLORS.warningSoft,
+      tone: colors.warning,
+      bg: colors.warningSoft,
     },
   ];
 
@@ -111,10 +118,13 @@ const StatsGrid = React.memo(({ stats, weeklyRevenue, loading }: any) => {
   );
 });
 
-const RevenueChart = React.memo(({ loading, chartWidth, revenueData, chartConfig }: any) => (
+const RevenueChart = React.memo(({ loading, chartWidth, revenueData, chartConfig }: any) => {
+  const { colors, isDark } = useTheme();
+  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
+  return (
   <Card style={styles.chartCard}>
     <SectionHeader
-      icon={<TrendingUp size={17} color={COLORS.primary} />}
+      icon={<TrendingUp size={17} color={isDark ? colors.text : colors.primary} />}
       title="Revenue Performance"
       caption="Earnings (₹) over the last 7 days"
     />
@@ -138,21 +148,29 @@ const RevenueChart = React.memo(({ loading, chartWidth, revenueData, chartConfig
       )}
     </View>
   </Card>
-));
+  );
+});
 
-const ActivityItem = React.memo(({ log, isLast }: any) => (
+const ActivityItem = React.memo(({ log, isLast }: any) => {
+  const { colors, isDark } = useTheme();
+  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
+  return (
   <View style={[styles.activityRow, isLast && styles.activityRowLast]}>
-    <View style={[styles.activityDot, { backgroundColor: log.type === 'ADMIN' ? COLORS.primary : COLORS.info }]} />
+    <View style={[styles.activityDot, { backgroundColor: log.type === 'ADMIN' ? colors.primary : colors.info }]} />
     <View style={styles.activityContent}>
       <Text style={styles.activityTxt} numberOfLines={1}>{log.details || log.action}</Text>
       <Text style={styles.activityMeta}>{formatLogTime(log.timestamp)} • {log.userName || 'System'}</Text>
     </View>
   </View>
-));
+  );
+});
 
-const TicketItem = React.memo(({ ticket, isLast }: any) => (
+const TicketItem = React.memo(({ ticket, isLast }: any) => {
+  const { colors, isDark } = useTheme();
+  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
+  return (
   <View style={[styles.activityRow, isLast && styles.activityRowLast]}>
-    <View style={[styles.activityDot, { backgroundColor: ticket.busType === 'AC' ? COLORS.primary : COLORS.warning }]} />
+    <View style={[styles.activityDot, { backgroundColor: ticket.busType === 'AC' ? colors.primary : colors.warning }]} />
     <View style={styles.activityContent}>
       <Text style={styles.activityTxt} numberOfLines={1}>{(ticket.route || 'Route')} • {ticket.source} to {ticket.dest}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -168,9 +186,13 @@ const TicketItem = React.memo(({ ticket, isLast }: any) => (
       </View>
     </View>
   </View>
-));
+  );
+});
 
 export const DashboardScreen = () => {
+  console.log('DashboardScreen loaded successfully');
+  const { colors, isDark } = useTheme();
+  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
   const admin = useAdminStore((state) => state.admin);
   const navigation = useNavigation<any>();
   const { width } = useWindowDimensions();
@@ -299,14 +321,14 @@ export const DashboardScreen = () => {
 
   const chartConfig = useMemo(
     () => ({
-      backgroundColor: COLORS.surface,
-      backgroundGradientFrom: COLORS.surface,
-      backgroundGradientTo: COLORS.surface,
+      backgroundColor: colors.surface,
+      backgroundGradientFrom: colors.surface,
+      backgroundGradientTo: colors.surface,
       decimalPlaces: 0,
       color: (opacity = 1) => `rgba(99, 102, 241, ${opacity})`,
       labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`,
-      propsForDots: { r: '4', strokeWidth: '2', stroke: COLORS.white },
-      propsForBackgroundLines: { strokeDasharray: '', stroke: COLORS.border, opacity: 0.5 },
+      propsForDots: { r: '4', strokeWidth: '2', stroke: colors.white },
+      propsForBackgroundLines: { strokeDasharray: '', stroke: colors.border, opacity: 0.5 },
     }),
     []
   );
@@ -323,7 +345,7 @@ export const DashboardScreen = () => {
         <RevenueChart loading={loading} chartWidth={chartWidth} revenueData={revenueData} chartConfig={chartConfig} />
 
         <SectionHeader
-          icon={<MapPin size={17} color={COLORS.primary} />}
+          icon={<MapPin size={17} color={isDark ? colors.text : colors.primary} />}
           title="Top Performing Routes"
           caption="Routes generating highest ticket volume"
         />
@@ -333,8 +355,8 @@ export const DashboardScreen = () => {
             <Text style={styles.noData}>Collecting route data...</Text>
           ) : topRoutes.map((route, idx) => (
             <View key={route.name} style={styles.routeRow}>
-              <View style={[styles.routeRank, { backgroundColor: idx === 0 ? '#FEF3C7' : COLORS.surfaceMuted }]}>
-                <Text style={[styles.rankText, { color: idx === 0 ? '#D97706' : COLORS.textMuted }]}>{idx + 1}</Text>
+              <View style={[styles.routeRank, { backgroundColor: idx === 0 ? '#FEF3C7' : colors.surfaceMuted }]}>
+                <Text style={[styles.rankText, { color: idx === 0 ? '#D97706' : colors.textMuted }]}>{idx + 1}</Text>
               </View>
               <View style={styles.routeInfo}>
                 <Text style={styles.routeName}>{route.name}</Text>
@@ -353,7 +375,7 @@ export const DashboardScreen = () => {
         </View>
 
         <SectionHeader
-          icon={<Smartphone size={17} color={COLORS.primary} />}
+          icon={<Smartphone size={17} color={isDark ? colors.text : colors.primary} />}
           title="Fleet Performance"
           caption="Ticket distribution by bus type"
         />
@@ -361,16 +383,16 @@ export const DashboardScreen = () => {
         <View style={styles.fleetGrid}>
           <Card style={styles.fleetCard}>
             <Text style={styles.fleetLabel}>AC BUSES</Text>
-            <Text style={[styles.fleetValue, { color: COLORS.primary }]}>{busStats.ac}</Text>
+            <Text style={[styles.fleetValue, { color: isDark ? colors.text : colors.primary }]}>{busStats.ac}</Text>
           </Card>
           <Card style={styles.fleetCard}>
             <Text style={styles.fleetLabel}>NON-AC BUSES</Text>
-            <Text style={[styles.fleetValue, { color: COLORS.warning }]}>{busStats.nonAc}</Text>
+            <Text style={[styles.fleetValue, { color: colors.warning }]}>{busStats.nonAc}</Text>
           </Card>
         </View>
 
         <SectionHeader
-          icon={<Ticket size={17} color={COLORS.primary} />}
+          icon={<Ticket size={17} color={isDark ? colors.text : colors.primary} />}
           title="Live Ticket Feed"
           caption="Real-time passenger bookings"
         />
@@ -384,13 +406,13 @@ export const DashboardScreen = () => {
         </Card>
 
         <SectionHeader
-          icon={<Bell size={17} color={COLORS.primary} />}
+          icon={<Bell size={17} color={isDark ? colors.text : colors.primary} />}
           title="Security Feed"
           caption="Latest critical system activities"
           action={(
             <AdminPressable style={styles.viewAll} onPress={() => navigation.navigate('Logs')}>
               <Text style={styles.viewAllText}>View All</Text>
-              <ChevronRight size={14} color={COLORS.accent} />
+              <ChevronRight size={14} color={colors.accent} />
             </AdminPressable>
           )}
         />
@@ -411,13 +433,13 @@ export const DashboardScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const getStyles = (colors: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   headerGradient: { paddingBottom: 20, borderBottomLeftRadius: RADIUS.xl, borderBottomRightRadius: RADIUS.xl },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg },
   headerCopy: { flex: 1 },
   greeting: { fontSize: 10, color: '#E0E7FF', fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
-  adminName: { fontSize: 24, fontWeight: '800', color: COLORS.white, marginTop: 4 },
+  adminName: { fontSize: 24, fontWeight: '800', color: colors.white, marginTop: 4 },
   profileBtn: { width: 44, height: 44, borderRadius: RADIUS.md, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
   content: { flex: 1, marginTop: 16 },
   contentInner: { paddingHorizontal: SPACING.lg, paddingBottom: 40 },
@@ -425,32 +447,32 @@ const styles = StyleSheet.create({
   statCard: { width: '47%', flexGrow: 1, marginBottom: 0, padding: 14 },
   statCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   statIcon: { width: 28, height: 28, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center' },
-  statValue: { color: COLORS.text, fontSize: 20, fontWeight: '800' },
-  statLabel: { color: COLORS.textMuted, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', flexShrink: 1 },
+  statValue: { color: colors.text, fontSize: 20, fontWeight: '800' },
+  statLabel: { color: colors.textMuted, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', flexShrink: 1 },
   chartCard: { padding: 16, marginBottom: 24 },
   chartFrame: { marginTop: 16 },
   chart: { marginLeft: -15 },
-  routesGrid: { backgroundColor: COLORS.surface, borderRadius: RADIUS.lg, padding: 16, marginBottom: 24, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
+  routesGrid: { backgroundColor: colors.surface, borderRadius: RADIUS.lg, padding: 16, marginBottom: 24, borderWidth: 1, borderColor: colors.border, ...SHADOWS.card },
   routeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   routeRank: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   rankText: { fontSize: 12, fontWeight: '800' },
   routeInfo: { flex: 1, marginLeft: 12 },
-  routeName: { fontSize: 14, fontWeight: '800', color: COLORS.text },
-  routeVolume: { fontSize: 11, color: COLORS.textSubtle, marginTop: 2, fontWeight: '600' },
+  routeName: { fontSize: 14, fontWeight: '800', color: colors.text },
+  routeVolume: { fontSize: 11, color: colors.textSubtle, marginTop: 2, fontWeight: '600' },
   routeMetrics: { alignItems: 'flex-end' },
-  routeRev: { fontSize: 14, fontWeight: '800', color: COLORS.success },
-  noData: { textAlign: 'center', color: COLORS.textMuted, fontSize: 12, paddingVertical: 10 },
+  routeRev: { fontSize: 14, fontWeight: '800', color: colors.success },
+  noData: { textAlign: 'center', color: colors.textMuted, fontSize: 12, paddingVertical: 10 },
   viewAll: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  viewAllText: { fontSize: 11, fontWeight: '800', color: COLORS.accent },
+  viewAllText: { fontSize: 11, fontWeight: '800', color: colors.accent },
   activityFeed: { padding: 0, overflow: 'hidden' },
-  activityRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  activityRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
   activityRowLast: { borderBottomWidth: 0 },
   activityDot: { width: 6, height: 6, borderRadius: 3, marginRight: 12 },
   activityContent: { flex: 1 },
-  activityTxt: { fontSize: 13, color: COLORS.text, fontWeight: '700' },
-  activityMeta: { fontSize: 10, color: COLORS.textSubtle, marginTop: 2, fontWeight: '600' },
+  activityTxt: { fontSize: 13, color: colors.text, fontWeight: '700' },
+  activityMeta: { fontSize: 10, color: colors.textSubtle, marginTop: 2, fontWeight: '600' },
   fleetGrid: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   fleetCard: { flex: 1, padding: 16, alignItems: 'center', justifyContent: 'center' },
-  fleetLabel: { fontSize: 9, fontWeight: '800', color: COLORS.textMuted, letterSpacing: 0.5, marginBottom: 4 },
+  fleetLabel: { fontSize: 9, fontWeight: '800', color: colors.textMuted, letterSpacing: 0.5, marginBottom: 4 },
   fleetValue: { fontSize: 24, fontWeight: '900' },
 });

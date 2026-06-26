@@ -17,7 +17,9 @@ const IconWrapper = (name: any) => (props: any) => (
 );
 
 const X = IconWrapper('close');
-import { COLORS, RADIUS, SHADOWS, SPACING } from '../core/theme';
+import { useTheme } from '../core/ThemeContext';
+import { RADIUS, SHADOWS, SPACING  } from '../core/theme';
+
 
 interface BottomSheetProps {
   visible: boolean;
@@ -44,6 +46,8 @@ export const AdminBottomSheet = ({
   contentStyle,
   sheetStyle,
 }: BottomSheetProps) => {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   return (
     <Modal
       visible={visible}
@@ -71,7 +75,7 @@ export const AdminBottomSheet = ({
               style={styles.closeBtn}
               disabled={loading}
             >
-              <X size={18} color={COLORS.textMuted} />
+              <X size={18} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -81,7 +85,7 @@ export const AdminBottomSheet = ({
 
           {loading && (
             <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="small" color={COLORS.primary} />
+              <ActivityIndicator size="small" color={colors.primary} />
               <Text style={styles.loadingText}>{loadingText}</Text>
             </View>
           )}
@@ -93,7 +97,7 @@ export const AdminBottomSheet = ({
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
@@ -103,7 +107,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sheet: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     paddingTop: 12,
@@ -114,7 +118,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: COLORS.border,
+    backgroundColor: colors.border,
     alignSelf: 'center',
     marginBottom: 20,
   },
@@ -129,7 +133,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -139,17 +143,17 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 19,
     fontWeight: '800',
-    color: COLORS.text,
+    color: colors.text,
   },
   subtitle: {
     fontSize: 12,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     fontWeight: '600',
     marginTop: 2,
   },
   closeBtn: {
     padding: 8,
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 10,
   },
   body: {
@@ -167,6 +171,6 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 13,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.primary,
   },
 });

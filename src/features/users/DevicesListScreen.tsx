@@ -3,7 +3,9 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { collection, onSnapshot, updateDoc, doc, query, orderBy } from 'firebase/firestore';
 import { FlashList } from '@shopify/flash-list';
 import { db } from '../../services/firebase';
-import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
+import { useTheme } from '../../core/ThemeContext';
+import { RADIUS, SHADOWS, SPACING  } from '../../core/theme';
+
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AdminHeader, AdminScreen, EmptyState, LoadingState, StatusBadge } from '../../components/AdminUI';
 
@@ -20,6 +22,8 @@ const Android = IconWrapper('android');
 const Apple = IconWrapper('apple');
 
 export const DevicesListScreen = () => {
+  const { colors } = useTheme();
+  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
   const [devices, setDevices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -64,7 +68,7 @@ export const DevicesListScreen = () => {
         <View style={styles.deviceHeader}>
           <View style={styles.deviceInfo}>
             <View style={[styles.avatar, approved ? styles.avatarApproved : styles.avatarBanned]}>
-              <Smartphone size={20} color={approved ? COLORS.success : COLORS.error} />
+              <Smartphone size={20} color={approved ? colors.success : colors.error} />
             </View>
             <View style={styles.deviceCopy}>
               <Text style={styles.deviceName} numberOfLines={1}>{item.deviceName || 'Unknown Device'}</Text>
@@ -79,7 +83,7 @@ export const DevicesListScreen = () => {
         <View style={styles.deviceDetails}>
           <View style={styles.detailChipsRow}>
             <View style={styles.chip}>
-              {isAndroid ? <Android size={12} color={COLORS.textMuted} style={{ marginRight: 4 }} /> : isIOS ? <Apple size={12} color={COLORS.textMuted} style={{ marginRight: 4 }} /> : <Smartphone size={12} color={COLORS.textMuted} style={{ marginRight: 4 }} />}
+              {isAndroid ? <Android size={12} color={colors.textMuted} style={{ marginRight: 4 }} /> : isIOS ? <Apple size={12} color={colors.textMuted} style={{ marginRight: 4 }} /> : <Smartphone size={12} color={colors.textMuted} style={{ marginRight: 4 }} />}
               <Text style={styles.chipText}>{(item.platform || 'Unknown').toUpperCase()} {item.osVersion || ''}</Text>
             </View>
             <View style={styles.chip}>
@@ -89,7 +93,7 @@ export const DevicesListScreen = () => {
           </View>
 
           <View style={styles.timeRow}>
-            <Clock size={12} color={COLORS.textSubtle} style={{ marginRight: 6 }} />
+            <Clock size={12} color={colors.textSubtle} style={{ marginRight: 6 }} />
             <Text style={styles.timeText} numberOfLines={1}>
               Last active: {new Date(item.lastActive).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, day: '2-digit', month: 'short' })}
             </Text>
@@ -102,8 +106,8 @@ export const DevicesListScreen = () => {
             onPress={() => toggleStatus(item.id, item.status)}
             activeOpacity={0.7}
           >
-            {approved ? <ShieldAlert size={15} color={COLORS.error} /> : <ShieldCheck size={15} color={COLORS.success} />}
-            <Text style={[styles.actionBtnText, { color: approved ? COLORS.error : COLORS.success }]}>
+            {approved ? <ShieldAlert size={15} color={colors.error} /> : <ShieldCheck size={15} color={colors.success} />}
+            <Text style={[styles.actionBtnText, { color: approved ? colors.error : colors.success }]}>
               {approved ? 'Ban Device' : 'Approve Device'}
             </Text>
           </TouchableOpacity>
@@ -113,8 +117,8 @@ export const DevicesListScreen = () => {
             onPress={() => toggleForceLogout(item.id, item.forceLogout)}
             activeOpacity={0.7}
           >
-            <LogOut size={15} color={item.forceLogout ? COLORS.info : COLORS.textMuted} />
-            <Text style={[styles.actionBtnText, { color: item.forceLogout ? COLORS.info : COLORS.textMuted }]}>
+            <LogOut size={15} color={item.forceLogout ? colors.info : colors.textMuted} />
+            <Text style={[styles.actionBtnText, { color: item.forceLogout ? colors.info : colors.textMuted }]}>
               {item.forceLogout ? 'Cancel Logout' : 'Force Logout'}
             </Text>
           </TouchableOpacity>
@@ -135,27 +139,27 @@ export const DevicesListScreen = () => {
           keyExtractor={(item) => item.id}
           renderItem={renderDeviceItem}
           contentContainerStyle={styles.listContent}
-          ListEmptyComponent={<EmptyState icon={<Smartphone size={30} color={COLORS.textSubtle} />} title="No devices registered" message="Approved and flagged user devices will appear here." />}
+          ListEmptyComponent={<EmptyState icon={<Smartphone size={30} color={colors.textSubtle} />} title="No devices registered" message="Approved and flagged user devices will appear here." />}
         />
       )}
     </AdminScreen>
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   listContent: { padding: SPACING.xl, paddingBottom: 40 },
   deviceCard: { 
-    backgroundColor: COLORS.surface, 
+    backgroundColor: colors.surface, 
     borderRadius: RADIUS.lg, 
     padding: 14, 
     marginBottom: 12, 
     borderWidth: 1, 
-    borderColor: COLORS.border, 
+    borderColor: colors.border, 
     ...SHADOWS.card 
   },
   deviceCardBanned: { 
-    borderColor: COLORS.errorSoft, 
-    backgroundColor: COLORS.surfaceMuted 
+    borderColor: colors.errorSoft, 
+    backgroundColor: colors.surfaceMuted 
   },
   deviceHeader: { 
     flexDirection: 'row', 
@@ -184,21 +188,21 @@ const styles = StyleSheet.create({
     borderWidth: 1 
   },
   avatarApproved: { 
-    backgroundColor: COLORS.successSoft, 
+    backgroundColor: colors.successSoft, 
     borderColor: 'rgba(5, 150, 105, 0.15)' 
   },
   avatarBanned: { 
-    backgroundColor: COLORS.errorSoft, 
+    backgroundColor: colors.errorSoft, 
     borderColor: 'rgba(225, 29, 72, 0.15)' 
   },
   deviceName: { 
     fontSize: 14, 
     fontWeight: '800', 
-    color: COLORS.text 
+    color: colors.text 
   },
   userName: { 
     fontSize: 11, 
-    color: COLORS.textMuted, 
+    color: colors.textMuted, 
     marginTop: 1, 
     fontWeight: '600' 
   },
@@ -210,7 +214,7 @@ const styles = StyleSheet.create({
     marginBottom: 14, 
     paddingBottom: 12, 
     borderBottomWidth: 1, 
-    borderBottomColor: COLORS.border 
+    borderBottomColor: colors.border 
   },
   detailChipsRow: { 
     flexDirection: 'row', 
@@ -221,9 +225,9 @@ const styles = StyleSheet.create({
   chip: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    backgroundColor: COLORS.surfaceMuted, 
+    backgroundColor: colors.surfaceMuted, 
     borderWidth: 1, 
-    borderColor: COLORS.border, 
+    borderColor: colors.border, 
     borderRadius: RADIUS.sm, 
     paddingHorizontal: 8, 
     paddingVertical: 4 
@@ -231,17 +235,17 @@ const styles = StyleSheet.create({
   chipText: { 
     fontSize: 10, 
     fontWeight: '800', 
-    color: COLORS.textMuted 
+    color: colors.textMuted 
   },
   chipLabel: { 
     fontSize: 10, 
-    color: COLORS.textSubtle, 
+    color: colors.textSubtle, 
     fontWeight: '700' 
   },
   chipValText: { 
     fontSize: 10, 
     fontWeight: '800', 
-    color: COLORS.text 
+    color: colors.text 
   },
   timeRow: { 
     flexDirection: 'row', 
@@ -250,7 +254,7 @@ const styles = StyleSheet.create({
   },
   timeText: { 
     fontSize: 10, 
-    color: COLORS.textSubtle, 
+    color: colors.textSubtle, 
     fontWeight: '700' 
   },
   actions: { 
@@ -274,19 +278,19 @@ const styles = StyleSheet.create({
     fontWeight: '800' 
   },
   banBtn: { 
-    backgroundColor: COLORS.errorSoft, 
+    backgroundColor: colors.errorSoft, 
     borderColor: '#FECDD3' 
   },
   approveBtn: { 
-    backgroundColor: COLORS.successSoft, 
+    backgroundColor: colors.successSoft, 
     borderColor: '#BBF7D0' 
   },
   logoutActiveBtn: { 
-    backgroundColor: COLORS.infoSoft, 
+    backgroundColor: colors.infoSoft, 
     borderColor: '#BFDBFE' 
   },
   logoutInactiveBtn: { 
-    backgroundColor: COLORS.surfaceMuted, 
-    borderColor: COLORS.border 
+    backgroundColor: colors.surfaceMuted, 
+    borderColor: colors.border 
   },
 });

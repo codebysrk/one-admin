@@ -5,7 +5,9 @@ const AnyFlashList = FlashList as any;
 import { useNavigation } from '@react-navigation/native';
 import { collection, onSnapshot, query, orderBy, limit, where, Timestamp, getDocs, deleteDoc, doc, writeBatch } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
+import { useTheme } from '../../core/ThemeContext';
+import { RADIUS, SHADOWS, SPACING  } from '../../core/theme';
+
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const IconWrapper = (name: any) => (props: any) => (
@@ -43,6 +45,8 @@ const formatFullTimestamp = (timestamp: any) => {
 };
 
 export const LogsScreen = () => {
+  const { colors } = useTheme();
+  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -97,11 +101,11 @@ export const LogsScreen = () => {
 
   const getLogStyle = useCallback((action: string) => {
     const act = action?.toUpperCase() || '';
-    if (act.includes('DELETE') || act.includes('BANNED') || act.includes('FAILED')) return { color: COLORS.error, bg: COLORS.errorSoft };
-    if (act.includes('ADD') || act.includes('CREATE') || act.includes('LOGIN') || act.includes('SUCCESS')) return { color: COLORS.success, bg: COLORS.successSoft };
-    if (act.includes('UPDATE') || act.includes('EDIT')) return { color: COLORS.warning, bg: COLORS.warningSoft };
-    if (act.includes('SEARCH')) return { color: COLORS.info, bg: COLORS.infoSoft };
-    return { color: COLORS.accent, bg: COLORS.accentSoft };
+    if (act.includes('DELETE') || act.includes('BANNED') || act.includes('FAILED')) return { color: colors.error, bg: colors.errorSoft };
+    if (act.includes('ADD') || act.includes('CREATE') || act.includes('LOGIN') || act.includes('SUCCESS')) return { color: colors.success, bg: colors.successSoft };
+    if (act.includes('UPDATE') || act.includes('EDIT')) return { color: colors.warning, bg: colors.warningSoft };
+    if (act.includes('SEARCH')) return { color: colors.info, bg: colors.infoSoft };
+    return { color: colors.accent, bg: colors.accentSoft };
   }, []);
 
   const handleNavigate = useCallback(
@@ -172,12 +176,12 @@ export const LogsScreen = () => {
             style={styles.logCard}
           >
             <View style={styles.logHeader}>
-              <View style={[styles.typeBadge, { backgroundColor: item.type === 'ADMIN' ? COLORS.primary : COLORS.info }]}>
-                {item.type === 'ADMIN' ? <Shield size={10} color={COLORS.white} /> : <User size={10} color={COLORS.white} />}
+              <View style={[styles.typeBadge, { backgroundColor: item.type === 'ADMIN' ? colors.primary : colors.info }]}>
+                {item.type === 'ADMIN' ? <Shield size={10} color={colors.white} /> : <User size={10} color={colors.white} />}
                 <Text style={styles.typeText}>{item.type || 'SYSTEM'}</Text>
               </View>
               <View style={styles.timeWrapper}>
-                <Clock size={12} color={COLORS.textSubtle} />
+                <Clock size={12} color={colors.textSubtle} />
                 <Text style={styles.timeText}>
                   {formatFullTimestamp(item.timestamp)}
                 </Text>
@@ -193,7 +197,7 @@ export const LogsScreen = () => {
                   <Text style={styles.deltaLabel}>FROM</Text>
                   <Text style={styles.deltaValue}>{String(item.oldValue)}</Text>
                 </View>
-                <ArrowRight size={12} color={COLORS.textSubtle} />
+                <ArrowRight size={12} color={colors.textSubtle} />
                 <View style={styles.deltaRow}>
                   <Text style={styles.deltaLabel}>TO</Text>
                   <Text style={[styles.deltaValue, { color: theme.color }]}>{String(item.newValue)}</Text>
@@ -211,13 +215,13 @@ export const LogsScreen = () => {
             {item.deviceMeta && (
               <View style={styles.metaBox}>
                 <View style={styles.metaRow}>
-                  <Smartphone size={12} color={COLORS.textSubtle} />
+                  <Smartphone size={12} color={colors.textSubtle} />
                   <Text style={styles.metaTitle}>DEVICE HARDWARE</Text>
                 </View>
                 <View style={styles.deviceDetails}>
                   <Text style={styles.deviceText}>{item.deviceMeta.model || 'Unknown Device'} ({item.deviceMeta.os} {item.deviceMeta.osVersion})</Text>
-                  <View style={[styles.securityPill, { backgroundColor: item.deviceMeta.isRooted ? COLORS.errorSoft : COLORS.successSoft }]}>
-                    <Text style={[styles.securityText, { color: item.deviceMeta.isRooted ? COLORS.error : COLORS.success }]}>
+                  <View style={[styles.securityPill, { backgroundColor: item.deviceMeta.isRooted ? colors.errorSoft : colors.successSoft }]}>
+                    <Text style={[styles.securityText, { color: item.deviceMeta.isRooted ? colors.error : colors.success }]}>
                       {item.deviceMeta.isRooted ? 'EMULATOR/ROOTED' : 'SECURE DEVICE'}
                     </Text>
                   </View>
@@ -236,7 +240,7 @@ export const LogsScreen = () => {
               {item.targetType && (
                 <View style={styles.navIndicator}>
                   <Text style={styles.navText}>View Details</Text>
-                  <ChevronRight size={12} color={COLORS.primary} />
+                  <ChevronRight size={12} color={colors.primary} />
                 </View>
               )}
             </View>
@@ -259,14 +263,14 @@ export const LogsScreen = () => {
               accessibilityLabel="System Maintenance"
               onPress={() => setShowCleanupModal(true)}
             >
-              <Settings size={18} color={COLORS.text} />
+              <Settings size={18} color={colors.text} />
             </IconButton>
             <IconButton
               tone="success"
               accessibilityLabel="Export activity logs"
               onPress={() => exportToCSV(logs, `security_audit_${new Date().getTime()}`)}
             >
-              <Download size={18} color={COLORS.white} />
+              <Download size={18} color={colors.white} />
             </IconButton>
           </View>
         )}
@@ -322,7 +326,7 @@ export const LogsScreen = () => {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <EmptyState 
-              icon={<Activity size={40} color={COLORS.textSubtle} />} 
+              icon={<Activity size={40} color={colors.textSubtle} />} 
               title="Audit Log Empty" 
               message="No activities recorded matching your current filters." 
             />
@@ -349,9 +353,9 @@ export const LogsScreen = () => {
             onPress={() => handleCleanup(7)}
             disabled={cleaning}
           >
-            <View style={styles.btnIconBox}><Trash2 size={16} color={COLORS.textMuted} /></View>
+            <View style={styles.btnIconBox}><Trash2 size={16} color={colors.textMuted} /></View>
             <Text style={styles.cleanupBtnText}>Older than 7 Days</Text>
-            <ChevronRight size={14} color={COLORS.border} />
+            <ChevronRight size={14} color={colors.border} />
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -359,9 +363,9 @@ export const LogsScreen = () => {
             onPress={() => handleCleanup(30)}
             disabled={cleaning}
           >
-            <View style={styles.btnIconBox}><Trash2 size={16} color={COLORS.textMuted} /></View>
+            <View style={styles.btnIconBox}><Trash2 size={16} color={colors.textMuted} /></View>
             <Text style={styles.cleanupBtnText}>Older than 30 Days</Text>
-            <ChevronRight size={14} color={COLORS.border} />
+            <ChevronRight size={14} color={colors.border} />
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -369,9 +373,9 @@ export const LogsScreen = () => {
             onPress={() => handleCleanup('ALL')}
             disabled={cleaning}
           >
-            <View style={[styles.btnIconBox, { backgroundColor: COLORS.errorSoft }]}><Trash2 size={16} color={COLORS.error} /></View>
-            <Text style={[styles.cleanupBtnText, { color: COLORS.error }]}>Clear Entire History</Text>
-            <ChevronRight size={14} color={COLORS.errorSoft} />
+            <View style={[styles.btnIconBox, { backgroundColor: colors.errorSoft }]}><Trash2 size={16} color={colors.error} /></View>
+            <Text style={[styles.cleanupBtnText, { color: colors.error }]}>Clear Entire History</Text>
+            <ChevronRight size={14} color={colors.errorSoft} />
           </TouchableOpacity>
         </View>
       </AdminBottomSheet>
@@ -389,49 +393,49 @@ export const LogsScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   controls: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg, gap: SPACING.md },
   filterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
   tabGroup: { flexDirection: 'row', gap: 6 },
-  dateGroup: { flexDirection: 'row', gap: 4, backgroundColor: COLORS.surfaceMuted, padding: 3, borderRadius: RADIUS.md },
-  filterTab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.pill, backgroundColor: COLORS.surfaceMuted, borderWidth: 1, borderColor: COLORS.border },
-  activeFilterTab: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  filterTabText: { fontSize: 10, fontWeight: '800', color: COLORS.textMuted },
-  activeFilterTabText: { color: COLORS.white },
+  dateGroup: { flexDirection: 'row', gap: 4, backgroundColor: colors.surfaceMuted, padding: 3, borderRadius: RADIUS.md },
+  filterTab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.pill, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border },
+  activeFilterTab: { backgroundColor: colors.primary, borderColor: colors.primary },
+  filterTabText: { fontSize: 10, fontWeight: '800', color: colors.textMuted },
+  activeFilterTabText: { color: colors.white },
   dateTab: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  activeDateTab: { backgroundColor: COLORS.surface, ...SHADOWS.card },
-  dateTabText: { fontSize: 10, fontWeight: '800', color: COLORS.textSubtle },
-  activeDateTabText: { color: COLORS.primary },
+  activeDateTab: { backgroundColor: colors.surface, ...SHADOWS.card },
+  dateTabText: { fontSize: 10, fontWeight: '800', color: colors.textSubtle },
+  activeDateTabText: { color: colors.primary },
   
   listContent: { paddingHorizontal: SPACING.xl, paddingVertical: SPACING.xl, paddingBottom: 60 },
   logWrapper: { flexDirection: 'row', marginBottom: 2 },
   timelineContainer: { width: 30, alignItems: 'center' },
   timelineDot: { width: 10, height: 10, borderRadius: 5, zIndex: 1, marginTop: 18 },
-  timelineLine: { flex: 1, width: 2, backgroundColor: COLORS.border, marginVertical: 2 },
+  timelineLine: { flex: 1, width: 2, backgroundColor: colors.border, marginVertical: 2 },
   
   logCard: { 
     flex: 1, 
-    backgroundColor: COLORS.surface, 
+    backgroundColor: colors.surface, 
     borderRadius: RADIUS.lg, 
     padding: SPACING.lg, 
     marginBottom: 20, 
     borderWidth: 1, 
-    borderColor: COLORS.border, 
+    borderColor: colors.border, 
     ...SHADOWS.card 
   },
   logHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   typeBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: RADIUS.sm },
-  typeText: { fontSize: 9, fontWeight: '800', color: COLORS.white, textTransform: 'uppercase' },
+  typeText: { fontSize: 9, fontWeight: '800', color: colors.white, textTransform: 'uppercase' },
   timeWrapper: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  timeText: { fontSize: 11, color: COLORS.textSubtle, fontWeight: '700' },
+  timeText: { fontSize: 11, color: colors.textSubtle, fontWeight: '700' },
   
-  logAction: { fontSize: 15, fontWeight: '800', color: COLORS.text, marginBottom: 4 },
-  logDetails: { fontSize: 13, color: COLORS.textMuted, lineHeight: 18, marginBottom: 12, fontWeight: '500' },
+  logAction: { fontSize: 15, fontWeight: '800', color: colors.text, marginBottom: 4 },
+  logDetails: { fontSize: 13, color: colors.textMuted, lineHeight: 18, marginBottom: 12, fontWeight: '500' },
   
-  deltaBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surfaceMuted, padding: 10, borderRadius: RADIUS.md, gap: 12, marginBottom: 16 },
+  deltaBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceMuted, padding: 10, borderRadius: RADIUS.md, gap: 12, marginBottom: 16 },
   deltaRow: { flex: 1 },
-  deltaLabel: { fontSize: 8, fontWeight: '800', color: COLORS.textSubtle, marginBottom: 2 },
-  deltaValue: { fontSize: 13, fontWeight: '700', color: COLORS.text },
+  deltaLabel: { fontSize: 8, fontWeight: '800', color: colors.textSubtle, marginBottom: 2 },
+  deltaValue: { fontSize: 13, fontWeight: '700', color: colors.text },
   
   noteBox: { backgroundColor: '#FDF4FF', borderLeftWidth: 3, borderLeftColor: '#D946EF', padding: 10, borderRadius: 6, marginBottom: 16 },
   noteLabel: { fontSize: 9, fontWeight: '800', color: '#D946EF', marginBottom: 4 },
@@ -443,24 +447,24 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     paddingTop: 12, 
     borderTopWidth: 1, 
-    borderTopColor: COLORS.surfaceMuted 
+    borderTopColor: colors.surfaceMuted 
   },
   actorInfo: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
-  actorAvatar: { width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.accentSoft, alignItems: 'center', justifyContent: 'center' },
-  actorInitial: { fontSize: 11, fontWeight: '800', color: COLORS.accent },
-  actorName: { fontSize: 12, color: COLORS.text, fontWeight: '700', flex: 1 },
+  actorAvatar: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
+  actorInitial: { fontSize: 11, fontWeight: '800', color: colors.accent },
+  actorName: { fontSize: 12, color: colors.text, fontWeight: '700', flex: 1 },
   navIndicator: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  navText: { fontSize: 10, fontWeight: '800', color: COLORS.primary },
+  navText: { fontSize: 10, fontWeight: '800', color: colors.primary },
   metaBox: { marginTop: 12, padding: 12, backgroundColor: '#F8FAFC', borderRadius: RADIUS.md, borderWidth: 1, borderColor: '#E2E8F0' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  metaTitle: { fontSize: 9, fontWeight: '900', color: COLORS.textSubtle, letterSpacing: 0.5 },
+  metaTitle: { fontSize: 9, fontWeight: '900', color: colors.textSubtle, letterSpacing: 0.5 },
   deviceDetails: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
-  deviceText: { fontSize: 13, fontWeight: '700', color: COLORS.text, flex: 1 },
+  deviceText: { fontSize: 13, fontWeight: '700', color: colors.text, flex: 1 },
   securityPill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   securityText: { fontSize: 9, fontWeight: '900' },
-  versionText: { fontSize: 10, color: COLORS.textSubtle, fontWeight: '600' },
-  alertBox: { backgroundColor: COLORS.surfaceMuted, padding: 16, borderRadius: 16, marginBottom: 24 },
-  maintenanceDesc: { fontSize: 13, color: COLORS.textMuted, fontWeight: '600', lineHeight: 20 },
+  versionText: { fontSize: 10, color: colors.textSubtle, fontWeight: '600' },
+  alertBox: { backgroundColor: colors.surfaceMuted, padding: 16, borderRadius: 16, marginBottom: 24 },
+  maintenanceDesc: { fontSize: 13, color: colors.textMuted, fontWeight: '600', lineHeight: 20 },
   cleanupActions: { gap: 12 },
   cleanupBtn: { 
     flexDirection: 'row', 
@@ -469,9 +473,9 @@ const styles = StyleSheet.create({
     padding: 16, 
     borderRadius: 18, 
     borderWidth: 1, 
-    borderColor: COLORS.border, 
-    backgroundColor: COLORS.surface 
+    borderColor: colors.border, 
+    backgroundColor: colors.surface 
   },
-  btnIconBox: { width: 36, height: 36, borderRadius: 10, backgroundColor: COLORS.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
-  cleanupBtnText: { fontSize: 14, fontWeight: '800', color: COLORS.text, flex: 1 },
+  btnIconBox: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
+  cleanupBtnText: { fontSize: 14, fontWeight: '800', color: colors.text, flex: 1 },
 });

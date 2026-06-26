@@ -3,7 +3,9 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'rea
 import { FlashList } from '@shopify/flash-list';
 import { collection, onSnapshot, doc, updateDoc, query, orderBy, setDoc, deleteDoc, where } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
+import { useTheme } from '../../core/ThemeContext';
+import { RADIUS, SHADOWS, SPACING  } from '../../core/theme';
+
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AdminHeader, AdminScreen, EmptyState, LoadingState, ReasonModal, SearchField, StatusBadge } from '../../components/AdminUI';
 import { UserTicketsScreen } from './UserTicketsScreen';
@@ -24,6 +26,8 @@ const IndianRupee = IconWrapper('currency-inr');
 const Star = IconWrapper('star');
 
 const UserCard = React.memo(({ item, userRevenue, initiateDelete, initiateStatusToggle, setSelectedUser }: any) => {
+  const { colors, isDark } = useTheme();
+  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
   const banned = item.status === 'BANNED';
   const isAdmin = item.role === 'admin';
   const revenue = userRevenue[item.id] || 0;
@@ -33,7 +37,7 @@ const UserCard = React.memo(({ item, userRevenue, initiateDelete, initiateStatus
     <View style={[styles.userCard, banned && styles.userCardBanned]}>
       <View style={styles.cardMain}>
         <View style={[styles.avatar, banned ? styles.avatarBanned : (isAdmin ? styles.avatarAdmin : styles.avatarUser)]}>
-          {isAdmin ? <ShieldCheck size={20} color={COLORS.primary} /> : <UserIcon size={20} color={banned ? COLORS.error : COLORS.accent} />}
+          {isAdmin ? <ShieldCheck size={20} color={isDark ? colors.text : colors.primary} /> : <UserIcon size={20} color={banned ? colors.error : colors.accent} />}
         </View>
         <View style={styles.userInfo}>
           <View style={styles.nameRow}>
@@ -58,13 +62,13 @@ const UserCard = React.memo(({ item, userRevenue, initiateDelete, initiateStatus
           style={styles.deleteBtn} 
           activeOpacity={0.7}
         >
-          <Trash2 size={16} color={COLORS.error} />
+          <Trash2 size={16} color={colors.error} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.revenueRow}>
         <View style={styles.revBox}>
-          <IndianRupee size={12} color={COLORS.success} />
+          <IndianRupee size={12} color={colors.success} />
           <Text style={styles.revLabel}>Lifetime Revenue</Text>
           <Text style={styles.revValue}>₹{revenue.toLocaleString('en-IN')}</Text>
         </View>
@@ -76,8 +80,8 @@ const UserCard = React.memo(({ item, userRevenue, initiateDelete, initiateStatus
           onPress={() => initiateStatusToggle(item)} 
           activeOpacity={0.7}
         >
-          {item.status === 'ACTIVE' || !item.status ? <XCircle size={14} color={COLORS.error} /> : <BadgeCheck size={14} color={COLORS.success} />}
-          <Text style={[styles.actionBtnText, { color: (item.status === 'ACTIVE' || !item.status) ? COLORS.error : COLORS.success }]}>
+          {item.status === 'ACTIVE' || !item.status ? <XCircle size={14} color={colors.error} /> : <BadgeCheck size={14} color={colors.success} />}
+          <Text style={[styles.actionBtnText, { color: (item.status === 'ACTIVE' || !item.status) ? colors.error : colors.success }]}>
             {item.status === 'ACTIVE' || !item.status ? 'Ban User' : 'Unban'}
           </Text>
         </TouchableOpacity>
@@ -87,8 +91,8 @@ const UserCard = React.memo(({ item, userRevenue, initiateDelete, initiateStatus
           onPress={() => setSelectedUser(item)} 
           activeOpacity={0.7}
         >
-          <Ticket size={14} color={COLORS.accent} />
-          <Text style={[styles.actionBtnText, { color: COLORS.accent }]}>View Tickets</Text>
+          <Ticket size={14} color={colors.accent} />
+          <Text style={[styles.actionBtnText, { color: colors.accent }]}>View Tickets</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -98,6 +102,8 @@ const UserCard = React.memo(({ item, userRevenue, initiateDelete, initiateStatus
 type FilterType = 'ALL' | 'ACTIVE' | 'BANNED' | 'ADMINS';
 
 export const UsersListScreen = () => {
+  const { colors, isDark } = useTheme();
+  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
   const [, startTransition] = useTransition();
   const [users, setUsers] = useState<any[]>([]);
   const [userRevenue, setUserRevenue] = useState<Record<string, number>>({});
@@ -287,7 +293,7 @@ export const UsersListScreen = () => {
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <EmptyState 
-              icon={<Search size={30} color={COLORS.textSubtle} />} 
+              icon={<Search size={30} color={colors.textSubtle} />} 
               title={`No ${activeFilter.toLowerCase()} users`} 
               message="No records found matching your search or filter." 
             />
@@ -305,37 +311,37 @@ export const UsersListScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   controls: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg, gap: 12 },
   filterBar: { gap: 8, paddingBottom: 4 },
   filterTab: { 
     paddingHorizontal: 16, 
     paddingVertical: 8, 
     borderRadius: RADIUS.pill, 
-    backgroundColor: COLORS.surface, 
+    backgroundColor: colors.surface, 
     borderWidth: 1, 
-    borderColor: COLORS.border 
+    borderColor: colors.border 
   },
   filterTabActive: { 
-    backgroundColor: COLORS.primary, 
-    borderColor: COLORS.primary 
+    backgroundColor: colors.primary, 
+    borderColor: colors.primary 
   },
-  filterText: { fontSize: 11, fontWeight: '800', color: COLORS.textMuted },
-  filterTextActive: { color: COLORS.white },
+  filterText: { fontSize: 11, fontWeight: '800', color: colors.textMuted },
+  filterTextActive: { color: colors.white },
   
   list: { padding: SPACING.xl, paddingBottom: 40 },
   userCard: { 
-    backgroundColor: COLORS.surface, 
+    backgroundColor: colors.surface, 
     borderRadius: RADIUS.lg, 
     padding: 14, 
     marginBottom: 12, 
     borderWidth: 1, 
-    borderColor: COLORS.border, 
+    borderColor: colors.border, 
     ...SHADOWS.card 
   },
   userCardBanned: {
-    borderColor: COLORS.errorSoft,
-    backgroundColor: COLORS.surfaceMuted,
+    borderColor: colors.errorSoft,
+    backgroundColor: colors.surfaceMuted,
   },
   cardMain: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   avatar: { 
@@ -347,20 +353,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   avatarUser: {
-    backgroundColor: COLORS.accentSoft,
+    backgroundColor: colors.accentSoft,
     borderColor: 'rgba(37, 99, 235, 0.15)',
   },
   avatarAdmin: {
-    backgroundColor: COLORS.primarySoft,
+    backgroundColor: colors.primarySoft,
     borderColor: 'rgba(11, 18, 32, 0.15)',
   },
   avatarBanned: {
-    backgroundColor: COLORS.errorSoft,
+    backgroundColor: colors.errorSoft,
     borderColor: 'rgba(225, 29, 72, 0.15)',
   },
   userInfo: { flex: 1, minWidth: 0 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  userName: { fontSize: 14, fontWeight: '800', color: COLORS.text, flexShrink: 1 },
+  userName: { fontSize: 14, fontWeight: '800', color: colors.text, flexShrink: 1 },
   vipBadge: { 
     flexDirection: 'row', 
     alignItems: 'center', 
@@ -373,14 +379,14 @@ const styles = StyleSheet.create({
     borderColor: '#FDE68A' 
   },
   vipText: { fontSize: 9, fontWeight: '900', color: '#B45309' },
-  userEmail: { fontSize: 11, color: COLORS.textMuted, marginTop: 1, fontWeight: '600' },
+  userEmail: { fontSize: 11, color: colors.textMuted, marginTop: 1, fontWeight: '600' },
   statusRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 6 },
   deleteBtn: { 
     width: 36, 
     height: 36, 
     alignItems: 'center', 
     justifyContent: 'center', 
-    backgroundColor: COLORS.errorSoft, 
+    backgroundColor: colors.errorSoft, 
     borderWidth: 1,
     borderColor: '#FECDD3',
     borderRadius: RADIUS.md 
@@ -388,18 +394,18 @@ const styles = StyleSheet.create({
   
   revenueRow: { 
     marginTop: 12, 
-    backgroundColor: COLORS.surfaceMuted, 
+    backgroundColor: colors.surfaceMuted, 
     paddingVertical: 8, 
     paddingHorizontal: 12, 
     borderRadius: RADIUS.md, 
     borderLeftWidth: 3, 
-    borderLeftColor: COLORS.success,
+    borderLeftColor: colors.success,
     borderWidth: 1,
-    borderColor: COLORS.border
+    borderColor: colors.border
   },
   revBox: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  revLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textSubtle },
-  revValue: { fontSize: 12, fontWeight: '800', color: COLORS.text },
+  revLabel: { fontSize: 11, fontWeight: '700', color: colors.textSubtle },
+  revValue: { fontSize: 12, fontWeight: '800', color: colors.text },
 
   cardActions: { flexDirection: 'row', marginTop: 12, gap: 10 },
   actionBtn: { 
@@ -416,15 +422,15 @@ const styles = StyleSheet.create({
   },
   actionBtnText: { fontSize: 11, fontWeight: '800' },
   banBtn: {
-    backgroundColor: COLORS.errorSoft,
+    backgroundColor: colors.errorSoft,
     borderColor: '#FECDD3',
   },
   unbanBtn: {
-    backgroundColor: COLORS.successSoft,
+    backgroundColor: colors.successSoft,
     borderColor: '#BBF7D0',
   },
   viewTicketsBtn: {
-    backgroundColor: COLORS.accentSoft,
+    backgroundColor: colors.accentSoft,
     borderColor: 'rgba(37, 99, 235, 0.15)',
   },
 });

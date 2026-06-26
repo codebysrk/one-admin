@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Modal, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { collection, onSnapshot, doc, deleteDoc, addDoc, query, orderBy, getCountFromServer } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
+import { useTheme } from '../../core/ThemeContext';
+import { RADIUS, SHADOWS, SPACING  } from '../../core/theme';
+
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const IconWrapper = (name: any) => (props: any) => (
@@ -31,6 +33,8 @@ const NOTIFICATION_TYPES = [
 ];
 
 export const NotificationsScreen = () => {
+  const { colors } = useTheme();
+  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
   const [notifications, setNotifications] = useState<any[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -100,7 +104,7 @@ export const NotificationsScreen = () => {
             <Text style={styles.dateText}>{new Date(item.timestamp).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</Text>
           </View>
           <TouchableOpacity onPress={() => deleteDoc(doc(db, 'notifications', item.id))} style={styles.deleteBtn}>
-            <Trash2 size={14} color={COLORS.error} />
+            <Trash2 size={14} color={colors.error} />
           </TouchableOpacity>
         </View>
         <Text style={styles.notifTitle} numberOfLines={1}>{item.title}</Text>
@@ -123,12 +127,12 @@ export const NotificationsScreen = () => {
         ListHeaderComponent={(
           <TouchableOpacity style={styles.mainAction} onPress={() => setModalVisible(true)}>
              <LinearGradient colors={['#4F46E5', '#6366F1']} style={styles.actionGrad}>
-                <Megaphone size={20} color={COLORS.white} />
+                <Megaphone size={20} color={colors.white} />
                 <View style={styles.actionCopy}>
                    <Text style={styles.actionTitle}>New Broadcast</Text>
                    <Text style={styles.actionSub}>Global alert system</Text>
                 </View>
-                <Plus size={20} color={COLORS.white} />
+                <Plus size={20} color={colors.white} />
              </LinearGradient>
           </TouchableOpacity>
         )}
@@ -145,7 +149,7 @@ export const NotificationsScreen = () => {
                   <Text style={styles.modalSubtitle}>Configure system-wide announcement</Text>
                 </View>
                 <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}>
-                  <X size={20} color={COLORS.textMuted} />
+                  <X size={20} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
 
@@ -154,15 +158,15 @@ export const NotificationsScreen = () => {
                 <View style={styles.categoryGrid}>
                    {NOTIFICATION_TYPES.map(t => (
                      <TouchableOpacity key={t.id} style={[styles.catBtn, type === t.id && { borderColor: t.tone, backgroundColor: t.bg }]} onPress={() => setType(t.id)}>
-                        <t.icon size={16} color={type === t.id ? t.tone : COLORS.textMuted} />
+                        <t.icon size={16} color={type === t.id ? t.tone : colors.textMuted} />
                         <Text style={[styles.catLabel, type === t.id && { color: t.tone }]}>{t.label}</Text>
                      </TouchableOpacity>
                    ))}
                 </View>
 
                 <View style={styles.inputSection}>
-                  <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Headline (e.g., Schedule Update)" placeholderTextColor={COLORS.textSubtle} maxLength={45} />
-                  <TextInput style={[styles.input, styles.area]} value={message} onChangeText={setMessage} multiline numberOfLines={3} placeholder="Describe the announcement..." placeholderTextColor={COLORS.textSubtle} />
+                  <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Headline (e.g., Schedule Update)" placeholderTextColor={colors.textSubtle} maxLength={45} />
+                  <TextInput style={[styles.input, styles.area]} value={message} onChangeText={setMessage} multiline numberOfLines={3} placeholder="Describe the announcement..." placeholderTextColor={colors.textSubtle} />
                 </View>
 
                 <View style={styles.previewCard}>
@@ -189,44 +193,44 @@ export const NotificationsScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   listContent: { padding: 20, paddingBottom: 60 },
   mainAction: { marginBottom: 16, borderRadius: 16, overflow: 'hidden', ...SHADOWS.card },
   actionGrad: { padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14 },
   actionCopy: { flex: 1 },
-  actionTitle: { color: COLORS.white, fontSize: 17, fontWeight: '800' },
+  actionTitle: { color: colors.white, fontSize: 17, fontWeight: '800' },
   actionSub: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '600' },
-  notifCard: { backgroundColor: COLORS.surface, borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
+  notifCard: { backgroundColor: colors.surface, borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: colors.border },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   typeInfo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   typeIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  dateText: { fontSize: 10, color: COLORS.textSubtle, fontWeight: '700' },
-  deleteBtn: { padding: 6, backgroundColor: COLORS.errorSoft, borderRadius: 6 },
-  notifTitle: { fontSize: 14, fontWeight: '800', color: COLORS.text, marginBottom: 2 },
-  notifMessage: { fontSize: 12, color: COLORS.textMuted, fontWeight: '600' },
+  dateText: { fontSize: 10, color: colors.textSubtle, fontWeight: '700' },
+  deleteBtn: { padding: 6, backgroundColor: colors.errorSoft, borderRadius: 6 },
+  notifTitle: { fontSize: 14, fontWeight: '800', color: colors.text, marginBottom: 2 },
+  notifMessage: { fontSize: 12, color: colors.textMuted, fontWeight: '600' },
   overlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'flex-end' },
   keyboard: { width: '100%', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: COLORS.surface, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 24, paddingTop: 30, paddingBottom: 40, maxHeight: '98%' },
+  modalContent: { backgroundColor: colors.surface, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 24, paddingTop: 30, paddingBottom: 40, maxHeight: '98%' },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },
-  modalTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text },
-  modalSubtitle: { fontSize: 13, color: COLORS.textMuted, fontWeight: '600', marginTop: 4 },
-  closeBtn: { padding: 6, backgroundColor: COLORS.surfaceMuted, borderRadius: 10 },
+  modalTitle: { fontSize: 22, fontWeight: '800', color: colors.text },
+  modalSubtitle: { fontSize: 13, color: colors.textMuted, fontWeight: '600', marginTop: 4 },
+  closeBtn: { padding: 6, backgroundColor: colors.surfaceMuted, borderRadius: 10 },
   formBody: { gap: 14 },
-  label: { fontSize: 12, fontWeight: '800', color: COLORS.textMuted, textTransform: 'uppercase', marginBottom: 4 },
+  label: { fontSize: 12, fontWeight: '800', color: colors.textMuted, textTransform: 'uppercase', marginBottom: 4 },
   categoryGrid: { flexDirection: 'row', gap: 10 },
-  catBtn: { flex: 1, paddingVertical: 12, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center', gap: 6 },
-  catLabel: { fontSize: 11, fontWeight: '800', color: COLORS.textMuted },
+  catBtn: { flex: 1, paddingVertical: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, alignItems: 'center', gap: 6 },
+  catLabel: { fontSize: 11, fontWeight: '800', color: colors.textMuted },
   inputSection: { gap: 12 },
-  input: { backgroundColor: COLORS.surfaceMuted, borderRadius: 14, padding: 16, fontSize: 15, fontWeight: '700', color: COLORS.text, borderWidth: 1, borderColor: COLORS.border },
+  input: { backgroundColor: colors.surfaceMuted, borderRadius: 14, padding: 16, fontSize: 15, fontWeight: '700', color: colors.text, borderWidth: 1, borderColor: colors.border },
   area: { height: 110, textAlignVertical: 'top' },
-  previewCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 18, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
+  previewCard: { backgroundColor: colors.white, borderRadius: 16, padding: 18, borderWidth: 1, borderColor: colors.border, ...SHADOWS.card },
   previewHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10 },
   previewIcon: { width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  previewType: { fontSize: 12, fontWeight: '800', color: COLORS.textMuted, flex: 1 },
-  previewTitle: { fontSize: 15, fontWeight: '800', color: COLORS.text, marginBottom: 6 },
-  previewText: { fontSize: 13, color: COLORS.textMuted, fontWeight: '500', lineHeight: 18 },
+  previewType: { fontSize: 12, fontWeight: '800', color: colors.textMuted, flex: 1 },
+  previewTitle: { fontSize: 15, fontWeight: '800', color: colors.text, marginBottom: 6 },
+  previewText: { fontSize: 13, color: colors.textMuted, fontWeight: '500', lineHeight: 18 },
   sendBtn: { borderRadius: 16, overflow: 'hidden', marginTop: 8, ...SHADOWS.accent },
   sendGrad: { height: 56, alignItems: 'center', justifyContent: 'center' },
-  sendText: { color: COLORS.white, fontSize: 16, fontWeight: '800' },
-  bottomBleed: { position: 'absolute', bottom: -100, left: 0, right: 0, height: 120, backgroundColor: COLORS.surface, zIndex: 1 },
+  sendText: { color: colors.white, fontSize: 16, fontWeight: '800' },
+  bottomBleed: { position: 'absolute', bottom: -100, left: 0, right: 0, height: 120, backgroundColor: colors.surface, zIndex: 1 },
 });

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
+const AnyFlashList = FlashList as any;
 import {
   collection,
   onSnapshot,
@@ -146,9 +147,10 @@ export const AllTicketsScreen = () => {
       {loading ? (
         <LoadingState label="Loading bookings..." />
       ) : (
-        <FlashList
+        <AnyFlashList
           data={filteredTickets}
-          keyExtractor={(item) => item.id}
+          estimatedItemSize={150}
+          keyExtractor={(item: any) => item.id}
           renderItem={renderTicket}
           contentContainerStyle={styles.list}
           ListEmptyComponent={<EmptyState icon={<Ticket size={30} color={COLORS.textSubtle} />} title="No bookings found" message="Try a different route, user, or ticket ID." />}

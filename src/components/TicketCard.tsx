@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { useAppTheme, SPACING } from '../core/theme';
+import { SPACING } from '../core/theme';
+import { useTheme } from '../core/ThemeContext';
 import { StatusBadge } from './AdminUI';
 
 const IconWrapper = (name: any) => (props: any) => (
@@ -25,8 +26,8 @@ interface TicketCardProps {
 }
 
 const TicketCardInner = ({ ticket, showUserInfo = false, listUserName, onDelete }: TicketCardProps) => {
-  const { colors, radius, shadows } = useAppTheme();
-  const styles = useMemo(() => getStyles(colors, radius, shadows), [colors, radius, shadows]);
+  const { colors, radius, shadows, isDark } = useTheme();
+  const styles = useMemo(() => getStyles(colors, radius, shadows, isDark), [colors, radius, shadows, isDark]);
   
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -43,44 +44,56 @@ const TicketCardInner = ({ ticket, showUserInfo = false, listUserName, onDelete 
   const isAC = ticket.busType === 'AC' || (ticket.route && ticket.route.toLowerCase().includes('ac'));
 
   return (
-    <Animated.View 
-      layout={LinearTransition.springify().damping(22).stiffness(200).mass(0.5)}
+    <View 
       style={[styles.ticketContainer, expanded && styles.ticketContainerExpanded]}
     >
-      {/* Collapsed Header / Main Row */}
       <TouchableOpacity 
-        style={styles.mainRow} 
+        style={styles.mainCardButton} 
         onPress={() => setExpanded(!expanded)}
-        activeOpacity={0.7}
+        activeOpacity={0.8}
       >
-        <View style={styles.leftSection}>
-          <View style={[styles.busBadge, isAC ? styles.acBadge : styles.nonAcBadge]}>
-            <Bus size={14} color={isAC ? colors.primary : colors.warning} />
-          </View>
-          <View style={styles.routeCol}>
+        {/* Top Header Row */}
+        <View style={styles.headerRow}>
+          <View style={styles.routeBadgeWrapper}>
+            <View style={[styles.busBadge, isAC ? styles.acBadge : styles.nonAcBadge]}>
+              <Bus size={14} color={isAC ? (isDark ? colors.text : colors.primary) : colors.warning} />
+            </View>
             <Text style={styles.routeName}>{ticket.route || 'Route'}</Text>
             <Text style={styles.busTypeText}>{isAC ? 'AC' : 'Non-AC'}</Text>
           </View>
-        </View>
-
-        <View style={styles.centerSection}>
-          <Text style={styles.directionText} numberOfLines={1}>
-            {ticket.source} ➔ {ticket.dest}
-          </Text>
-          <Text style={styles.dateTimeText}>
-            {ticket.date} • {ticket.time}
-          </Text>
-        </View>
-
-        <View style={styles.rightSection}>
-          <Text style={styles.fareText}>₹{ticket.total || ticket.fare}</Text>
-          <View style={styles.badgeRow}>
+          
+          <View style={styles.rightHeader}>
             <StatusBadge 
               label={ticket.status || 'Active'} 
               tone={ticket.status === 'Active' ? 'success' : ticket.status === 'Expired' ? 'neutral' : 'error'} 
             />
             {expanded ? <ChevronUp size={16} color={colors.textSubtle} /> : <ChevronDown size={16} color={colors.textSubtle} />}
           </View>
+        </View>
+
+        {/* Journey Route Stops (Stacked vertically to prevent truncation) */}
+        <View style={styles.journeyWrapper}>
+          <View style={styles.journeyTimeline}>
+            <View style={styles.timelineDot} />
+            <View style={styles.timelineLine} />
+            <View style={[styles.timelineDot, styles.timelineDotDest]} />
+          </View>
+          <View style={styles.journeyStops}>
+            <Text style={styles.stopText} numberOfLines={1}>
+              {ticket.source}
+            </Text>
+            <Text style={[styles.stopText, styles.destStopText]} numberOfLines={1}>
+              {ticket.dest}
+            </Text>
+          </View>
+        </View>
+
+        {/* Quick Info Footer Row */}
+        <View style={styles.quickInfoRow}>
+          <Text style={styles.dateTimeText}>
+            {ticket.date} • {ticket.time}
+          </Text>
+          <Text style={styles.fareText}>₹{ticket.total || ticket.fare}</Text>
         </View>
       </TouchableOpacity>
 
@@ -139,14 +152,14 @@ const TicketCardInner = ({ ticket, showUserInfo = false, listUserName, onDelete 
           )}
         </View>
       )}
-    </Animated.View>
+    </View>
   );
 };
 
-const getStyles = (colors: any, radius: any, shadows: any) => StyleSheet.create({
+const getStyles = (colors: any, radius: any, shadows: any, isDark: boolean) => StyleSheet.create({
   ticketContainer: { 
-    marginBottom: 8, 
-    borderRadius: radius.md, 
+    marginBottom: 10, 
+    borderRadius: radius.lg, 
     backgroundColor: colors.surface, 
     borderWidth: 1,
     borderColor: colors.border,
@@ -156,22 +169,23 @@ const getStyles = (colors: any, radius: any, shadows: any) => StyleSheet.create(
   ticketContainerExpanded: {
     borderColor: colors.accentMuted,
   },
-  mainRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'space-between',
-    paddingVertical: 12, 
-    paddingHorizontal: 12 
+  mainCardButton: {
+    padding: 14,
   },
-  leftSection: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  routeBadgeWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    width: '25%'
   },
   busBadge: { 
-    width: 28, 
-    height: 28, 
+    width: 26, 
+    height: 26, 
     borderRadius: radius.sm, 
     alignItems: 'center', 
     justifyContent: 'center',
@@ -185,51 +199,84 @@ const getStyles = (colors: any, radius: any, shadows: any) => StyleSheet.create(
     backgroundColor: colors.warningSoft,
     borderColor: 'rgba(217, 119, 6, 0.1)',
   },
-  routeCol: {
-    justifyContent: 'center',
-    flexShrink: 1,
-  },
   routeName: { 
-    fontSize: 13, 
-    fontWeight: '800', 
-    color: colors.text 
-  },
-  busTypeText: { 
-    fontSize: 9, 
-    color: colors.textMuted, 
-    fontWeight: '700',
-    marginTop: 1 
-  },
-  centerSection: { 
-    flex: 1, 
-    paddingHorizontal: 6,
-    justifyContent: 'center'
-  },
-  directionText: { 
-    fontSize: 12, 
-    fontWeight: '700', 
-    color: colors.text,
-    marginBottom: 2
-  },
-  dateTimeText: { 
-    fontSize: 10, 
-    color: colors.textSubtle,
-    fontWeight: '600'
-  },
-  rightSection: { 
-    alignItems: 'flex-end',
-    width: '32%',
-    gap: 4
-  },
-  fareText: { 
     fontSize: 14, 
     fontWeight: '800', 
     color: colors.text 
   },
-  badgeRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 4 
+  busTypeText: { 
+    fontSize: 10, 
+    color: colors.textMuted, 
+    fontWeight: '700',
+    backgroundColor: colors.surfaceMuted,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radius.xs,
+  },
+  rightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  journeyWrapper: {
+    flexDirection: 'row',
+    marginVertical: 4,
+    paddingLeft: 4,
+    gap: 12,
+  },
+  journeyTimeline: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  timelineDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.accent,
+  },
+  timelineDotDest: {
+    backgroundColor: colors.success,
+  },
+  timelineLine: {
+    width: 1,
+    flex: 1,
+    minHeight: 16,
+    backgroundColor: colors.border,
+    marginVertical: 2,
+  },
+  journeyStops: {
+    flex: 1,
+    gap: 14,
+    justifyContent: 'center',
+  },
+  stopText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  destStopText: {
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  quickInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.border + '44',
+  },
+  dateTimeText: { 
+    fontSize: 11, 
+    color: colors.textSubtle,
+    fontWeight: '600'
+  },
+  fareText: { 
+    fontSize: 15, 
+    fontWeight: '800', 
+    color: colors.accent,
   },
   detailPanel: {
     paddingHorizontal: 14,

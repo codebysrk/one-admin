@@ -1,3 +1,4 @@
+import { useTheme } from '../core/ThemeContext';
 import React, { Suspense, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../core/theme';
@@ -19,6 +20,8 @@ const Smartphone = IconWrapper('cellphone');
 const Activity = IconWrapper('pulse');
 const UserCircle = IconWrapper('account-circle');
 const ShieldCheck = IconWrapper('shield-check');
+const Cash = IconWrapper('cash-multiple');
+
 
 const DashboardScreen = React.lazy(() =>
   import('../features/dashboard/DashboardScreen').then((m) => ({ default: m.DashboardScreen }))
@@ -47,6 +50,9 @@ const LogsScreen = React.lazy(() =>
 const AdminProfileScreen = React.lazy(() =>
   import('../features/profile/AdminProfileScreen').then((m) => ({ default: m.AdminProfileScreen }))
 );
+const FareConfigScreen = React.lazy(() =>
+  import('../features/fare/FareConfigScreen').then((m) => ({ default: m.FareConfigScreen }))
+);
 const AdminsManagementScreen = React.lazy(() =>
   import('../features/admins/AdminsManagementScreen').then((m) => ({ default: m.AdminsManagementScreen }))
 );
@@ -62,6 +68,7 @@ type TabConfig = {
 
 const tabs: TabConfig[] = [
   { key: 'Dashboard', label: 'Home', icon: LayoutDashboard, screen: DashboardScreen },
+  { key: 'Fare', label: 'Fare Slabs', icon: Cash, screen: FareConfigScreen, requiredPermission: 'MANAGE_ROUTES' },
   { key: 'Routes', label: 'Routes', icon: Bus, screen: RoutesManagementScreen, requiredPermission: 'MANAGE_ROUTES' },
   { key: 'Users', label: 'Users', icon: Users, screen: UsersListScreen, requiredPermission: 'MANAGE_USERS' },
   { key: 'Tickets', label: 'Tickets', icon: Ticket, screen: AllTicketsScreen, requiredPermission: 'MANAGE_TICKETS' },
@@ -94,6 +101,8 @@ const LazyScreen = (Component: React.LazyExoticComponent<any>) => (props: any) =
 );
 
 const CustomTabBar = React.memo(({ state, descriptors, navigation, visibleTabs }: any) => {
+  const { colors, isDark } = useTheme();
+  const styles = getStyles(colors);
   return (
     <View style={styles.tabBarContainer}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
@@ -122,9 +131,9 @@ const CustomTabBar = React.memo(({ state, descriptors, navigation, visibleTabs }
               accessibilityLabel={`Open ${tab.label}`}
             >
               <View style={[styles.iconBox, isActive && styles.iconBoxActive]}>
-                <IconComponent size={18} color={isActive ? COLORS.white : COLORS.textMuted} />
+                <IconComponent size={18} color={isActive ? colors.white : colors.textMuted} />
               </View>
-              <Text style={[styles.tabLabel, { color: isActive ? COLORS.primary : COLORS.textMuted }]}>
+              <Text style={[styles.tabLabel, { color: isActive ? (isDark ? colors.white : colors.primary) : colors.textMuted }]}>
                 {tab.label}
               </Text>
             </AdminPressable>
@@ -176,15 +185,15 @@ export const AdminNavigator = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const getStyles = (colors: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   screenContainer: { flex: 1 },
   tabBarContainer: {
-    backgroundColor: 'rgba(255,255,255,0.98)',
+    backgroundColor: colors.surface,
     paddingBottom: Platform.OS === 'ios' ? 22 : 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    borderTopColor: colors.border,
     ...SHADOWS.floating,
   },
   tabBar: {
@@ -203,15 +212,15 @@ const styles = StyleSheet.create({
     gap: 5,
     borderRadius: RADIUS.md,
   },
-  tabItemActive: { backgroundColor: COLORS.accentSoft, borderWidth: 1, borderColor: COLORS.accentMuted },
+  tabItemActive: { backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accentMuted },
   iconBox: {
     width: 36,
     height: 36,
     borderRadius: RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
   },
-  iconBoxActive: { backgroundColor: COLORS.accent, ...SHADOWS.accent },
+  iconBoxActive: { backgroundColor: colors.accent, ...SHADOWS.accent },
   tabLabel: { fontSize: 10, lineHeight: 13, fontWeight: '800' },
 });

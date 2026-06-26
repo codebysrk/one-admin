@@ -34,22 +34,22 @@ export const lightColors = {
 };
 
 export const darkColors: typeof lightColors = {
-  primary: '#0F172A',
-  primarySoft: '#1E293B',
+  primary: '#000000',
+  primarySoft: '#121212',
   accent: '#3B82F6',
   accentDark: '#60A5FA',
   accentSoft: '#1E3A8A',
   accentMuted: '#1E40AF',
   teal: '#14B8A6',
   tealSoft: '#134E4A',
-  background: '#0B1220',
-  backgroundAlt: '#0F172A',
-  surface: '#1E293B',
-  surfaceElevated: '#334155',
-  surfaceMuted: '#0F172A',
-  surfacePressed: '#334155',
-  border: '#334155',
-  borderStrong: '#475569',
+  background: '#000000',
+  backgroundAlt: '#0A0A0A',
+  surface: '#121212',
+  surfaceElevated: '#1C1C1E',
+  surfaceMuted: '#080808',
+  surfacePressed: '#2C2C2E',
+  border: '#1C1C1E',
+  borderStrong: '#2C2C2E',
   text: '#F8FAFC',
   textMuted: '#94A3B8',
   textSubtle: '#64748B',
@@ -64,8 +64,8 @@ export const darkColors: typeof lightColors = {
   infoSoft: '#1E3A8A',
   white: '#FFFFFF',
   black: '#000000',
-  overlay: 'rgba(2, 6, 23, 0.7)',
-  glass: 'rgba(255,255,255,0.05)',
+  overlay: 'rgba(0, 0, 0, 0.8)',
+  glass: 'rgba(255,255,255,0.03)',
 };
 
 export const SPACING = {
@@ -134,5 +134,3 @@ export const SHADOWS = {
 // Legacy static export — used by screens not yet migrated to useAppTheme
 export const COLORS = lightColors;
 
-// Primary hook — wired to ThemeContext so all consumers re-render on system theme change
-export { useTheme as useAppTheme } from './ThemeContext';

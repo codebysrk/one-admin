@@ -6,7 +6,9 @@ import { updateEmail, updatePassword, updateProfile, reauthenticateWithCredentia
 import { doc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../../services/firebase';
 import { useAdminStore } from '../../store/useAdminStore';
-import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
+import { useTheme } from '../../core/ThemeContext';
+import { RADIUS, SHADOWS, SPACING  } from '../../core/theme';
+
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const IconWrapper = (name: any) => (props: any) => (
@@ -24,6 +26,8 @@ const ArrowLeft = IconWrapper('arrow-left');
 const ShieldCheck = IconWrapper('shield-check');
 
 export const AdminProfileScreen = () => {
+  const { colors } = useTheme();
+  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
   const admin = useAdminStore((s) => s.admin);
   const setAdmin = useAdminStore((s) => s.setAdmin);
   const logout = useAdminStore((s) => s.logout);
@@ -82,18 +86,18 @@ export const AdminProfileScreen = () => {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboard}>
         <View style={styles.topBar}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Back to dashboard" onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <ArrowLeft size={20} color={COLORS.white} />
+            <ArrowLeft size={20} color={colors.white} />
           </TouchableOpacity>
           <Text style={styles.topBarTitle}>Profile Settings</Text>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Logout" onPress={logout} style={styles.miniLogout}>
-            <LogOut size={16} color={COLORS.error} />
+            <LogOut size={16} color={colors.error} />
           </TouchableOpacity>
         </View>
 
         <ScrollView style={styles.content} contentContainerStyle={styles.contentInner} keyboardShouldPersistTaps="handled">
           <View style={styles.headerCard}>
             <View style={styles.avatar}>
-              <ShieldCheck size={24} color={COLORS.white} />
+              <ShieldCheck size={24} color={colors.white} />
             </View>
             <View style={styles.adminCopy}>
               <Text style={styles.adminName} numberOfLines={1}>{admin?.name}</Text>
@@ -126,8 +130,8 @@ export const AdminProfileScreen = () => {
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Full Name</Text>
                   <View style={styles.inputWrapper}>
-                    <User size={16} color={COLORS.textMuted} />
-                    <TextInput style={styles.input} value={name} onChangeText={setName} selectionColor={COLORS.accent} />
+                    <User size={16} color={colors.textMuted} />
+                    <TextInput style={styles.input} value={name} onChangeText={setName} selectionColor={colors.accent} />
                   </View>
                 </View>
                 <View style={styles.inputGroup}>
@@ -137,7 +141,7 @@ export const AdminProfileScreen = () => {
                   </View>
                 </View>
                 <TouchableOpacity style={styles.mainBtn} onPress={handleUpdateProfile} disabled={loading} activeOpacity={0.86}>
-                  {loading ? <ActivityIndicator color={COLORS.white} /> : <><Save size={16} color={COLORS.white} /><Text style={styles.btnText}>Save Changes</Text></>}
+                  {loading ? <ActivityIndicator color={colors.white} /> : <><Save size={16} color={colors.white} /><Text style={styles.btnText}>Save Changes</Text></>}
                 </TouchableOpacity>
               </>
             ) : (
@@ -145,32 +149,32 @@ export const AdminProfileScreen = () => {
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Email Address</Text>
                   <View style={styles.inputWrapper}>
-                    <Mail size={16} color={COLORS.textMuted} />
-                    <TextInput style={styles.input} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" selectionColor={COLORS.accent} />
+                    <Mail size={16} color={colors.textMuted} />
+                    <TextInput style={styles.input} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" selectionColor={colors.accent} />
                   </View>
                 </View>
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>New Password</Text>
                   <View style={styles.inputWrapper}>
-                    <Lock size={16} color={COLORS.textMuted} />
-                    <TextInput style={styles.input} value={newPassword} onChangeText={setNewPassword} secureTextEntry={!showNewPassword} placeholder="Optional new password" placeholderTextColor={COLORS.textSubtle} selectionColor={COLORS.accent} />
+                    <Lock size={16} color={colors.textMuted} />
+                    <TextInput style={styles.input} value={newPassword} onChangeText={setNewPassword} secureTextEntry={!showNewPassword} placeholder="Optional new password" placeholderTextColor={colors.textSubtle} selectionColor={colors.accent} />
                     <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)} style={styles.eyeBtn}>
-                      {showNewPassword ? <EyeOff size={16} color={COLORS.textMuted} /> : <Eye size={16} color={COLORS.textMuted} />}
+                      {showNewPassword ? <EyeOff size={16} color={colors.textMuted} /> : <Eye size={16} color={colors.textMuted} />}
                     </TouchableOpacity>
                   </View>
                 </View>
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Current Password</Text>
                   <View style={[styles.inputWrapper, styles.dangerInput]}>
-                    <Lock size={16} color={COLORS.error} />
-                    <TextInput style={styles.input} value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry={!showCurrentPassword} placeholder="Confirm current password" placeholderTextColor={COLORS.textSubtle} selectionColor={COLORS.error} />
+                    <Lock size={16} color={colors.error} />
+                    <TextInput style={styles.input} value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry={!showCurrentPassword} placeholder="Confirm current password" placeholderTextColor={colors.textSubtle} selectionColor={colors.error} />
                     <TouchableOpacity onPress={() => setShowCurrentPassword(!showCurrentPassword)} style={styles.eyeBtn}>
-                      {showCurrentPassword ? <EyeOff size={16} color={COLORS.textMuted} /> : <Eye size={16} color={COLORS.textMuted} />}
+                      {showCurrentPassword ? <EyeOff size={16} color={colors.textMuted} /> : <Eye size={16} color={colors.textMuted} />}
                     </TouchableOpacity>
                   </View>
                 </View>
                 <TouchableOpacity style={[styles.mainBtn, styles.securityBtn]} onPress={handleUpdateSecurity} disabled={loading} activeOpacity={0.86}>
-                  {loading ? <ActivityIndicator color={COLORS.white} /> : <><Lock size={16} color={COLORS.white} /><Text style={styles.btnText}>Update Security</Text></>}
+                  {loading ? <ActivityIndicator color={colors.white} /> : <><Lock size={16} color={colors.white} /><Text style={styles.btnText}>Update Security</Text></>}
                 </TouchableOpacity>
               </>
             )}
@@ -182,36 +186,36 @@ export const AdminProfileScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.primary },
-  keyboard: { flex: 1, backgroundColor: COLORS.background },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, paddingBottom: SPACING.md, backgroundColor: COLORS.primary, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
-  topBarTitle: { fontSize: 15, fontWeight: '800', color: COLORS.white },
-  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.md, backgroundColor: COLORS.glass, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
-  miniLogout: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.md, backgroundColor: COLORS.errorSoft },
+const getStyles = (colors: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.primary },
+  keyboard: { flex: 1, backgroundColor: colors.background },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, paddingBottom: SPACING.md, backgroundColor: colors.primary, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
+  topBarTitle: { fontSize: 15, fontWeight: '800', color: colors.white },
+  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.md, backgroundColor: colors.glass, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+  miniLogout: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.md, backgroundColor: colors.errorSoft },
   content: { flex: 1 },
   contentInner: { padding: SPACING.xl, paddingBottom: 44 },
-  headerCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface, padding: SPACING.lg, borderRadius: RADIUS.md, marginBottom: SPACING.lg, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
-  avatar: { width: 52, height: 52, borderRadius: RADIUS.md, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  headerCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, padding: SPACING.lg, borderRadius: RADIUS.md, marginBottom: SPACING.lg, borderWidth: 1, borderColor: colors.border, ...SHADOWS.card },
+  avatar: { width: 52, height: 52, borderRadius: RADIUS.md, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   adminCopy: { flex: 1, minWidth: 0 },
-  adminName: { fontSize: 17, lineHeight: 22, fontWeight: '800', color: COLORS.text },
-  adminRole: { fontSize: 12, color: COLORS.accent, fontWeight: '800', marginTop: 3 },
-  tabSelector: { flexDirection: 'row', backgroundColor: COLORS.surfaceMuted, borderRadius: RADIUS.md, padding: 4, marginBottom: SPACING.lg, borderWidth: 1, borderColor: COLORS.border },
+  adminName: { fontSize: 17, lineHeight: 22, fontWeight: '800', color: colors.text },
+  adminRole: { fontSize: 12, color: colors.accent, fontWeight: '800', marginTop: 3 },
+  tabSelector: { flexDirection: 'row', backgroundColor: colors.surfaceMuted, borderRadius: RADIUS.md, padding: 4, marginBottom: SPACING.lg, borderWidth: 1, borderColor: colors.border },
   tabItem: { flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.sm },
-  tabActive: { backgroundColor: COLORS.surface, ...SHADOWS.card },
-  tabText: { fontSize: 12, fontWeight: '800', color: COLORS.textMuted },
-  tabTextActive: { color: COLORS.primary },
-  section: { backgroundColor: COLORS.surface, borderRadius: RADIUS.md, padding: SPACING.lg, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
+  tabActive: { backgroundColor: colors.surface, ...SHADOWS.card },
+  tabText: { fontSize: 12, fontWeight: '800', color: colors.textMuted },
+  tabTextActive: { color: colors.primary },
+  section: { backgroundColor: colors.surface, borderRadius: RADIUS.md, padding: SPACING.lg, borderWidth: 1, borderColor: colors.border, ...SHADOWS.card },
   inputGroup: { marginBottom: SPACING.lg },
-  label: { fontSize: 11, fontWeight: '800', color: COLORS.textMuted, marginBottom: 7, textTransform: 'uppercase', letterSpacing: 0 },
-  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surfaceMuted, borderRadius: RADIUS.md, paddingHorizontal: 12, minHeight: 48, borderWidth: 1, borderColor: COLORS.border },
+  label: { fontSize: 11, fontWeight: '800', color: colors.textMuted, marginBottom: 7, textTransform: 'uppercase', letterSpacing: 0 },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceMuted, borderRadius: RADIUS.md, paddingHorizontal: 12, minHeight: 48, borderWidth: 1, borderColor: colors.border },
   readOnlyWrapper: { backgroundColor: '#F8FAFC' },
   dangerInput: { borderColor: '#FECACA', backgroundColor: '#FFF7F7' },
-  input: { flex: 1, minWidth: 0, marginLeft: 9, fontSize: 14, color: COLORS.text, fontWeight: '700', paddingVertical: 0 },
+  input: { flex: 1, minWidth: 0, marginLeft: 9, fontSize: 14, color: colors.text, fontWeight: '700', paddingVertical: 0 },
   eyeBtn: { padding: 8, marginRight: -6 },
-  readOnlyText: { flex: 1, fontSize: 12, color: COLORS.textMuted, fontFamily: 'monospace', fontWeight: '700' },
-  mainBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primary, minHeight: 50, borderRadius: RADIUS.md, gap: 8, marginTop: 2, ...SHADOWS.floating },
-  securityBtn: { backgroundColor: COLORS.success },
-  btnText: { color: COLORS.white, fontWeight: '800', fontSize: 14 },
-  footerText: { textAlign: 'center', fontSize: 10, color: COLORS.textSubtle, marginTop: SPACING.xxl, fontWeight: '800' },
+  readOnlyText: { flex: 1, fontSize: 12, color: colors.textMuted, fontFamily: 'monospace', fontWeight: '700' },
+  mainBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, minHeight: 50, borderRadius: RADIUS.md, gap: 8, marginTop: 2, ...SHADOWS.floating },
+  securityBtn: { backgroundColor: colors.success },
+  btnText: { color: colors.white, fontWeight: '800', fontSize: 14 },
+  footerText: { textAlign: 'center', fontSize: 10, color: colors.textSubtle, marginTop: SPACING.xxl, fontWeight: '800' },
 });

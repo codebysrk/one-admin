@@ -15,7 +15,9 @@ const IconWrapper = (name: any) => (props: any) => (
 
 const AlertTriangle = IconWrapper('alert');
 const Info = IconWrapper('information-outline');
-import { COLORS, RADIUS, SHADOWS, SPACING } from '../core/theme';
+import { useTheme } from '../core/ThemeContext';
+import { RADIUS, SHADOWS, SPACING  } from '../core/theme';
+
 
 interface ConfirmationModalProps {
   visible: boolean;
@@ -38,6 +40,8 @@ export const ConfirmationModal = ({
   cancelLabel = 'Cancel',
   type = 'danger',
 }: ConfirmationModalProps) => {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   if (!visible) return null;
 
   const isDanger = type === 'danger';
@@ -48,9 +52,9 @@ export const ConfirmationModal = ({
         <View style={styles.card}>
           <View style={[styles.iconBox, { backgroundColor: isDanger ? '#FEF2F2' : '#EFF6FF' }]}>
             {isDanger ? (
-              <AlertTriangle size={24} color={COLORS.error} />
+              <AlertTriangle size={24} color={colors.error} />
             ) : (
-              <Info size={24} color={COLORS.primary} />
+              <Info size={24} color={colors.primary} />
             )}
           </View>
 
@@ -67,7 +71,7 @@ export const ConfirmationModal = ({
 
             <TouchableOpacity 
               onPress={onConfirm} 
-              style={[styles.confirmBtn, { backgroundColor: isDanger ? COLORS.error : COLORS.primary }]}
+              style={[styles.confirmBtn, { backgroundColor: isDanger ? colors.error : colors.primary }]}
             >
               <Text style={styles.confirmText}>{confirmLabel}</Text>
             </TouchableOpacity>
@@ -78,7 +82,7 @@ export const ConfirmationModal = ({
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.7)',
@@ -89,7 +93,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 340,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: 24,
     padding: 24,
     alignItems: 'center',
@@ -106,13 +110,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '800',
-    color: COLORS.text,
+    color: colors.text,
     textAlign: 'center',
     marginBottom: 8,
   },
   message: {
     fontSize: 14,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 24,
@@ -127,7 +131,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     borderRadius: 14,
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -142,11 +146,11 @@ const styles = StyleSheet.create({
   cancelText: {
     fontSize: 14,
     fontWeight: '800',
-    color: COLORS.textMuted,
+    color: colors.textMuted,
   },
   confirmText: {
     fontSize: 14,
     fontWeight: '800',
-    color: COLORS.white,
+    color: colors.white,
   },
 });

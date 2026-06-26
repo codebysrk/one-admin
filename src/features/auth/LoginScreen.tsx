@@ -5,7 +5,9 @@ import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../../services/firebase';
 import { loginAdmin } from '../../services/authService';
 import { useAdminStore } from '../../store/useAdminStore';
-import { COLORS, RADIUS, SHADOWS } from '../../core/theme';
+import { useTheme } from '../../core/ThemeContext';
+import { RADIUS, SHADOWS  } from '../../core/theme';
+
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const IconWrapper = (name: any) => (props: any) => (
@@ -29,6 +31,8 @@ import * as SecureStore from 'expo-secure-store';
 const { height } = Dimensions.get('window');
 
 export const LoginScreen = () => {
+  const { colors } = useTheme();
+  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -244,7 +248,7 @@ export const LoginScreen = () => {
                   onPress={handleBiometricLogin}
                   disabled={!isBiometricAvailable}
                 >
-                  <Fingerprint size={32} color={isBiometricAvailable ? COLORS.accent : "#E2E8F0"} />
+                  <Fingerprint size={32} color={isBiometricAvailable ? colors.accent : "#E2E8F0"} />
                 </TouchableOpacity>
                 <View style={styles.line} />
               </View>
@@ -308,8 +312,8 @@ export const LoginScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.surface },
+const getStyles = (colors: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.surface },
   backgroundContainer: { ...StyleSheet.absoluteFillObject },
   blob1: {
     position: 'absolute',
@@ -349,7 +353,7 @@ const styles = StyleSheet.create({
     width: 260,
     textAlign: 'center', 
     fontSize: 11, 
-    color: COLORS.textSubtle,
+    color: colors.textSubtle,
     fontWeight: '800',
     textTransform: 'uppercase', 
     letterSpacing: 0,
@@ -357,30 +361,30 @@ const styles = StyleSheet.create({
   },
   middleSection: { width: '100%', flex: 1, justifyContent: 'center', marginTop: 28 },
   middleSectionKeyboard: { marginTop: 0 },
-  authPanel: { backgroundColor: COLORS.surface, borderRadius: RADIUS.md, padding: 16, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
+  authPanel: { backgroundColor: colors.surface, borderRadius: RADIUS.md, padding: 16, borderWidth: 1, borderColor: colors.border, ...SHADOWS.card },
   
   // Modern Redesigned Inputs
   modernInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: RADIUS.md,
     paddingHorizontal: 14,
     height: 60,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   focusedWrapper: {
-    borderColor: COLORS.accent,
-    backgroundColor: COLORS.surface,
+    borderColor: colors.accent,
+    backgroundColor: colors.surface,
     ...SHADOWS.card,
   },
   inputIconBox: {
     width: 34,
     height: 34,
     borderRadius: RADIUS.md,
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -392,16 +396,16 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 9,
     fontWeight: 'bold',
-    color: COLORS.textSubtle,
+    color: colors.textSubtle,
     letterSpacing: 0,
     marginBottom: 2,
   },
   focusedLabel: {
-    color: COLORS.accent,
+    color: colors.accent,
   },
   modernInput: {
     fontSize: 15,
-    color: COLORS.text,
+    color: colors.text,
     fontWeight: '700',
     height: 28,
     padding: 0,
@@ -410,29 +414,29 @@ const styles = StyleSheet.create({
   eyeBtn: { padding: 4 },
   
   forgotBtn: { alignSelf: 'flex-end', marginBottom: 22, minHeight: 24, justifyContent: 'center' },
-  forgotText: { fontSize: 13, color: COLORS.accent, fontWeight: '800', letterSpacing: 0 },
-  enterBtn: { backgroundColor: COLORS.primary, minHeight: 56, borderRadius: RADIUS.md, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', ...SHADOWS.floating },
+  forgotText: { fontSize: 13, color: colors.accent, fontWeight: '800', letterSpacing: 0 },
+  enterBtn: { backgroundColor: colors.primary, minHeight: 56, borderRadius: RADIUS.md, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', ...SHADOWS.floating },
   btnDisabled: { opacity: 0.7 },
-  enterBtnText: { color: COLORS.white, fontSize: 16, fontWeight: '800', marginRight: 12 },
+  enterBtnText: { color: colors.white, fontSize: 16, fontWeight: '800', marginRight: 12 },
   arrowBox: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },
   bottomSection: { alignItems: 'center', paddingBottom: 10, marginTop: 14 },
   biometricArea: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 24, gap: 15, width: '100%' },
-  line: { flex: 1, height: 1, backgroundColor: COLORS.border },
-  bioBtn: { width: 52, height: 52, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.md, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
+  line: { flex: 1, height: 1, backgroundColor: colors.border },
+  bioBtn: { width: 52, height: 52, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, ...SHADOWS.card },
   bioBtnDisabled: { opacity: 0.5 },
   secureBadge: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  secureText: { fontSize: 11, color: COLORS.textSubtle, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0 },
+  secureText: { fontSize: 11, color: colors.textSubtle, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0 },
   
-  modalOverlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalOverlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalCard: { width: '100%', borderRadius: RADIUS.xxl, overflow: 'hidden', ...SHADOWS.floating },
   modalGradient: { padding: 28, alignItems: 'center' },
   closeModal: { position: 'absolute', top: 20, right: 20, padding: 8 },
   statusIconBox: { width: 76, height: 76, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 20, ...SHADOWS.card },
-  modalTitle: { fontSize: 21, fontWeight: '800', color: COLORS.text, marginBottom: 12, textAlign: 'center' },
+  modalTitle: { fontSize: 21, fontWeight: '800', color: colors.text, marginBottom: 12, textAlign: 'center' },
   descBox: { width: '100%', marginBottom: 20 },
-  modalDesc: { fontSize: 14, color: COLORS.textMuted, textAlign: 'center', lineHeight: 21, fontWeight: '600' },
-  emailBadge: { backgroundColor: COLORS.accentSoft, paddingHorizontal: 16, paddingVertical: 10, borderRadius: RADIUS.md, marginBottom: 20, borderWidth: 1, borderColor: '#E0E7FF', maxWidth: '100%' },
-  emailBadgeText: { fontSize: 14, fontWeight: '800', color: COLORS.accent },
+  modalDesc: { fontSize: 14, color: colors.textMuted, textAlign: 'center', lineHeight: 21, fontWeight: '600' },
+  emailBadge: { backgroundColor: colors.accentSoft, paddingHorizontal: 16, paddingVertical: 10, borderRadius: RADIUS.md, marginBottom: 20, borderWidth: 1, borderColor: '#E0E7FF', maxWidth: '100%' },
+  emailBadgeText: { fontSize: 14, fontWeight: '800', color: colors.accent },
   modalActionBtn: { width: '100%', minHeight: 54, borderRadius: RADIUS.md, justifyContent: 'center', alignItems: 'center' },
-  modalActionText: { color: COLORS.white, fontSize: 15, fontWeight: '800' }
+  modalActionText: { color: colors.white, fontSize: 15, fontWeight: '800' }
 });

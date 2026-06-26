@@ -3,7 +3,9 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'rea
 import { collection, query, where, onSnapshot, doc, updateDoc, getDocs } from 'firebase/firestore';
 import { FlashList } from '@shopify/flash-list';
 import { db } from '../../services/firebase';
-import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
+import { useTheme } from '../../core/ThemeContext';
+import { RADIUS, SHADOWS, SPACING  } from '../../core/theme';
+
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField, AdminBottomSheet, ConfirmationModal } from '../../components/AdminUI';
 import { AdminPermission } from '../../services/authService';
@@ -31,6 +33,8 @@ const ALL_PERMISSIONS: { key: AdminPermission; label: string; desc: string }[] =
 ];
 
 export const AdminsManagementScreen = () => {
+  const { colors, isDark } = useTheme();
+  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
   const [admins, setAdmins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -135,7 +139,7 @@ export const AdminsManagementScreen = () => {
     <TouchableOpacity style={styles.adminCard} onPress={() => setEditingAdmin(item)} activeOpacity={0.8}>
       <View style={styles.adminHeader}>
         <View style={styles.adminAvatar}>
-          <ShieldCheck size={20} color={COLORS.primary} />
+          <ShieldCheck size={20} color={isDark ? colors.text : colors.primary} />
         </View>
         <View style={styles.adminInfo}>
           <Text style={styles.adminName}>{item.name || 'Admin User'}</Text>
@@ -154,7 +158,7 @@ export const AdminsManagementScreen = () => {
           style={styles.deleteBtn}
           activeOpacity={0.7}
         >
-          <Trash2 size={16} color={item.email === 'admin@onedelhi.com' ? COLORS.textSubtle : COLORS.error} />
+          <Trash2 size={16} color={item.email === 'admin@onedelhi.com' ? colors.textSubtle : colors.error} />
         </TouchableOpacity>
       </View>
       
@@ -174,7 +178,7 @@ export const AdminsManagementScreen = () => {
 
       <View style={styles.cardFooter}>
          <Text style={styles.footerInfo}>Manage Admin Rights</Text>
-         <ChevronRight size={14} color={COLORS.accent} />
+         <ChevronRight size={14} color={colors.accent} />
       </View>
     </TouchableOpacity>
   );
@@ -186,7 +190,7 @@ export const AdminsManagementScreen = () => {
         subtitle="Manage system access & rights"
         action={(
           <IconButton tone="success" accessibilityLabel="Add new administrator" onPress={() => setShowInviteModal(true)}>
-            <UserPlus size={18} color={COLORS.white} />
+            <UserPlus size={18} color={colors.white} />
           </IconButton>
         )}
       />
@@ -203,7 +207,7 @@ export const AdminsManagementScreen = () => {
           keyExtractor={(item) => item.id}
           renderItem={renderAdminItem}
           contentContainerStyle={styles.list}
-          ListEmptyComponent={<EmptyState icon={<ShieldAlert size={30} color={COLORS.textSubtle} />} title="No admins found" message="Add a new administrator to help manage the system." />}
+          ListEmptyComponent={<EmptyState icon={<ShieldAlert size={30} color={colors.textSubtle} />} title="No admins found" message="Add a new administrator to help manage the system." />}
         />
       )}
 
@@ -218,7 +222,7 @@ export const AdminsManagementScreen = () => {
         <ScrollView style={styles.rightsScroll}>
           {editingAdmin?.email === 'admin@onedelhi.com' && (
             <View style={styles.superAdminNotice}>
-              <ShieldCheck size={16} color={COLORS.success} />
+              <ShieldCheck size={16} color={colors.success} />
               <Text style={styles.superAdminText}>Super Admin has permanent full access.</Text>
             </View>
           )}
@@ -233,7 +237,7 @@ export const AdminsManagementScreen = () => {
                 activeOpacity={0.7}
               >
                 <View style={styles.permIcon}>
-                  {hasPerm ? <CheckSquare size={20} color={COLORS.primary} /> : <Square size={20} color={COLORS.textSubtle} />}
+                  {hasPerm ? <CheckSquare size={20} color={isDark ? colors.text : colors.primary} /> : <Square size={20} color={colors.textSubtle} />}
                 </View>
                 <View style={styles.permContent}>
                   <Text style={[styles.permLabel, hasPerm && styles.permLabelActive]}>{perm.label}</Text>
@@ -285,16 +289,16 @@ export const AdminsManagementScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   list: { padding: SPACING.xl, paddingBottom: 40 },
   searchBoxContainer: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg, marginBottom: 12 },
   adminCard: { 
-    backgroundColor: COLORS.surface, 
+    backgroundColor: colors.surface, 
     borderRadius: RADIUS.lg, 
     padding: 14, 
     marginBottom: 12, 
     borderWidth: 1, 
-    borderColor: COLORS.border, 
+    borderColor: colors.border, 
     ...SHADOWS.card 
   },
   adminHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 10 },
@@ -302,20 +306,20 @@ const styles = StyleSheet.create({
     width: 36, 
     height: 36, 
     borderRadius: RADIUS.md, 
-    backgroundColor: COLORS.primarySoft, 
+    backgroundColor: colors.primarySoft, 
     borderWidth: 1,
     borderColor: 'rgba(11, 18, 32, 0.15)',
     alignItems: 'center', 
     justifyContent: 'center',
   },
   adminInfo: { flex: 1, minWidth: 0 },
-  adminName: { fontSize: 14, fontWeight: '800', color: COLORS.text },
-  adminEmail: { fontSize: 11, color: COLORS.textMuted, marginTop: 1, fontWeight: '600' },
+  adminName: { fontSize: 14, fontWeight: '800', color: colors.text },
+  adminEmail: { fontSize: 11, color: colors.textMuted, marginTop: 1, fontWeight: '600' },
   deleteBtn: {
     width: 36,
     height: 36,
     borderRadius: RADIUS.md,
-    backgroundColor: COLORS.errorSoft,
+    backgroundColor: colors.errorSoft,
     borderWidth: 1,
     borderColor: '#FECDD3',
     justifyContent: 'center',
@@ -329,63 +333,63 @@ const styles = StyleSheet.create({
     marginBottom: 12, 
     paddingBottom: 12, 
     borderBottomWidth: 1, 
-    borderBottomColor: COLORS.border 
+    borderBottomColor: colors.border 
   },
   rightBadge: { 
-    backgroundColor: COLORS.surfaceMuted, 
+    backgroundColor: colors.surfaceMuted, 
     paddingHorizontal: 8, 
     paddingVertical: 4, 
     borderRadius: RADIUS.sm, 
     borderWidth: 1, 
-    borderColor: COLORS.border 
+    borderColor: colors.border 
   },
-  rightBadgeText: { fontSize: 9, fontWeight: '800', color: COLORS.textMuted, textTransform: 'uppercase' },
-  moreRights: { fontSize: 10, color: COLORS.accent, fontWeight: '700' },
-  noRights: { fontSize: 11, color: COLORS.error, fontWeight: '600', fontStyle: 'italic' },
+  rightBadgeText: { fontSize: 9, fontWeight: '800', color: colors.textMuted, textTransform: 'uppercase' },
+  moreRights: { fontSize: 10, color: colors.accent, fontWeight: '700' },
+  noRights: { fontSize: 11, color: colors.error, fontWeight: '600', fontStyle: 'italic' },
   cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  footerInfo: { fontSize: 11, fontWeight: '800', color: COLORS.accent },
+  footerInfo: { fontSize: 11, fontWeight: '800', color: colors.accent },
   
   rightsScroll: { paddingHorizontal: 20, paddingTop: 16 },
-  sheetSection: { fontSize: 10, fontWeight: '800', color: COLORS.textSubtle, letterSpacing: 0.5, marginBottom: 16 },
+  sheetSection: { fontSize: 10, fontWeight: '800', color: colors.textSubtle, letterSpacing: 0.5, marginBottom: 16 },
   permRow: { flexDirection: 'row', gap: 12, marginBottom: 16, alignItems: 'flex-start' },
   permIcon: { marginTop: 1 },
   permContent: { flex: 1 },
-  permLabel: { fontSize: 14, fontWeight: '700', color: COLORS.text },
-  permLabelActive: { color: COLORS.primary, fontWeight: '800' },
-  permDesc: { fontSize: 11, color: COLORS.textMuted, marginTop: 2, lineHeight: 16 },
+  permLabel: { fontSize: 14, fontWeight: '700', color: colors.text },
+  permLabelActive: { color: colors.background === '#000000' ? colors.text : colors.primary, fontWeight: '800' },
+  permDesc: { fontSize: 11, color: colors.textMuted, marginTop: 2, lineHeight: 16 },
   saveBtn: { 
-    backgroundColor: COLORS.primary, 
+    backgroundColor: colors.primary, 
     height: 44, 
     borderRadius: RADIUS.md, 
     alignItems: 'center', 
     justifyContent: 'center', 
     marginTop: 20, 
   },
-  saveBtnText: { color: COLORS.white, fontSize: 13, fontWeight: '800' },
+  saveBtnText: { color: colors.white, fontSize: 13, fontWeight: '800' },
 
   superAdminNotice: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     gap: 8, 
-    backgroundColor: COLORS.successSoft, 
+    backgroundColor: colors.successSoft, 
     padding: 10, 
     borderRadius: RADIUS.md, 
     borderWidth: 1,
     borderColor: '#BBF7D0',
     marginBottom: 16, 
   },
-  superAdminText: { fontSize: 11, fontWeight: '700', color: COLORS.success },
+  superAdminText: { fontSize: 11, fontWeight: '700', color: colors.success },
 
   inviteBox: { paddingVertical: 10 },
-  inputLabel: { fontSize: 10, fontWeight: '800', color: COLORS.textSubtle, marginBottom: 8 },
-  inviteHint: { fontSize: 11, color: COLORS.textMuted, marginTop: 8, lineHeight: 16 },
+  inputLabel: { fontSize: 10, fontWeight: '800', color: colors.textSubtle, marginBottom: 8 },
+  inviteHint: { fontSize: 11, color: colors.textMuted, marginTop: 8, lineHeight: 16 },
   promoteBtn: { 
-    backgroundColor: COLORS.success, 
+    backgroundColor: colors.success, 
     height: 44, 
     borderRadius: RADIUS.md, 
     alignItems: 'center', 
     justifyContent: 'center', 
     marginTop: 20, 
   },
-  promoteText: { color: COLORS.white, fontSize: 13, fontWeight: '800' },
+  promoteText: { color: colors.white, fontSize: 13, fontWeight: '800' },
 });

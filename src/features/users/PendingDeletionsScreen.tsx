@@ -3,7 +3,9 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react
 import { collection, onSnapshot, doc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { FlashList } from '@shopify/flash-list';
 import { db } from '../../services/firebase';
-import { COLORS, RADIUS, SHADOWS, SPACING } from '../../core/theme';
+import { useTheme } from '../../core/ThemeContext';
+import { RADIUS, SHADOWS, SPACING  } from '../../core/theme';
+
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { AdminHeader, AdminScreen, EmptyState, LoadingState, StatusBadge } from '../../components/AdminUI';
@@ -18,6 +20,8 @@ const Clock = IconWrapper('clock-outline');
 const ContentCopy = IconWrapper('content-copy');
 
 export const PendingDeletionsScreen = () => {
+  const { colors } = useTheme();
+  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
   const [deletedUsers, setDeletedUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -56,7 +60,7 @@ export const PendingDeletionsScreen = () => {
         <View style={styles.cardHeader}>
           <View style={styles.userInfo}>
             <View style={styles.avatar}>
-              <UserMinus size={20} color={COLORS.error} />
+              <UserMinus size={20} color={colors.error} />
             </View>
             <View style={styles.userCopy}>
               <Text style={styles.userName} numberOfLines={1}>{item.name}</Text>
@@ -70,7 +74,7 @@ export const PendingDeletionsScreen = () => {
             style={styles.deleteBtn} 
             activeOpacity={0.7}
           >
-            <Trash2 size={16} color={COLORS.error} />
+            <Trash2 size={16} color={colors.error} />
           </TouchableOpacity>
         </View>
 
@@ -82,8 +86,8 @@ export const PendingDeletionsScreen = () => {
           >
             <Text style={styles.uidText} numberOfLines={1}>UID: {item.uid}</Text>
             <View style={styles.copyBadge}>
-              <ContentCopy size={11} color={isCopied ? COLORS.success : COLORS.accent} />
-              <Text style={[styles.copyBadgeText, isCopied && { color: COLORS.success }]}>
+              <ContentCopy size={11} color={isCopied ? colors.success : colors.accent} />
+              <Text style={[styles.copyBadgeText, isCopied && { color: colors.success }]}>
                 {isCopied ? 'Copied' : 'Copy'}
               </Text>
             </View>
@@ -91,7 +95,7 @@ export const PendingDeletionsScreen = () => {
 
           <View style={styles.metaRow}>
             <View style={styles.timeRow}>
-              <Clock size={12} color={COLORS.textSubtle} style={{ marginRight: 4 }} />
+              <Clock size={12} color={colors.textSubtle} style={{ marginRight: 4 }} />
               <Text style={styles.timeText}>
                 Deleted: {new Date(item.deletedAt).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, day: '2-digit', month: 'short' })}
               </Text>
@@ -115,22 +119,22 @@ export const PendingDeletionsScreen = () => {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
-          ListEmptyComponent={<EmptyState icon={<UserMinus size={30} color={COLORS.textSubtle} />} title="All clean" message="There are no pending user deletion records." />}
+          ListEmptyComponent={<EmptyState icon={<UserMinus size={30} color={colors.textSubtle} />} title="All clean" message="There are no pending user deletion records." />}
         />
       )}
     </AdminScreen>
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   listContent: { padding: SPACING.xl, paddingBottom: 40 },
   card: { 
-    backgroundColor: COLORS.surface, 
+    backgroundColor: colors.surface, 
     borderRadius: RADIUS.lg, 
     padding: 14, 
     marginBottom: 12, 
     borderWidth: 1, 
-    borderColor: COLORS.border, 
+    borderColor: colors.border, 
     ...SHADOWS.card 
   },
   cardHeader: { 
@@ -151,22 +155,22 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: RADIUS.md,
-    backgroundColor: COLORS.errorSoft,
+    backgroundColor: colors.errorSoft,
     borderWidth: 1,
     borderColor: 'rgba(225, 29, 72, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   userCopy: { flex: 1, minWidth: 0 },
-  userName: { fontSize: 14, fontWeight: '800', color: COLORS.text },
-  userEmail: { fontSize: 11, color: COLORS.textMuted, marginTop: 1, fontWeight: '600' },
+  userName: { fontSize: 14, fontWeight: '800', color: colors.text },
+  userEmail: { fontSize: 11, color: colors.textMuted, marginTop: 1, fontWeight: '600' },
   deleteBtn: { 
     width: 36, 
     height: 36, 
     alignItems: 'center', 
     justifyContent: 'center', 
     borderRadius: RADIUS.md, 
-    backgroundColor: COLORS.errorSoft,
+    backgroundColor: colors.errorSoft,
     borderWidth: 1,
     borderColor: '#FECDD3'
   },
@@ -175,16 +179,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     alignItems: 'center', 
     justifyContent: 'space-between',
-    backgroundColor: COLORS.surfaceMuted, 
+    backgroundColor: colors.surfaceMuted, 
     paddingHorizontal: 12, 
     paddingVertical: 8, 
     borderRadius: RADIUS.md,
     borderWidth: 1,
-    borderColor: COLORS.border
+    borderColor: colors.border
   },
   uidText: { 
     fontSize: 10, 
-    color: COLORS.textMuted, 
+    color: colors.textMuted, 
     flex: 1, 
     fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace', 
     fontWeight: '700' 
@@ -193,17 +197,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: RADIUS.xs,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   copyBadgeText: {
     fontSize: 9,
     fontWeight: '800',
-    color: COLORS.accent,
+    color: colors.accent,
   },
   metaRow: {
     flexDirection: 'row',
@@ -214,5 +218,5 @@ const styles = StyleSheet.create({
     gap: 8
   },
   timeRow: { flexDirection: 'row', alignItems: 'center' },
-  timeText: { fontSize: 10, color: COLORS.textSubtle, fontWeight: '700' },
+  timeText: { fontSize: 10, color: colors.textSubtle, fontWeight: '700' },
 });

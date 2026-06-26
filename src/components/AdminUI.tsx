@@ -556,7 +556,7 @@ function useAdminUIStyles() {
     formLabel: { fontSize: TYPOGRAPHY.caption, lineHeight: 15, fontWeight: '800', color: colors.textMuted, marginBottom: 7, textTransform: 'uppercase', letterSpacing: 0 },
     formLabelFocused: { color: colors.accent },
     inputFrame: { minHeight: 50, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: SPACING.md, gap: SPACING.sm },
-    inputFrameFocused: { borderColor: colors.accent, ...SHADOWS.card },
+    inputFrameFocused: { borderColor: colors.accent },
     inputFrameError: { borderColor: colors.error, backgroundColor: colors.errorSoft },
     inputIcon: { width: 22, alignItems: 'center' },
     formInput: { flex: 1, minWidth: 0, minHeight: 48, color: colors.text, fontSize: TYPOGRAPHY.body, fontWeight: '700', paddingVertical: 0 },
