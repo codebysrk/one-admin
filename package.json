@@ -1,6 +1,6 @@
 {
   "name": "one-admin",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
@@ -15,6 +15,7 @@
     "@react-navigation/bottom-tabs": "^7.16.1",
     "@react-navigation/native": "^7.2.4",
     "@shopify/flash-list": "2.0.2",
+    "@supabase/supabase-js": "^2.117.0",
     "expo": "~54.0.35",
     "expo-clipboard": "~8.0.8",
     "expo-constants": "~18.0.13",
@@ -27,7 +28,6 @@
     "expo-secure-store": "~15.0.8",
     "expo-sharing": "~14.0.8",
     "expo-status-bar": "~3.0.9",
-    "firebase": "^12.13.0",
     "react": "19.1.0",
     "react-native": "0.81.5",
     "react-native-chart-kit": "^6.12.2",

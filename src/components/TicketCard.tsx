@@ -14,6 +14,7 @@ const IconWrapper = (name: any) => (props: any) => (
 const Bus = IconWrapper('bus');
 const Users = IconWrapper('account-group');
 const Trash2 = IconWrapper('trash-can-outline');
+const Pencil = IconWrapper('pencil-outline');
 const ChevronDown = IconWrapper('chevron-down');
 const ChevronUp = IconWrapper('chevron-up');
 const ContentCopy = IconWrapper('content-copy');
@@ -23,9 +24,10 @@ interface TicketCardProps {
   showUserInfo?: boolean;
   listUserName?: string;
   onDelete?: (id: string) => void;
+  onEdit?: (ticket: any) => void;
 }
 
-const TicketCardInner = ({ ticket, showUserInfo = false, listUserName, onDelete }: TicketCardProps) => {
+const TicketCardInner = ({ ticket, showUserInfo = false, listUserName, onDelete, onEdit }: TicketCardProps) => {
   const { colors, radius, shadows, isDark } = useTheme();
   const styles = useMemo(() => getStyles(colors, radius, shadows, isDark), [colors, radius, shadows, isDark]);
   
@@ -114,10 +116,10 @@ const TicketCardInner = ({ ticket, showUserInfo = false, listUserName, onDelete 
             </View>
             <View style={styles.journeyStops}>
               <Text style={styles.stopText} numberOfLines={1}>
-                {ticket.source}
+                {ticket.source || ticket.from || 'Source'}
               </Text>
               <Text style={[styles.stopText, styles.destStopText]} numberOfLines={1}>
-                {ticket.dest}
+                {ticket.dest || ticket.destination || ticket.to || 'Destination'}
               </Text>
             </View>
           </View>
@@ -148,7 +150,7 @@ const TicketCardInner = ({ ticket, showUserInfo = false, listUserName, onDelete 
 
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Quantity</Text>
-              <Text style={styles.detailValue}>{ticket.qty} Ticket(s)</Text>
+              <Text style={styles.detailValue}>{ticket.passengers || ticket.qty || 1} Ticket(s)</Text>
             </View>
 
             <View style={styles.detailRow}>
@@ -174,6 +176,17 @@ const TicketCardInner = ({ ticket, showUserInfo = false, listUserName, onDelete 
               </TouchableOpacity>
             </View>
 
+            {onEdit && (
+              <TouchableOpacity 
+                onPress={() => onEdit(ticket)} 
+                style={styles.editButton}
+                activeOpacity={0.8}
+              >
+                <Pencil size={14} color={colors.primary} />
+                <Text style={styles.editButtonText}>Edit</Text>
+              </TouchableOpacity>
+            )}
+
             {onDelete && (
               <TouchableOpacity 
                 onPress={() => onDelete(ticket.id)} 
@@ -181,7 +194,7 @@ const TicketCardInner = ({ ticket, showUserInfo = false, listUserName, onDelete 
                 activeOpacity={0.8}
               >
                 <Trash2 size={14} color={colors.error} />
-                <Text style={styles.deleteButtonText}>Void & Remove Ticket Record</Text>
+                <Text style={styles.deleteButtonText}>Delete Ticket</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -368,6 +381,23 @@ const getStyles = (colors: any, radius: any, shadows: any, isDark: boolean) => S
     fontWeight: '800',
     marginLeft: 2,
   },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.primary + '33',
+    borderRadius: radius.sm,
+    marginTop: 12,
+  },
+  editButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.primary,
+  },
   deleteButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -378,7 +408,7 @@ const getStyles = (colors: any, radius: any, shadows: any, isDark: boolean) => S
     borderWidth: 1,
     borderColor: '#FECDD3',
     borderRadius: radius.sm,
-    marginTop: 12,
+    marginTop: 10,
   },
   deleteButtonText: {
     fontSize: 12,

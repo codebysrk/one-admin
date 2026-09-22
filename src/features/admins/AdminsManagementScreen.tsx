@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
-import { collection, query, where, onSnapshot, doc, updateDoc, getDocs } from 'firebase/firestore';
+import { supabase } from '../../services/supabase';
 import { FlashList } from '@shopify/flash-list';
-import { db } from '../../services/firebase';
 import { useTheme } from '../../core/ThemeContext';
 import { RADIUS, SHADOWS, SPACING  } from '../../core/theme';
 
@@ -43,14 +42,33 @@ export const AdminsManagementScreen = () => {
   const [inviteEmail, setInviteEmail] = useState('');
   const [confirmModal, setConfirmModal] = useState({ visible: false, adminId: '', action: '' as 'REMOVE' | 'UPDATE' });
 
-  useEffect(() => {
-    const q = query(collection(db, 'users'), where('role', '==', 'admin'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setAdmins(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+  const fetchAdmins = React.useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .in('role', ['ADMIN', 'SUPER_ADMIN']);
+      if (error) throw error;
+      if (data) setAdmins(data);
+    } catch (err) {
+      if (__DEV__) console.warn('Fetch admins error:', err);
+    } finally {
       setLoading(false);
-    });
-    return () => unsubscribe();
+    }
   }, []);
+
+  useEffect(() => {
+    fetchAdmins();
+    const channel = supabase
+      .channel('public:admins')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
+        fetchAdmins();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchAdmins]);
 
   const handleTogglePermission = (permission: AdminPermission) => {
     if (!editingAdmin) return;
@@ -70,9 +88,12 @@ export const AdminsManagementScreen = () => {
   const savePermissions = async () => {
     if (!editingAdmin) return;
     try {
-      await updateDoc(doc(db, 'users', editingAdmin.id), {
-        permissions: editingAdmin.permissions
-      });
+      const { error } = await supabase
+        .from('users')
+        .update({ permissions: editingAdmin.permissions })
+        .eq('id', editingAdmin.id);
+      if (error) throw error;
+
       await logActivity({
         type: 'ADMIN',
         action: 'ADMIN_RIGHTS_UPDATED',
@@ -81,6 +102,7 @@ export const AdminsManagementScreen = () => {
         targetType: 'ADMIN'
       });
       setEditingAdmin(null);
+      fetchAdmins();
     } catch (error) {
       if (__DEV__) console.error(error);
       Alert.alert('Error', 'Failed to update permissions');
@@ -90,32 +112,40 @@ export const AdminsManagementScreen = () => {
   const promoteUser = async () => {
     if (!inviteEmail.trim()) return;
     try {
-      const q = query(collection(db, 'users'), where('email', '==', inviteEmail.trim().toLowerCase()));
-      const snap = await getDocs(q);
+      const { data: user, error: findError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', inviteEmail.trim().toLowerCase())
+        .maybeSingle();
       
-      if (snap.empty) {
+      if (!user) {
         Alert.alert('User Not Found', 'No registered user found with this email. They must sign up on the app first.');
         return;
       }
 
-      const userDoc = snap.docs[0];
-      await updateDoc(doc(db, 'users', userDoc.id), {
-        role: 'admin',
-        permissions: ['MANAGE_ROUTES'], // Default right
-        status: 'ACTIVE'
-      });
+      const { error } = await supabase
+        .from('users')
+        .update({
+          role: 'ADMIN',
+          permissions: ['MANAGE_ROUTES'],
+          status: 'ACTIVE'
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
 
       await logActivity({
         type: 'ADMIN',
         action: 'NEW_ADMIN_CREATED',
         details: `Promoted ${inviteEmail} to Administrator role`,
-        targetId: userDoc.id,
+        targetId: user.id,
         targetType: 'ADMIN'
       });
 
       setShowInviteModal(false);
       setInviteEmail('');
       Alert.alert('Success', `${inviteEmail} is now an administrator.`);
+      fetchAdmins();
     } catch (error) {
       if (__DEV__) console.error(error);
       Alert.alert('Error', 'Promotion failed');
@@ -124,12 +154,18 @@ export const AdminsManagementScreen = () => {
 
   const removeAdmin = async (id: string) => {
     try {
-      await updateDoc(doc(db, 'users', id), {
-        role: 'user',
-        permissions: []
-      });
+      const { error } = await supabase
+        .from('users')
+        .update({
+          role: 'USER',
+          permissions: []
+        })
+        .eq('id', id);
+      if (error) throw error;
+
       setConfirmModal({ visible: false, adminId: '', action: '' as any });
       Alert.alert('Success', 'Administrator rights revoked.');
+      fetchAdmins();
     } catch (error) {
       if (__DEV__) console.error(error);
     }

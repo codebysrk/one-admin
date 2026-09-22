@@ -1,0 +1,85 @@
+name: Android Native Build & Release
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java (JDK 17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Prebuild (Expo to Native Android)
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Enable ABI Splits in build.gradle
+        run: |
+          node -e '
+            const fs = require("fs");
+            const file = "android/app/build.gradle";
+            let content = fs.readFileSync(file, "utf8");
+            const splitsConfig = "    splits {\n        abi {\n            enable true\n            reset()\n            include \"armeabi-v7a\", \"arm64-v8a\", \"x86\", \"x86_64\"\n            universalApk true\n        }\n    }\n";
+            if (!content.includes("splits {")) {
+              content = content.replace(/(defaultConfig\s*\{[\s\S]*?\n\s*\})/, "$1\n" + splitsConfig);
+              fs.writeFileSync(file, content, "utf8");
+              console.log("Injected splits block successfully");
+            } else {
+              console.log("splits block already exists");
+            }
+          '
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x android/gradlew
+
+      - name: Build Android App (Release Split & Universal APKs)
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Upload APK Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: one-admin-release-apks
+          path: android/app/build/outputs/apk/release/*.apk
+
+      - name: Get App Version
+        id: get_version
+        run: |
+          VERSION=$(node -p "require('./app.json').expo.version")
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch'
+        with:
+          tag_name: v${{ env.APP_VERSION }}
+          name: One Admin v${{ env.APP_VERSION }}
+          generate_release_notes: true
+          files: android/app/build/outputs/apk/release/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

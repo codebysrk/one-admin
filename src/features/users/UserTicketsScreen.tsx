@@ -3,8 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 const AnyFlashList = FlashList as any;
-import { collection, query, where, orderBy, onSnapshot, doc, deleteDoc, writeBatch } from 'firebase/firestore';
-import { db } from '../../services/firebase';
+import { supabase } from '../../services/supabase';
 import { useTheme } from '../../core/ThemeContext';
 import { RADIUS, SPACING } from '../../core/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -19,6 +18,7 @@ const Trash2 = IconWrapper('trash-can-outline');
 import { EmptyState, LoadingState, ReasonModal, ConfirmationModal } from '../../components/AdminUI';
 import { logActivity } from '../../services/logService';
 import { TicketCard } from '../../components/TicketCard';
+import { EditTicketModal } from '../dashboard/EditTicketModal';
 
 export const UserTicketsScreen = ({ navigation, route }: any) => {
   const { colors, isDark } = useTheme();
@@ -30,38 +30,53 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
   const [confirmModal, setConfirmModal] = useState({ visible: false, ticketId: '' });
   const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
   const [deleteAllReason, setDeleteAllReason] = useState(false);
+  const [editModal, setEditModal] = useState<{ visible: boolean; ticket: any | null }>({ visible: false, ticket: null });
 
-  const unsubscribeRef = React.useRef<(() => void) | null>(null);
-
-  const subscribe = useCallback(() => {
-    if (unsubscribeRef.current) unsubscribeRef.current();
-    const q = query(
-      collection(db, 'tickets'),
-      where('userId', '==', userId),
-      orderBy('timestamp', 'desc')
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setTickets(data);
+  const fetchTickets = useCallback(async () => {
+    const { data } = await supabase
+      .from('tickets')
+      .select('*')
+      .eq('user_id', userId)
+      .order('timestamp', { ascending: false });
+    if (data) {
+      setTickets(data.map((t: any) => ({
+        id: t.id,
+        userId: t.user_id,
+        userName: t.user_name,
+        userEmail: t.user_email,
+        route: t.route,
+        fare: t.fare,
+        passengers: t.passengers,
+        busNumber: t.bus_number,
+        qrPayload: t.qr_payload,
+        isUsed: t.is_used,
+        status: t.status,
+        timestamp: t.timestamp,
+        from: t.source,
+        to: t.destination,
+      })));
       setLoading(false);
       setRefreshing(false);
-    }, (err) => {
-      if (__DEV__) console.warn('User tickets listener:', err);
-      setLoading(false);
-      setRefreshing(false);
-    });
-    unsubscribeRef.current = () => unsubscribe();
+    }
   }, [userId]);
 
   useEffect(() => {
-    subscribe();
-    return () => { unsubscribeRef.current?.(); };
-  }, [subscribe]);
+    fetchTickets();
+    const channel = supabase
+      .channel(`user-tickets-${userId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets', filter: `user_id=eq.${userId}` }, () => {
+        fetchTickets();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchTickets, userId]);
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
-    subscribe();
-  }, [subscribe]);
+    fetchTickets();
+  }, [fetchTickets]);
 
   const handleDelete = useCallback((id: string) => {
     setConfirmModal({ visible: true, ticketId: id });
@@ -69,7 +84,7 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
 
   const executeDelete = useCallback(async (id: string) => {
     try {
-      await deleteDoc(doc(db, 'tickets', id));
+      await supabase.from('tickets').delete().eq('id', id);
       await logActivity({
         type: 'ADMIN',
         action: 'TICKET_DELETED',
@@ -77,10 +92,11 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
         targetId: id,
         targetType: 'TICKET',
       });
+      fetchTickets();
     } catch (error) {
       if (__DEV__) console.warn('Error deleting ticket:', error);
     }
-  }, [userName]);
+  }, [userName, fetchTickets]);
 
   const handleDeleteAll = useCallback(() => {
     setDeleteAllConfirm(true);
@@ -88,32 +104,31 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
 
   const confirmDeleteAll = useCallback(async (reason: string) => {
     try {
-      const batch = writeBatch(db);
-      tickets.forEach((ticket) => {
-        const ref = doc(db, 'tickets', ticket.id);
-        batch.delete(ref);
-      });
-      await batch.commit();
-
+      await supabase.from('tickets').delete().eq('user_id', userId);
       await logActivity({
         type: 'ADMIN',
-        action: 'ALL_USER_TICKETS_DELETED',
-        details: `Deleted all ${tickets.length} tickets for user ${userName} (${userId}).`,
+        action: 'ALL_TICKETS_DELETED',
+        details: `All tickets of user ${userName} were cleared.`,
         targetId: userId,
         targetType: 'USER',
-        notes: reason
+        notes: reason,
       });
+      fetchTickets();
       setDeleteAllReason(false);
     } catch (error) {
-      if (__DEV__) console.warn('Error deleting all tickets:', error);
+      if (__DEV__) console.warn('Error clearing user tickets:', error);
     }
-  }, [tickets, userName, userId]);
+  }, [userId, userName, fetchTickets]);
+
+  const handleEdit = useCallback((ticket: any) => {
+    setEditModal({ visible: true, ticket });
+  }, []);
 
   const renderTicket = useCallback(
     ({ item }: { item: any }) => (
-      <TicketCard ticket={item} showUserInfo listUserName={userName} onDelete={handleDelete} />
+      <TicketCard ticket={item} showUserInfo listUserName={userName} onDelete={handleDelete} onEdit={handleEdit} />
     ),
-    [handleDelete, userName]
+    [handleDelete, handleEdit, userName]
   );
 
   return (
@@ -183,6 +198,13 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
         }}
         title="Delete All Tickets?"
         message={`This will permanently delete all ${tickets.length} tickets for ${userName}. This action cannot be undone.`}
+      />
+
+      <EditTicketModal
+        visible={editModal.visible}
+        ticket={editModal.ticket}
+        onClose={() => setEditModal({ visible: false, ticket: null })}
+        onTicketUpdated={fetchTickets}
       />
     </SafeAreaView>
   );

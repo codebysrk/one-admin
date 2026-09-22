@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { collection, onSnapshot, updateDoc, doc, query, orderBy } from 'firebase/firestore';
 import { FlashList } from '@shopify/flash-list';
-import { db } from '../../services/firebase';
+import { supabase } from '../../services/supabase';
 import { useTheme } from '../../core/ThemeContext';
 import { RADIUS, SHADOWS, SPACING  } from '../../core/theme';
 
@@ -27,24 +26,47 @@ export const DevicesListScreen = () => {
   const [devices, setDevices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const q = query(collection(db, 'devices'), orderBy('lastActive', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const deviceData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setDevices(deviceData);
+  const fetchDevices = useCallback(async () => {
+    const { data } = await supabase
+      .from('devices')
+      .select('*')
+      .order('last_active', { ascending: false });
+    if (data) {
+      setDevices(data.map((d: any) => ({
+        id: d.id,
+        deviceName: d.device_name,
+        userName: d.user_name,
+        userEmail: d.user_email,
+        status: d.status,
+        forceLogout: d.force_logout,
+        platform: d.platform,
+        osVersion: d.os_version,
+        brand: d.brand,
+        model: d.model,
+        lastActive: d.last_active,
+      })));
       setLoading(false);
-    });
-
-    return () => unsubscribe();
+    }
   }, []);
 
+  useEffect(() => {
+    fetchDevices();
+    const channel = supabase
+      .channel('devices-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'devices' }, () => {
+        fetchDevices();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchDevices]);
+
   const toggleStatus = async (id: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'APPROVED' ? 'BANNED' : 'APPROVED';
+    const newStatus = currentStatus === 'ACTIVE' || currentStatus === 'APPROVED' ? 'BANNED' : 'ACTIVE';
     try {
-      await updateDoc(doc(db, 'devices', id), { status: newStatus });
+      await supabase.from('devices').update({ status: newStatus }).eq('id', id);
+      fetchDevices();
     } catch (error) {
       Alert.alert('Error', 'Could not update device status');
     }
@@ -52,7 +74,8 @@ export const DevicesListScreen = () => {
 
   const toggleForceLogout = async (id: string, currentVal: boolean) => {
     try {
-      await updateDoc(doc(db, 'devices', id), { forceLogout: !currentVal });
+      await supabase.from('devices').update({ force_logout: !currentVal }).eq('id', id);
+      fetchDevices();
     } catch (error) {
       Alert.alert('Error', 'Could not update force logout status');
     }

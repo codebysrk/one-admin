@@ -1,6 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, Text, Platform } from 'react-native';
+import { StyleSheet, View, Text, Platform, ActivityIndicator } from 'react-native';
 import { LoginScreen } from './src/features/auth/LoginScreen';
 import { useAdminStore } from './src/store/useAdminStore';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -59,8 +59,54 @@ const errorStyles = StyleSheet.create({
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { BackHandler, ToastAndroid } from 'react-native';
 
+import { supabase } from './src/services/supabase';
+import { loginAdmin } from './src/services/authService';
+import * as SecureStore from 'expo-secure-store';
+
 function AppBody() {
   const admin = useAdminStore((state) => state.admin);
+  const setAdmin = useAdminStore((state) => state.setAdmin);
+  const [checking, setChecking] = React.useState(true);
+
+  React.useEffect(() => {
+    let mounted = true;
+    async function syncSession() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          const savedCreds = await SecureStore.getItemAsync('admin_creds');
+          if (savedCreds) {
+            try {
+              const { email, password } = JSON.parse(savedCreds);
+              const res = await loginAdmin(email, password);
+              if (res.success && mounted) {
+                setAdmin(res.userData);
+                setChecking(false);
+                return;
+              }
+            } catch (_) {}
+          }
+          if (mounted) {
+            setAdmin(null);
+          }
+        }
+      } catch (err) {
+        if (__DEV__) console.warn('Session verification failed:', err);
+      } finally {
+        if (mounted) setChecking(false);
+      }
+    }
+    syncSession();
+    return () => { mounted = false; };
+  }, [setAdmin]);
+
+  if (checking) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

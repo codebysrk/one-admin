@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useMemo, useCallback, useTransition } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
-import { collection, onSnapshot, doc, updateDoc, query, orderBy, setDoc, deleteDoc, where, getDocs, writeBatch } from 'firebase/firestore';
-import { db } from '../../services/firebase';
+import { supabase } from '../../services/supabase';
 import { useTheme } from '../../core/ThemeContext';
 import { RADIUS, SHADOWS, SPACING  } from '../../core/theme';
 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { AdminHeader, AdminScreen, EmptyState, LoadingState, ReasonModal, SearchField, StatusBadge } from '../../components/AdminUI';
+import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, ReasonModal, SearchField, StatusBadge } from '../../components/AdminUI';
 import { UserTicketsScreen } from './UserTicketsScreen';
+import { CreateUserModal } from './CreateUserModal';
 import { logActivity } from '../../services/logService';
 
 const IconWrapper = (name: any) => (props: any) => (
@@ -16,6 +17,7 @@ const IconWrapper = (name: any) => (props: any) => (
 );
 
 const UserIcon = IconWrapper('account');
+const UserPlus = IconWrapper('account-plus');
 const Trash2 = IconWrapper('trash-can-outline');
 const Search = IconWrapper('magnify');
 const BadgeCheck = IconWrapper('check-decagram');
@@ -109,57 +111,66 @@ export const UsersListScreen = () => {
   const [userRevenue, setUserRevenue] = useState<Record<string, number>>({});
   const [, setUserAlerts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
   const [selectedUser, setSelectedUser] = useState<any>(null);
   
   const [reasonModal, setReasonModal] = useState({ visible: false, title: '', type: '', data: null as any });
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  const fetchAll = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    try {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (userData) {
+        setUsers(userData);
+      }
+
+      const { data: ticketData } = await supabase.from('tickets').select('user_id, fare');
+      if (ticketData) {
+        const revenueMap: Record<string, number> = {};
+        ticketData.forEach((t: any) => {
+          if (t.user_id) {
+            revenueMap[t.user_id] = (revenueMap[t.user_id] || 0) + (Number(t.fare) || 0);
+          }
+        });
+        startTransition(() => setUserRevenue(revenueMap));
+      }
+    } catch (err) {
+      if (__DEV__) console.warn('Fetch users error:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchAll();
+    }, [fetchAll])
+  );
 
   useEffect(() => {
-    // Listen for users
-    const qUsers = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
-    const unsubscribeUsers = onSnapshot(qUsers, (snapshot) => {
-      const userData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setUsers(userData);
-      setLoading(false);
-    });
+    fetchAll();
 
-    // Listen for tickets to calculate revenue
-    const qTickets = query(collection(db, 'tickets'));
-    const unsubscribeTickets = onSnapshot(qTickets, (snapshot) => {
-      const revenueMap: Record<string, number> = {};
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const uid = data.userId;
-        const fare = Number(data.fare) || 0;
-        if (uid) {
-          revenueMap[uid] = (revenueMap[uid] || 0) + fare;
-        }
-      });
-      startTransition(() => setUserRevenue(revenueMap));
-    });
-
-    // Listen for security alerts (screenshots)
-    const qLogs = query(collection(db, 'logs'), where('action', '==', 'SCREENSHOT_ATTEMPT'));
-    const unsubscribeLogs = onSnapshot(qLogs, (snapshot) => {
-      const alertsMap: Record<string, string> = {};
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const uid = data.userId;
-        if (uid) {
-          alertsMap[uid] = data.timestamp?.toDate ? data.timestamp.toDate().toLocaleDateString() : 'Recent';
-        }
-      });
-      alertsMap[String(new Date())] = 'test'; // dummy alert trigger
-      setUserAlerts(alertsMap);
-    });
+    const channel = supabase
+      .channel('users-screen-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
+        fetchAll();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
+        fetchAll();
+      })
+      .subscribe();
 
     return () => {
-      unsubscribeUsers();
-      unsubscribeTickets();
-      unsubscribeLogs();
+      supabase.removeChannel(channel);
     };
-  }, []);
+  }, [fetchAll]);
 
   const initiateStatusToggle = useCallback((user: any) => {
     const action = user.status === 'ACTIVE' || !user.status ? 'Ban User' : 'Unban User';
@@ -176,7 +187,7 @@ export const UsersListScreen = () => {
     if (type === 'TOGGLE_STATUS') {
       const newStatus = user.status === 'ACTIVE' || !user.status ? 'BANNED' : 'ACTIVE';
       try {
-        await updateDoc(doc(db, 'users', user.id), { status: newStatus });
+        await supabase.from('users').update({ status: newStatus }).eq('id', user.id);
         await logActivity({
           type: 'ADMIN',
           action: newStatus === 'BANNED' ? 'USER_BANNED' : 'USER_UNBANNED',
@@ -187,6 +198,7 @@ export const UsersListScreen = () => {
           newValue: newStatus,
           notes: reason
         });
+        fetchAll();
         Alert.alert('Status Updated', `${user.name} is now ${newStatus}`);
       } catch (error) {
         Alert.alert('Error', 'Failed to update status');
@@ -194,27 +206,16 @@ export const UsersListScreen = () => {
     } else if (type === 'DELETE_USER') {
       try {
         const { id: uid, email, name } = user;
-
-        // User ke saare devices delete karo
-        const devicesSnap = await getDocs(
-          query(collection(db, 'devices'), where('userId', '==', uid))
-        );
-        if (!devicesSnap.empty) {
-          const batch = writeBatch(db);
-          devicesSnap.docs.forEach((d) => batch.delete(d.ref));
-          await batch.commit();
-        }
-
-        await setDoc(doc(db, 'deleted_users', uid), { uid, email, name, deletedAt: new Date().toISOString(), status: 'PENDING_AUTH_DELETION' });
-        await deleteDoc(doc(db, 'users', uid));
+        await supabase.from('users').delete().eq('id', uid);
         await logActivity({
           type: 'ADMIN',
           action: 'USER_DELETED',
-          details: `User ${name} (${email}) was removed and moved to cleanup queue.`,
+          details: `User ${name} (${email}) was removed.`,
           targetId: uid,
           targetType: 'USER',
           notes: reason
         });
+        fetchAll();
         Alert.alert('Success', 'User and their devices have been removed.');
       } catch (err) {
         Alert.alert('Error', 'Deletion failed');
@@ -236,7 +237,7 @@ export const UsersListScreen = () => {
         case 'BANNED':
           return u.status === 'BANNED';
         case 'ADMINS':
-          return u.role === 'admin';
+          return u.role === 'ADMIN' || u.role === 'SUPER_ADMIN' || u.role === 'admin';
         default:
           return true;
       }
@@ -270,6 +271,15 @@ export const UsersListScreen = () => {
       <AdminHeader 
         title="Identity & Access" 
         subtitle={`${filteredUsers.length} ${activeFilter.toLowerCase()} records indexed`} 
+        action={
+          <IconButton
+            accessibilityLabel="Add New User"
+            onPress={() => setShowCreateModal(true)}
+            tone="primary"
+          >
+            <UserPlus size={18} color="#ffffff" />
+          </IconButton>
+        }
       />
       
       <View style={styles.controls}>
@@ -302,6 +312,8 @@ export const UsersListScreen = () => {
           keyExtractor={(item: any) => item.id}
           renderItem={renderUser}
           contentContainerStyle={styles.list}
+          refreshing={refreshing}
+          onRefresh={() => fetchAll(true)}
           ListEmptyComponent={
             <EmptyState 
               icon={<Search size={30} color={colors.textSubtle} />} 
@@ -318,11 +330,23 @@ export const UsersListScreen = () => {
         title={reasonModal.title}
         onSubmit={handleActionWithReason}
       />
+
+      <CreateUserModal
+        visible={showCreateModal}
+        onClose={() => {
+          setShowCreateModal(false);
+          fetchAll();
+        }}
+        onUserCreated={() => {
+          fetchAll();
+        }}
+      />
     </AdminScreen>
   );
 };
 
-const getStyles = (colors: any) => StyleSheet.create({
+function getStyles(colors: any) {
+  return StyleSheet.create({
   controls: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg, gap: 12 },
   filterBar: { gap: 8, paddingBottom: 4 },
   filterTab: { 
@@ -444,4 +468,5 @@ const getStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.accentSoft,
     borderColor: 'rgba(37, 99, 235, 0.15)',
   },
-});
+  });
+}

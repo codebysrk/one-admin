@@ -1,5 +1,4 @@
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db } from "./firebase";
+import { supabase } from "./supabase";
 import { useAdminStore } from "../store/useAdminStore";
 
 export type LogType = 'ADMIN' | 'USER' | 'SYSTEM';
@@ -15,28 +14,20 @@ interface LogOptions {
   notes?: string;
 }
 
-import * as Device from 'expo-device';
-import Constants from 'expo-constants';
-
 export const logActivity = async (options: LogOptions) => {
   const admin = useAdminStore.getState().admin;
   
   try {
-    const deviceMeta = {
-      model: Device.modelName,
-      os: Device.osName,
-      osVersion: Device.osVersion,
-      appVersion: Constants.expoConfig?.version || '1.0.0',
-      isRooted: !Device.isDevice,
-    };
-
-    await addDoc(collection(db, 'logs'), {
-      ...options,
-      userName: admin?.name || admin?.userName || admin?.email || 'System',
-      userEmail: admin?.email || 'system@onedelhi.gov.in',
-      timestamp: serverTimestamp(),
-      deviceId: 'Admin Dashboard',
-      deviceMeta,
+    await supabase.from('activity_logs').insert({
+      user_id: admin?.uid || admin?.id || null,
+      user_name: admin?.name || admin?.userName || admin?.email || 'Admin',
+      user_email: admin?.email || 'admin@onedelhi.gov.in',
+      action: options.action,
+      details: options.details,
+      type: options.type === 'SYSTEM' ? 'USER' : options.type,
+      target_id: options.targetId || null,
+      target_type: options.targetType || null,
+      notes: options.notes || null,
     });
   } catch (error) {
     if (__DEV__) console.error('Logging failed:', error);

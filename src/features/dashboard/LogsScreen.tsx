@@ -3,8 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 const AnyFlashList = FlashList as any;
 import { useNavigation } from '@react-navigation/native';
-import { collection, onSnapshot, query, orderBy, limit, where, Timestamp, getDocs, deleteDoc, doc, writeBatch } from 'firebase/firestore';
-import { db } from '../../services/firebase';
+import { supabase } from '../../services/supabase';
 import { useTheme } from '../../core/ThemeContext';
 import { RADIUS, SHADOWS, SPACING  } from '../../core/theme';
 
@@ -57,33 +56,62 @@ export const LogsScreen = () => {
   const [confirmModal, setConfirmModal] = useState({ visible: false, days: 0 as number | 'ALL' });
   const navigation = useNavigation<any>();
 
-  useEffect(() => {
-    let q = query(collection(db, 'logs'), orderBy('timestamp', 'desc'), limit(150));
-    
-    if (dateFilter === 'TODAY') {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      q = query(collection(db, 'logs'), where('timestamp', '>=', Timestamp.fromDate(today)), orderBy('timestamp', 'desc'));
-    } else if (dateFilter === 'WEEK') {
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      q = query(collection(db, 'logs'), where('timestamp', '>=', Timestamp.fromDate(weekAgo)), orderBy('timestamp', 'desc'));
+  const fetchLogs = useCallback(async () => {
+    try {
+      let queryBuilder = supabase
+        .from('activity_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(150);
+
+      if (dateFilter === 'TODAY') {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        queryBuilder = queryBuilder.gte('created_at', today.toISOString());
+      } else if (dateFilter === 'WEEK') {
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        queryBuilder = queryBuilder.gte('created_at', weekAgo.toISOString());
+      }
+
+      const { data, error } = await queryBuilder;
+      if (error) throw error;
+      if (data) {
+        setLogs(data.map((l: any) => ({
+          id: l.id,
+          userName: l.user_name,
+          userEmail: l.user_email,
+          action: l.action,
+          details: l.details,
+          type: l.type,
+          targetId: l.target_id,
+          targetType: l.target_type,
+          notes: l.notes,
+          timestamp: l.created_at,
+          ...l,
+        })));
+      }
+    } catch (err) {
+      if (__DEV__) console.warn('Logs error:', err);
+    } finally {
+      setLoading(false);
     }
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const logData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setLogs(logData);
-      setLoading(false);
-    }, (err) => {
-      if (__DEV__) console.warn('Logs listener:', err);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
   }, [dateFilter]);
+
+  useEffect(() => {
+    fetchLogs();
+
+    const channel = supabase
+      .channel('public:activity_logs')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_logs' }, () => {
+        fetchLogs();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchLogs]);
 
   const filteredLogs = useMemo(() => {
     const q = searchQuery.toLowerCase();
@@ -129,27 +157,22 @@ export const LogsScreen = () => {
     setConfirmModal({ ...confirmModal, visible: false });
     setCleaning(true);
     try {
-      let q;
+      let error;
       if (days === 'ALL') {
-        q = query(collection(db, 'logs'));
+        const res = await supabase.from('activity_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        error = res.error;
       } else {
         const cutOff = new Date();
         cutOff.setDate(cutOff.getDate() - days);
-        q = query(collection(db, 'logs'), where('timestamp', '<', Timestamp.fromDate(cutOff)));
+        const res = await supabase.from('activity_logs').delete().lt('created_at', cutOff.toISOString());
+        error = res.error;
       }
 
-      const snapshot = await getDocs(q);
-      const batchSize = 100;
-      
-      for (let i = 0; i < snapshot.docs.length; i += batchSize) {
-        const batch = writeBatch(db);
-        const chunk = snapshot.docs.slice(i, i + batchSize);
-        chunk.forEach(d => batch.delete(d.ref));
-        await batch.commit();
-      }
+      if (error) throw error;
 
-      Alert.alert('Success', `Successfully purged ${snapshot.docs.length} legacy logs.`);
+      Alert.alert('Success', 'Successfully purged logs.');
       setShowCleanupModal(false);
+      fetchLogs();
     } catch (error) {
       if (__DEV__) console.warn('Log cleanup failed:', error);
       Alert.alert('Error', 'Cleanup process failed.');

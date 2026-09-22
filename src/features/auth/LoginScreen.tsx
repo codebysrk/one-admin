@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, StatusBar, KeyboardAvoidingView, Platform, Image, Dimensions, Modal, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../../services/firebase';
+import { supabase } from '../../services/supabase';
 import { loginAdmin } from '../../services/authService';
 import { useAdminStore } from '../../store/useAdminStore';
 import { useTheme } from '../../core/ThemeContext';
@@ -121,8 +120,11 @@ export const LoginScreen = () => {
     }
     setResetLoading(true);
     try {
-      await sendPasswordResetEmail(auth, email);
-      showPremiumModal('SUCCESS', 'Recovery Initiated', 'A secure verification link has been dispatched. Please follow the instructions sent to your email to reset your administrative access.');
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: 'https://tiuzvutjuazntxmisozk.supabase.co/functions/v1/reset-password',
+      });
+      if (error) throw error;
+      showPremiumModal('SUCCESS', 'Recovery Initiated', 'A secure password reset link has been dispatched. Please check your email to reset your administrative access.');
     } catch (error: any) { 
       showPremiumModal('ERROR', 'Request Failed', error.message); 
     } finally {

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Modal, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
-import { collection, onSnapshot, doc, deleteDoc, addDoc, query, orderBy, getCountFromServer } from 'firebase/firestore';
-import { db } from '../../services/firebase';
+import { supabase } from '../../services/supabase';
 import { useTheme } from '../../core/ThemeContext';
 import { RADIUS, SHADOWS, SPACING  } from '../../core/theme';
 
@@ -45,22 +44,33 @@ export const NotificationsScreen = () => {
   const [message, setMessage] = useState('');
   const [type, setType] = useState('general');
 
-  useEffect(() => {
-    const q = query(collection(db, 'notifications'), orderBy('timestamp', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setNotifications(data);
+  const fetchNotifications = React.useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && data) {
+        setNotifications(data);
+      }
+    } catch (_) {}
+    finally {
       setLoading(false);
-    });
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
 
     const fetchUserCount = async () => {
-      const snap = await getCountFromServer(collection(db, 'users'));
-      setTotalUsers(snap.data().count);
+      try {
+        const { count } = await supabase.from('users').select('*', { count: 'exact', head: true });
+        setTotalUsers(count || 0);
+      } catch (_) {}
     };
 
     fetchUserCount();
-    return () => unsubscribe();
-  }, []);
+  }, [fetchNotifications]);
 
   const handleBroadcast = async () => {
     if (!title.trim() || !message.trim()) {
@@ -74,17 +84,17 @@ export const NotificationsScreen = () => {
         title: title.trim(),
         message: message.trim(),
         type,
-        timestamp: Date.now(),
-        isBroadcast: true,
-        sentBy: 'Admin Hub',
-        targetCount: totalUsers
+        is_broadcast: true,
+        sent_by: 'Admin Hub',
+        target_count: totalUsers
       };
 
-      await addDoc(collection(db, 'notifications'), payload);
+      await supabase.from('notifications').insert(payload);
       setModalVisible(false);
       setTitle('');
       setMessage('');
       setType('general');
+      fetchNotifications();
     } catch (error) {
       Alert.alert('Error', 'Failed to dispatch');
     } finally {
@@ -94,6 +104,7 @@ export const NotificationsScreen = () => {
 
   const renderNotification = ({ item }: any) => {
     const typeInfo = NOTIFICATION_TYPES.find(t => t.id === item.type) || NOTIFICATION_TYPES[0];
+    const dateVal = item.created_at || item.timestamp;
     return (
       <View style={styles.notifCard}>
         <View style={styles.cardHeader}>
@@ -101,9 +112,9 @@ export const NotificationsScreen = () => {
             <View style={[styles.typeIcon, { backgroundColor: typeInfo.bg }]}>
               <typeInfo.icon size={14} color={typeInfo.tone} />
             </View>
-            <Text style={styles.dateText}>{new Date(item.timestamp).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</Text>
+            <Text style={styles.dateText}>{dateVal ? new Date(dateVal).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : 'Today'}</Text>
           </View>
-          <TouchableOpacity onPress={() => deleteDoc(doc(db, 'notifications', item.id))} style={styles.deleteBtn}>
+          <TouchableOpacity onPress={async () => { await supabase.from('notifications').delete().eq('id', item.id); fetchNotifications(); }} style={styles.deleteBtn}>
             <Trash2 size={14} color={colors.error} />
           </TouchableOpacity>
         </View>

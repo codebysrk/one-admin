@@ -2,19 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 const AnyFlashList = FlashList as any;
-import {
-  collection,
-  onSnapshot,
-  query,
-  orderBy,
-  limit,
-  doc,
-  deleteDoc,
-  getDocs,
-  where,
-  documentId,
-} from 'firebase/firestore';
-import { db } from '../../services/firebase';
+import { supabase } from '../../services/supabase';
 import { COLORS, SPACING } from '../../core/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -28,33 +16,7 @@ import { exportToCSV } from '../../utils/csvHelper';
 import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, ReasonModal, SearchField, ConfirmationModal } from '../../components/AdminUI';
 import { logActivity } from '../../services/logService';
 import { TicketCard } from '../../components/TicketCard';
-
-const FIRESTORE_IN_QUERY_MAX = 30;
-
-async function mapTicketsWithUserNames(ticketData: any[]) {
-  const userIds = [...new Set(ticketData.map((t) => t.userId).filter(Boolean))] as string[];
-  const nameById: Record<string, string> = {};
-
-  for (let i = 0; i < userIds.length; i += FIRESTORE_IN_QUERY_MAX) {
-    const chunk = userIds.slice(i, i + FIRESTORE_IN_QUERY_MAX);
-    try {
-      const usersSnap = await getDocs(
-        query(collection(db, 'users'), where(documentId(), 'in', chunk))
-      );
-      usersSnap.docs.forEach((d) => {
-        const data = d.data();
-        nameById[d.id] = data.name || 'Unknown User';
-      });
-    } catch (error) {
-      if (__DEV__) console.warn('Batch user fetch failed:', error);
-    }
-  }
-
-  return ticketData.map((ticket: any) => ({
-    ...ticket,
-    userName: ticket.userId ? nameById[ticket.userId] ?? 'Unknown User' : 'Unknown User',
-  }));
-}
+import { EditTicketModal } from './EditTicketModal';
 
 export const AllTicketsScreen = () => {
   const [tickets, setTickets] = useState<any[]>([]);
@@ -63,34 +25,62 @@ export const AllTicketsScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmModal, setConfirmModal] = useState({ visible: false, ticketId: '' });
   const [reasonModal, setReasonModal] = useState({ visible: false, ticketId: '' });
+  const [editModal, setEditModal] = useState<{ visible: boolean; ticket: any | null }>({ visible: false, ticket: null });
 
-  const unsubscribeRef = React.useRef<(() => void) | null>(null);
+  const fetchTickets = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tickets')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .limit(100);
 
-  const subscribe = useCallback(() => {
-    if (unsubscribeRef.current) unsubscribeRef.current();
-    let cancelled = false;
-    const q = query(collection(db, 'tickets'), orderBy('timestamp', 'desc'), limit(100));
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const ticketData = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      const ticketsWithUsers = await mapTicketsWithUserNames(ticketData);
-      if (!cancelled) {
-        setTickets(ticketsWithUsers);
-        setLoading(false);
-        setRefreshing(false);
+      if (error) throw error;
+      if (data) {
+        setTickets(data.map((t: any) => ({
+          id: t.id,
+          userId: t.user_id,
+          userName: t.user_name || 'Unknown User',
+          userEmail: t.user_email,
+          route: t.route,
+          fare: t.fare,
+          passengers: t.passengers,
+          busNumber: t.bus_number,
+          qrPayload: t.qr_payload,
+          isUsed: t.is_used,
+          status: t.status,
+          timestamp: t.timestamp,
+          from: t.source,
+          to: t.destination,
+        })));
       }
-    });
-    unsubscribeRef.current = () => { cancelled = true; unsubscribe(); };
+    } catch (err) {
+      if (__DEV__) console.warn('Fetch tickets error:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
   useEffect(() => {
-    subscribe();
-    return () => { unsubscribeRef.current?.(); };
-  }, [subscribe]);
+    fetchTickets();
+
+    const channel = supabase
+      .channel('public:tickets')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
+        fetchTickets();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchTickets]);
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
-    subscribe();
-  }, [subscribe]);
+    fetchTickets();
+  }, [fetchTickets]);
 
   const filteredTickets = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -99,7 +89,7 @@ export const AllTicketsScreen = () => {
       (t) =>
         t.userName?.toLowerCase().includes(q) ||
         t.route?.toLowerCase().includes(q) ||
-        t.tid?.toLowerCase().includes(q)
+        t.id?.toLowerCase().includes(q)
     );
   }, [tickets, searchQuery]);
 
@@ -110,7 +100,8 @@ export const AllTicketsScreen = () => {
   const confirmDelete = useCallback(async (reason: string) => {
     const id = reasonModal.ticketId;
     try {
-      await deleteDoc(doc(db, 'tickets', id));
+      const { error } = await supabase.from('tickets').delete().eq('id', id);
+      if (error) throw error;
       await logActivity({
         type: 'ADMIN',
         action: 'TICKET_DELETED',
@@ -120,16 +111,21 @@ export const AllTicketsScreen = () => {
         notes: reason,
       });
       setReasonModal({ visible: false, ticketId: '' });
+      fetchTickets();
     } catch (error) {
       if (__DEV__) console.warn('Error deleting ticket:', error);
     }
-  }, [reasonModal.ticketId]);
+  }, [reasonModal.ticketId, fetchTickets]);
+
+  const handleEdit = useCallback((ticket: any) => {
+    setEditModal({ visible: true, ticket });
+  }, []);
 
   const renderTicket = useCallback(
     ({ item }: { item: any }) => (
-      <TicketCard ticket={item} showUserInfo={true} onDelete={handleDelete} />
+      <TicketCard ticket={item} showUserInfo={true} onDelete={handleDelete} onEdit={handleEdit} />
     ),
-    [handleDelete]
+    [handleDelete, handleEdit]
   );
 
   return (
@@ -188,6 +184,13 @@ export const AllTicketsScreen = () => {
         }}
         title="Void Ticket?"
         message="This will permanently mark this ticket as invalid and remove it from the system audit."
+      />
+
+      <EditTicketModal
+        visible={editModal.visible}
+        ticket={editModal.ticket}
+        onClose={() => setEditModal({ visible: false, ticket: null })}
+        onTicketUpdated={fetchTickets}
       />
     </AdminScreen>
   );

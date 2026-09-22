@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform, StatusBar } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { updateEmail, updatePassword, updateProfile, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
-import { doc, updateDoc } from 'firebase/firestore';
-import { auth, db } from '../../services/firebase';
+import { supabase } from '../../services/supabase';
 import { useAdminStore } from '../../store/useAdminStore';
 import { useTheme } from '../../core/ThemeContext';
 import { RADIUS, SHADOWS, SPACING  } from '../../core/theme';
@@ -24,6 +22,8 @@ const Eye = IconWrapper('eye');
 const EyeOff = IconWrapper('eye-off');
 const ArrowLeft = IconWrapper('arrow-left');
 const ShieldCheck = IconWrapper('shield-check');
+const TrashAlert = IconWrapper('delete-alert');
+import { resetDatabaseExceptRoutes } from '../../services/databaseResetService';
 
 export const AdminProfileScreen = () => {
   const { colors } = useTheme();
@@ -40,13 +40,44 @@ export const AdminProfileScreen = () => {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+
+  const handleResetDatabase = () => {
+    Alert.alert(
+      'Reset Database (Fresh Start)',
+      'This will delete all tickets, devices, security logs, and test users. Only Routes and the Permanent Admin (maishahrukhh@gmail.com) will be preserved.\n\nAre you sure you want to proceed?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes, Reset Database',
+          style: 'destructive',
+          onPress: async () => {
+            setResetLoading(true);
+            try {
+              const res = await resetDatabaseExceptRoutes('maishahrukhh@gmail.com');
+              Alert.alert(
+                'Database Reset Complete',
+                `Successfully cleared database:\n- Tickets removed: ${res.ticketsDeleted}\n- Devices removed: ${res.devicesDeleted}\n- Logs purged: ${res.logsDeleted}\n- Users removed: ${res.usersDeleted}\n\nRoutes preserved & Admin ${res.adminEmail} is permanent.`
+              );
+            } catch (err: any) {
+              Alert.alert('Reset Failed', err?.message || 'Failed to reset database');
+            } finally {
+              setResetLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleUpdateProfile = async () => {
     if (!name.trim()) return Alert.alert('Error', 'Name cannot be empty');
     setLoading(true);
     try {
-      await updateDoc(doc(db, 'users', admin.uid), { name: name.trim() });
-      if (auth.currentUser) await updateProfile(auth.currentUser, { displayName: name.trim() });
+      const adminId = admin?.id || admin?.uid;
+      const { error } = await supabase.from('users').update({ name: name.trim() }).eq('id', adminId);
+      if (error) throw error;
+      await supabase.auth.updateUser({ data: { name: name.trim() } });
       setAdmin({ ...admin, name: name.trim() });
       Alert.alert('Success', 'Profile updated');
     } catch (error: any) {
@@ -60,16 +91,24 @@ export const AdminProfileScreen = () => {
     if (!currentPassword) return Alert.alert('Error', 'Current password required');
     setLoading(true);
     try {
-      const user = auth.currentUser;
-      if (!user || !user.email) throw new Error('No user logged in');
-      const credential = EmailAuthProvider.credential(user.email, currentPassword);
-      await reauthenticateWithCredential(user, credential);
-      if (email !== admin.email) {
-        await updateEmail(user, email);
-        await updateDoc(doc(db, 'users', admin.uid), { email });
+      const adminEmail = admin?.email;
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: adminEmail,
+        password: currentPassword,
+      });
+      if (signInError) throw new Error('Incorrect current password');
+
+      const adminId = admin?.id || admin?.uid;
+      if (email && email !== adminEmail) {
+        const { error: emailError } = await supabase.auth.updateUser({ email });
+        if (emailError) throw emailError;
+        await supabase.from('users').update({ email }).eq('id', adminId);
         setAdmin({ ...admin, email });
       }
-      if (newPassword) await updatePassword(user, newPassword);
+      if (newPassword) {
+        const { error: pwdError } = await supabase.auth.updateUser({ password: newPassword });
+        if (pwdError) throw pwdError;
+      }
       Alert.alert('Success', 'Security updated');
       setCurrentPassword('');
       setNewPassword('');
@@ -179,6 +218,33 @@ export const AdminProfileScreen = () => {
               </>
             )}
           </View>
+
+          {/* Database Reset Danger Zone */}
+          <View style={[styles.section, styles.dangerSection]}>
+            <View style={styles.dangerHeader}>
+              <TrashAlert size={20} color={colors.error} />
+              <Text style={styles.dangerTitle}>System Database Reset</Text>
+            </View>
+            <Text style={styles.dangerDesc}>
+              Wipe all test data (tickets, devices, logs, users) to start fresh. Bus routes and permanent admin (maishahrukhh@gmail.com) will remain untouched.
+            </Text>
+            <TouchableOpacity
+              style={[styles.mainBtn, styles.dangerBtn, resetLoading && styles.btnDisabled]}
+              onPress={handleResetDatabase}
+              disabled={resetLoading}
+              activeOpacity={0.86}
+            >
+              {resetLoading ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <>
+                  <TrashAlert size={16} color={colors.white} />
+                  <Text style={styles.btnText}>Fresh Database Reset</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
           <Text style={styles.footerText}>One Delhi Admin Panel v2.1.0</Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -186,7 +252,8 @@ export const AdminProfileScreen = () => {
   );
 };
 
-const getStyles = (colors: any) => StyleSheet.create({
+function getStyles(colors: any) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.primary },
   keyboard: { flex: 1, backgroundColor: colors.background },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, paddingBottom: SPACING.md, backgroundColor: colors.primary, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
@@ -218,4 +285,11 @@ const getStyles = (colors: any) => StyleSheet.create({
   securityBtn: { backgroundColor: colors.success },
   btnText: { color: colors.white, fontWeight: '800', fontSize: 14 },
   footerText: { textAlign: 'center', fontSize: 10, color: colors.textSubtle, marginTop: SPACING.xxl, fontWeight: '800' },
-});
+  dangerSection: { marginTop: SPACING.lg, borderColor: '#FECACA', backgroundColor: '#FFF8F8' },
+  dangerHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  dangerTitle: { fontSize: 14, fontWeight: '800', color: colors.error },
+  dangerDesc: { fontSize: 12, color: colors.textMuted, lineHeight: 18, marginBottom: 14 },
+  dangerBtn: { backgroundColor: colors.error },
+  btnDisabled: { opacity: 0.6 },
+  });
+}

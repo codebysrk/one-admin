@@ -1,8 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, useWindowDimensions, StatusBar } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, useWindowDimensions, StatusBar, RefreshControl } from 'react-native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { collection, getCountFromServer, limit, onSnapshot, orderBy, query, getDocs, where, Timestamp } from 'firebase/firestore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { LineChart } from 'react-native-chart-kit';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -25,7 +24,7 @@ const ArrowUpRight = IconWrapper('arrow-top-right');
 import { useAdminStore } from '../../store/useAdminStore';
 import { useTheme } from '../../core/ThemeContext';
 import { RADIUS, SHADOWS, SPACING } from '../../core/theme';
-import { db } from '../../services/firebase';
+import { supabase } from '../../services/supabase';
 import { AdminPressable, Card, SectionHeader, LoadingState, SkeletonBlock } from '../../components/AdminUI';
 
 const formatLogTime = (timestamp: any) => {
@@ -205,48 +204,31 @@ export const DashboardScreen = () => {
   const [liveTickets, setLiveTickets] = useState<any[]>([]);
   const [busStats, setBusStats] = useState({ ac: 0, nonAc: 0 });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchAllDashboard = useCallback(async (isManualRefresh = false) => {
+    if (isManualRefresh) setRefreshing(true);
+    try {
+      const [{ count: usersCount }, { count: routesCount }, { data: ticketsData }, { data: logsData }] = await Promise.all([
+        supabase.from('users').select('*', { count: 'exact', head: true }),
+        supabase.from('routes').select('*', { count: 'exact', head: true }),
+        supabase.from('tickets').select('*').order('timestamp', { ascending: false }).limit(500),
+        supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(5),
+      ]);
 
-    const fetchStats = async () => {
-      try {
-        const usersSnap = await getCountFromServer(collection(db, 'users'));
-        const routesSnap = await getCountFromServer(collection(db, 'routes'));
-        if (cancelled) return;
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setHours(0, 0, 0, 0);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
 
-        // Calculate Revenue and Chart Data
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setHours(0,0,0,0);
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-        
-        // Final optimized query: latest 500 tickets for accurate charts and performance
-        const qTickets = query(
-          collection(db, 'tickets'),
-          orderBy('timestamp', 'desc'),
-          limit(500)
-        );
-        const ticketSnap = await getDocs(qTickets);
-        if (cancelled) return;
-        
-        let totalRev = 0;
-        let weeklyTotal = 0;
-        const dailyRev = [0, 0, 0, 0, 0, 0, 0];
-        const routeCount: Record<string, { count: number, revenue: number, originalRevenue: number }> = {};
+      let totalRev = 0;
+      let weeklyTotal = 0;
+      const dailyRev = [0, 0, 0, 0, 0, 0, 0];
+      const routeCount: Record<string, { count: number; revenue: number; originalRevenue: number }> = {};
 
-        ticketSnap.forEach(doc => {
-          const data = doc.data();
+      if (ticketsData) {
+        ticketsData.forEach((data: any) => {
           const fare = Number(data.fare) || 0;
-          
-          // Chart data & Weekly Revenue
-          let date;
-          if (data.timestamp?.toDate) {
-            date = data.timestamp.toDate();
-          } else if (data.timestamp) {
-            date = new Date(data.timestamp);
-          } else {
-            date = new Date();
-          }
+          const date = data.timestamp ? new Date(data.timestamp) : new Date();
 
           if (!Number.isNaN(date.getTime())) {
             const dayIndex = Math.floor((date.getTime() - sevenDaysAgo.getTime()) / (1000 * 3600 * 24));
@@ -255,69 +237,95 @@ export const DashboardScreen = () => {
               weeklyTotal += fare;
             }
           }
-          
-          // For now, totalRev will show the sum of what we fetched (last 7 days)
-          totalRev += fare;
 
-          // Top Routes logic
-          const rName = data.route || data.routeName || data.routeId || 'Unknown';
+          totalRev += fare;
+          const rName = data.route || 'Unknown';
           if (!routeCount[rName]) routeCount[rName] = { count: 0, revenue: 0, originalRevenue: 0 };
           routeCount[rName].count += 1;
-          
-          // Use total/finalFare for discounted revenue, fare for original
-          const discountedRev = Number(data.total) || Number(data.finalFare) || fare;
-          const originalRev = fare;
-          
-          routeCount[rName].revenue += discountedRev;
-          routeCount[rName].originalRevenue += originalRev;
+          routeCount[rName].revenue += fare;
+          routeCount[rName].originalRevenue += fare;
         });
 
-        if (cancelled) return;
-
-        // Sort Top Routes
         const sortedRoutes = Object.entries(routeCount)
           .map(([name, val]) => ({ name, ...val }))
           .sort((a, b) => b.revenue - a.revenue)
           .slice(0, 3);
 
         setStats({
-          users: usersSnap.data().count,
+          users: usersCount || 0,
           revenue: totalRev,
-          routes: routesSnap.data().count,
+          routes: routesCount || 0,
         });
         setWeeklyRevenue(weeklyTotal);
         setRevenueData(dailyRev);
         setTopRoutes(sortedRoutes);
-      } catch (error) {
-        if (__DEV__) console.warn('Dashboard stats fetch failed:', error);
+
+        const liveTickets = ticketsData.slice(0, 5).map((d: any) => ({
+          id: d.id,
+          ...d,
+          from: d.source,
+          to: d.destination,
+        }));
+        setLiveTickets(liveTickets);
+        const acCount = liveTickets.filter((t: any) => t.busType === 'AC').length;
+        setBusStats({ ac: acCount, nonAc: liveTickets.length - acCount });
       }
-    };
 
-    const qLogs = query(collection(db, 'logs'), orderBy('timestamp', 'desc'), limit(5));
-    const unsubscribeLogs = onSnapshot(qLogs, (snapshot) => {
-      setActivities(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-
-    const qLiveTickets = query(collection(db, 'tickets'), orderBy('timestamp', 'desc'), limit(5));
-    const unsubscribeTickets = onSnapshot(qLiveTickets, (snapshot) => {
-      const tickets = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as { id: string; busType?: string }));
-      setLiveTickets(tickets);
-      
-      // Calculate Bus Distribution from latest 50 tickets for a good sample
-      const acCount = tickets.filter((t) => t.busType === 'AC').length;
-      const nonAcCount = tickets.length - acCount;
-      setBusStats({ ac: acCount, nonAc: nonAcCount });
-      
+      if (logsData) {
+        setActivities(logsData.map((l: any) => ({
+          id: l.id,
+          action: l.action,
+          details: l.details,
+          userName: l.user_name,
+          timestamp: l.created_at,
+        })));
+      }
+    } catch (error) {
+      if (__DEV__) console.warn('Dashboard stats fetch failed:', error);
+    } finally {
       setLoading(false);
-    });
-
-    fetchStats();
-    return () => {
-      cancelled = true;
-      unsubscribeLogs();
-      unsubscribeTickets();
-    };
+      setRefreshing(false);
+    }
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchAllDashboard();
+    }, [fetchAllDashboard])
+  );
+
+  useEffect(() => {
+    fetchAllDashboard();
+
+    const channel = supabase
+      .channel('dashboard-realtime-sub')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
+        fetchAllDashboard();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_logs' }, () => {
+        fetchAllDashboard();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
+        fetchAllDashboard();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'routes' }, () => {
+        fetchAllDashboard();
+      })
+      .subscribe();
+
+    const interval = setInterval(() => {
+      fetchAllDashboard();
+    }, 10000);
+
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
+  }, [fetchAllDashboard]);
+
+  const handleRefresh = useCallback(() => {
+    fetchAllDashboard(true);
+  }, [fetchAllDashboard]);
 
   const chartConfig = useMemo(
     () => ({
@@ -340,7 +348,19 @@ export const DashboardScreen = () => {
       <StatusBar barStyle="light-content" />
       <CompactHeader admin={admin} onProfilePress={() => navigation.navigate('Profile')} />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentInner}>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.contentInner}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
         <StatsGrid stats={stats} weeklyRevenue={weeklyRevenue} loading={loading} />
         <RevenueChart loading={loading} chartWidth={chartWidth} revenueData={revenueData} chartConfig={chartConfig} />
 
@@ -433,7 +453,8 @@ export const DashboardScreen = () => {
   );
 };
 
-const getStyles = (colors: any) => StyleSheet.create({
+function getStyles(colors: any) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   headerGradient: { paddingBottom: 20, borderBottomLeftRadius: RADIUS.xl, borderBottomRightRadius: RADIUS.xl },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg },
@@ -475,4 +496,5 @@ const getStyles = (colors: any) => StyleSheet.create({
   fleetCard: { flex: 1, padding: 16, alignItems: 'center', justifyContent: 'center' },
   fleetLabel: { fontSize: 9, fontWeight: '800', color: colors.textMuted, letterSpacing: 0.5, marginBottom: 4 },
   fleetValue: { fontSize: 24, fontWeight: '900' },
-});
+  });
+}

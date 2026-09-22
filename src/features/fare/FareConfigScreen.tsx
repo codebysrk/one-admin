@@ -8,8 +8,7 @@ import {
   Alert,
   Modal,
 } from "react-native";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "../../services/firebase";
+import { supabase } from "../../services/supabase";
 import { useTheme } from '../../core/ThemeContext';
 import { SPACING, RADIUS   } from "../../core/theme";
 
@@ -82,19 +81,24 @@ export const FareConfigScreen = () => {
   const [nonACFare, setNonACFare] = useState("");
   const [acFare, setAcFare] = useState("");
 
-  const docRef = useMemo(() => doc(db, "configs", "fare_config"), []);
-
   const loadConfig = useCallback(async () => {
     setLoading(true);
     try {
-      const snap = await getDoc(docRef);
-      if (snap.exists()) {
-        const data = snap.data();
-        setDelhiSlabs(data.delhiSlabs || []);
-        setInterstateSlabs(data.interstateSlabs || []);
+      const { data, error } = await supabase
+        .from('configs')
+        .select('value')
+        .eq('key', 'fare_config')
+        .single();
+
+      if (data?.value) {
+        setDelhiSlabs(data.value.delhiSlabs || []);
+        setInterstateSlabs(data.value.interstateSlabs || []);
       } else {
-        // Seed database if document doesn't exist
-        await setDoc(docRef, DEFAULT_FARE_CONFIG);
+        await supabase.from('configs').upsert({
+          key: 'fare_config',
+          value: DEFAULT_FARE_CONFIG,
+          updated_at: new Date().toISOString(),
+        });
         setDelhiSlabs(DEFAULT_FARE_CONFIG.delhiSlabs);
         setInterstateSlabs(DEFAULT_FARE_CONFIG.interstateSlabs);
       }
@@ -104,7 +108,7 @@ export const FareConfigScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, [docRef]);
+  }, []);
 
   useEffect(() => {
     loadConfig();
@@ -113,16 +117,21 @@ export const FareConfigScreen = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Sort slabs by minKm before saving
       const sortedDelhi = [...delhiSlabs].sort((a, b) => a.minKm - b.minKm);
       const sortedInterstate = [...interstateSlabs].sort(
         (a, b) => a.minKm - b.minKm
       );
 
-      await setDoc(docRef, {
-        delhiSlabs: sortedDelhi,
-        interstateSlabs: sortedInterstate,
+      const { error } = await supabase.from('configs').upsert({
+        key: 'fare_config',
+        value: {
+          delhiSlabs: sortedDelhi,
+          interstateSlabs: sortedInterstate,
+        },
+        updated_at: new Date().toISOString(),
       });
+
+      if (error) throw error;
 
       setDelhiSlabs(sortedDelhi);
       setInterstateSlabs(sortedInterstate);

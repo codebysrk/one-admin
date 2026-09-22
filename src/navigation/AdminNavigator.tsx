@@ -23,45 +23,22 @@ const ShieldCheck = IconWrapper('shield-check');
 const Cash = IconWrapper('cash-multiple');
 
 
-const DashboardScreen = React.lazy(() =>
-  import('../features/dashboard/DashboardScreen').then((m) => ({ default: m.DashboardScreen }))
-);
-const RoutesManagementScreen = React.lazy(() =>
-  import('../features/routes/RoutesManagementScreen').then((m) => ({ default: m.RoutesManagementScreen }))
-);
-const UsersListScreen = React.lazy(() =>
-  import('../features/users/UsersListScreen').then((m) => ({ default: m.UsersListScreen }))
-);
-const NotificationsScreen = React.lazy(() =>
-  import('../features/notifications/NotificationsScreen').then((m) => ({ default: m.NotificationsScreen }))
-);
-const AllTicketsScreen = React.lazy(() =>
-  import('../features/dashboard/AllTicketsScreen').then((m) => ({ default: m.AllTicketsScreen }))
-);
-const PendingDeletionsScreen = React.lazy(() =>
-  import('../features/users/PendingDeletionsScreen').then((m) => ({ default: m.PendingDeletionsScreen }))
-);
-const DevicesListScreen = React.lazy(() =>
-  import('../features/users/DevicesListScreen').then((m) => ({ default: m.DevicesListScreen }))
-);
-const LogsScreen = React.lazy(() =>
-  import('../features/dashboard/LogsScreen').then((m) => ({ default: m.LogsScreen }))
-);
-const AdminProfileScreen = React.lazy(() =>
-  import('../features/profile/AdminProfileScreen').then((m) => ({ default: m.AdminProfileScreen }))
-);
-const FareConfigScreen = React.lazy(() =>
-  import('../features/fare/FareConfigScreen').then((m) => ({ default: m.FareConfigScreen }))
-);
-const AdminsManagementScreen = React.lazy(() =>
-  import('../features/admins/AdminsManagementScreen').then((m) => ({ default: m.AdminsManagementScreen }))
-);
+import { DashboardScreen } from '../features/dashboard/DashboardScreen';
+import { RoutesManagementScreen } from '../features/routes/RoutesManagementScreen';
+import { UsersListScreen } from '../features/users/UsersListScreen';
+import { NotificationsScreen } from '../features/notifications/NotificationsScreen';
+import { AllTicketsScreen } from '../features/dashboard/AllTicketsScreen';
+import { DevicesListScreen } from '../features/users/DevicesListScreen';
+import { LogsScreen } from '../features/dashboard/LogsScreen';
+import { AdminProfileScreen } from '../features/profile/AdminProfileScreen';
+import { FareConfigScreen } from '../features/fare/FareConfigScreen';
+import { AdminsManagementScreen } from '../features/admins/AdminsManagementScreen';
 
 type TabConfig = {
   key: string;
   label: string;
   icon: typeof LayoutDashboard;
-  screen: React.LazyExoticComponent<React.ComponentType<any>>;
+  screen: React.ComponentType<any>;
   requiredPermission?: import('../services/authService').AdminPermission;
   hidden?: boolean;
 };
@@ -74,31 +51,14 @@ const tabs: TabConfig[] = [
   { key: 'Tickets', label: 'Tickets', icon: Ticket, screen: AllTicketsScreen, requiredPermission: 'MANAGE_TICKETS' },
   { key: 'Devices', label: 'Devices', icon: Smartphone, screen: DevicesListScreen, requiredPermission: 'MANAGE_USERS' },
   { key: 'Logs', label: 'Logs', icon: Activity, screen: LogsScreen, requiredPermission: 'MANAGE_LOGS' },
-  { key: 'Cleanup', label: 'Cleanup', icon: UserMinus, screen: PendingDeletionsScreen, requiredPermission: 'MANAGE_USERS' },
   { key: 'Admins', label: 'Admin Hub', icon: ShieldCheck, screen: AdminsManagementScreen, requiredPermission: 'MANAGE_ADMINS' },
   { key: 'Alerts', label: 'Alerts', icon: Bell, screen: NotificationsScreen },
   { key: 'Profile', label: 'Profile', icon: UserCircle, screen: AdminProfileScreen },
 ];
 
-const TabBarFallback = () => (
-  <View style={tabFallbackStyles.wrap}>
-    <ActivityIndicator size="small" color={COLORS.accent} />
-  </View>
-);
-
-const tabFallbackStyles = StyleSheet.create({
-  wrap: { flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 120 },
-});
-
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 const Tab = createBottomTabNavigator();
-
-const LazyScreen = (Component: React.LazyExoticComponent<any>) => (props: any) => (
-  <Suspense fallback={<TabBarFallback />}>
-    <Component {...props} />
-  </Suspense>
-);
 
 const CustomTabBar = React.memo(({ state, descriptors, navigation, visibleTabs }: any) => {
   const { colors, isDark } = useTheme();
@@ -173,19 +133,20 @@ export const AdminNavigator = () => {
         <Tab.Screen 
           key={tab.key} 
           name={tab.key} 
-          component={LazyScreen(tab.screen)} 
+          component={tab.screen} 
         />
       ))}
       {/* Hidden tabs or tabs not in the scrollbar can still be added here if needed */}
       <Tab.Screen 
         name="Profile" 
-        component={LazyScreen(AdminProfileScreen)} 
+        component={AdminProfileScreen} 
       />
     </Tab.Navigator>
   );
 };
 
-const getStyles = (colors: any) => StyleSheet.create({
+function getStyles(colors: any) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   screenContainer: { flex: 1 },
   tabBarContainer: {
@@ -223,4 +184,5 @@ const getStyles = (colors: any) => StyleSheet.create({
   },
   iconBoxActive: { backgroundColor: colors.accent, ...SHADOWS.accent },
   tabLabel: { fontSize: 10, lineHeight: 13, fontWeight: '800' },
-});
+  });
+}

@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Modal, TextInput, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, PanResponder, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
-import { db } from '../../services/firebase';
+import { supabase } from '../../services/supabase';
 import { useTheme } from '../../core/ThemeContext';
 import { RADIUS, SHADOWS, SPACING  } from '../../core/theme';
 
@@ -502,15 +501,35 @@ export const RoutesManagementScreen = () => {
   const [downTo, setDownTo] = useState('');
   const [downStops, setDownStops] = useState<string[]>([]);
 
-  useEffect(() => {
-    const q = query(collection(db, 'routes'), orderBy('route', 'asc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setRoutes(data);
+  const fetchRoutes = React.useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('routes')
+        .select('*')
+        .order('route', { ascending: true });
+      if (error) throw error;
+      if (data) {
+        setRoutes(data);
+      }
+    } catch (err) {
+      if (__DEV__) console.warn('Fetch routes error:', err);
+    } finally {
       setLoading(false);
-    });
-    return () => unsubscribe();
+    }
   }, []);
+
+  useEffect(() => {
+    fetchRoutes();
+    const channel = supabase
+      .channel('public:routes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'routes' }, () => {
+        fetchRoutes();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchRoutes]);
 
   const handleSave = async () => {
     if (!routeNumber.trim()) {
@@ -521,16 +540,18 @@ export const RoutesManagementScreen = () => {
     const upStopList = upStops.map(s => s.trim()).filter(Boolean);
     const downStopList = downStops.map(s => s.trim()).filter(Boolean);
     const payload = {
+      id: routeNumber.trim(),
       route: routeNumber.trim(),
       directions: {
         up: { from: upFrom.trim(), to: upTo.trim(), totalStops: upStopList.length, stops: upStopList },
         down: { from: downFrom.trim(), to: downTo.trim(), totalStops: downStopList.length, stops: downStopList },
       },
-      updatedAt: Date.now(),
+      updated_at: new Date().toISOString(),
     };
 
     try {
-      await setDoc(doc(db, 'routes', routeNumber.trim()), payload);
+      const { error } = await supabase.from('routes').upsert(payload);
+      if (error) throw error;
       await logActivity({
         type: 'ADMIN',
         action: editingRoute ? 'ROUTE_UPDATED' : 'ROUTE_CREATED',
@@ -540,6 +561,7 @@ export const RoutesManagementScreen = () => {
       });
       setModalVisible(false);
       resetForm();
+      fetchRoutes();
     } catch (error) {
       Alert.alert('Error', 'Could not save route');
     }
@@ -564,10 +586,13 @@ export const RoutesManagementScreen = () => {
       }
 
       setLoading(true);
-      await setDoc(doc(db, 'routes', jsonData.route.trim()), {
-        ...jsonData,
-        updatedAt: Date.now(),
+      const { error } = await supabase.from('routes').upsert({
+        id: jsonData.route.trim(),
+        route: jsonData.route.trim(),
+        directions: jsonData.directions,
+        updated_at: new Date().toISOString(),
       });
+      if (error) throw error;
 
       await logActivity({
         type: 'ADMIN',
@@ -578,6 +603,7 @@ export const RoutesManagementScreen = () => {
       });
 
       Alert.alert('Success', `Route ${jsonData.route} imported successfully!`);
+      fetchRoutes();
     } catch (error: any) {
       if (__DEV__) console.error(error);
       Alert.alert('Import Failed', error.message || 'Could not parse JSON file.');
@@ -589,8 +615,10 @@ export const RoutesManagementScreen = () => {
   const handleConfirmedDelete = async (reason: string) => {
     const id = reasonModal.data;
     try {
-      await deleteDoc(doc(db, 'routes', id));
+      const { error } = await supabase.from('routes').delete().eq('id', id);
+      if (error) throw error;
       setReasonModal({ ...reasonModal, visible: false });
+      fetchRoutes();
     } catch (err) { Alert.alert('Error', 'Deletion failed'); }
   };
 
