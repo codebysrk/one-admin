@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Modal, TextInput, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, PanResponder, Animated } from 'react-native';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Modal, TextInput, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, PanResponder, Animated, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { supabase } from '../../services/supabase';
@@ -39,16 +39,17 @@ interface DraggableStopRowProps {
   isAnyDragging: boolean;
   showLineAbove: boolean;
   showLineBelow: boolean;
-  onLayout: (y: number, height: number) => void;
+  onLayout: (index: number, y: number, height: number) => void;
   onDragStart: (index: number) => void;
   onDragMove: (index: number, dy: number) => void;
   onDragEnd: (index: number, dy: number) => void;
-  onChangeText: (text: string) => void;
-  onDelete: () => void;
+  onChangeText: (index: number, text: string) => void;
+  onDelete: (index: number) => void;
   dragY: Animated.Value;
+  styles?: any;
 }
 
-const DraggableStopRow = ({
+const DraggableStopRow = React.memo(({
   stop,
   index,
   isDragging,
@@ -62,15 +63,16 @@ const DraggableStopRow = ({
   onChangeText,
   onDelete,
   dragY,
+  styles: propStyles,
 }: DraggableStopRowProps) => {
   const { colors, isDark } = useTheme();
-  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
+  const styles = propStyles || (typeof getStyles === 'function' ? getStyles(colors) : ({} as any));
 
   const translateX = useRef(new Animated.Value(0)).current;
 
   // Use propsRef to avoid stale closures in PanResponder callbacks
-  const propsRef = useRef({ onDragStart, onDragMove, onDragEnd, onDelete, index, isAnyDragging });
-  propsRef.current = { onDragStart, onDragMove, onDragEnd, onDelete, index, isAnyDragging };
+  const propsRef = useRef({ onDragStart, onDragMove, onDragEnd, onDelete, onChangeText, onLayout, index, isAnyDragging });
+  propsRef.current = { onDragStart, onDragMove, onDragEnd, onDelete, onChangeText, onLayout, index, isAnyDragging };
 
   const verticalDragPanResponder = useRef(
     PanResponder.create({
@@ -117,7 +119,7 @@ const DraggableStopRow = ({
             duration: 200,
             useNativeDriver: true,
           }).start(() => {
-            propsRef.current.onDelete();
+            propsRef.current.onDelete(propsRef.current.index);
             translateX.setValue(0);
           });
         } else {
@@ -141,7 +143,7 @@ const DraggableStopRow = ({
       style={{ width: '100%', position: 'relative' }}
       onLayout={(e) => {
         const { y, height } = e.nativeEvent.layout;
-        onLayout(y, height);
+        propsRef.current.onLayout(propsRef.current.index, y, height);
       }}
     >
       {showLineAbove && <View style={styles.dropLine} />}
@@ -186,10 +188,18 @@ const DraggableStopRow = ({
         <TextInput
           style={styles.stopInput}
           value={stop}
-          onChangeText={onChangeText}
+          onChangeText={(text) => propsRef.current.onChangeText(propsRef.current.index, text)}
           placeholder={`Stop #${index + 1}`}
           placeholderTextColor={colors.textSubtle}
         />
+
+        <TouchableOpacity
+          style={styles.stopDeleteBtn}
+          onPress={() => propsRef.current.onDelete(propsRef.current.index)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <X size={15} color={colors.textSubtle} />
+        </TouchableOpacity>
 
         <View 
           {...verticalDragPanResponder.panHandlers} 
@@ -202,16 +212,17 @@ const DraggableStopRow = ({
       {showLineBelow && <View style={styles.dropLine} />}
     </View>
   );
-};
+});
 
 interface StopSequenceEditorProps {
   stops: string[];
   onChangeStops: (stops: string[]) => void;
+  styles?: any;
 }
 
-const StopSequenceEditor = ({ stops, onChangeStops }: StopSequenceEditorProps) => {
+const StopSequenceEditor = ({ stops, onChangeStops, styles: propStyles }: StopSequenceEditorProps) => {
   const { colors, isDark } = useTheme();
-  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
+  const styles = propStyles || (typeof getStyles === 'function' ? getStyles(colors) : ({} as any));
   const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [bulkText, setBulkText] = useState('');
   
@@ -231,15 +242,15 @@ const StopSequenceEditor = ({ stops, onChangeStops }: StopSequenceEditorProps) =
   const rowLayouts = useRef<{ [key: number]: { y: number; height: number } }>({});
   const dragY = useRef(new Animated.Value(0)).current;
 
-  const handleDragStart = (index: number) => {
+  const handleDragStart = useCallback((index: number) => {
     setActiveDragIndex(index);
     setTargetDropIndex(index);
     activeDragIndexRef.current = index;
     targetDropIndexRef.current = index;
     dragY.setValue(0);
-  };
+  }, [dragY]);
 
-  const handleDragMove = (index: number, dy: number) => {
+  const handleDragMove = useCallback((index: number, dy: number) => {
     dragY.setValue(dy);
 
     const layout = rowLayouts.current[index];
@@ -264,9 +275,9 @@ const StopSequenceEditor = ({ stops, onChangeStops }: StopSequenceEditorProps) =
     }
     setTargetDropIndex(target);
     targetDropIndexRef.current = target;
-  };
+  }, [dragY]);
 
-  const handleDragEnd = (index: number, dy: number) => {
+  const handleDragEnd = useCallback((index: number, dy: number) => {
     const finalTarget = targetDropIndexRef.current;
 
     if (finalTarget !== null && finalTarget !== index) {
@@ -293,18 +304,22 @@ const StopSequenceEditor = ({ stops, onChangeStops }: StopSequenceEditorProps) =
         activeDragIndexRef.current = null;
       });
     }
-  };
+  }, [dragY, onChangeStops]);
 
-  const handleDelete = (index: number) => {
-    const newStops = stops.filter((_, i) => i !== index);
+  const handleDelete = useCallback((index: number) => {
+    const newStops = stopsRef.current.filter((_, i) => i !== index);
     onChangeStops(newStops);
-  };
+  }, [onChangeStops]);
 
-  const handleTextChange = (text: string, index: number) => {
-    const newStops = [...stops];
+  const handleTextChange = useCallback((index: number, text: string) => {
+    const newStops = [...stopsRef.current];
     newStops[index] = text;
     onChangeStops(newStops);
-  };
+  }, [onChangeStops]);
+
+  const handleRowLayout = useCallback((index: number, y: number, height: number) => {
+    rowLayouts.current[index] = { y, height };
+  }, []);
 
   const handleAddStop = () => {
     onChangeStops([...stops, '']);
@@ -334,156 +349,173 @@ const StopSequenceEditor = ({ stops, onChangeStops }: StopSequenceEditorProps) =
     setIsBulkOpen(false);
   };
 
+  const renderStopRow = useCallback(({ item: stop, index }: { item: string; index: number }) => {
+    const isDragging = activeDragIndex === index;
+    const showLineAbove = activeDragIndex !== null && targetDropIndex === index && index < activeDragIndex;
+    const showLineBelow = activeDragIndex !== null && targetDropIndex === index && index > activeDragIndex;
+
+    return (
+      <DraggableStopRow
+        stop={stop}
+        index={index}
+        isDragging={isDragging}
+        isAnyDragging={activeDragIndex !== null}
+        showLineAbove={showLineAbove}
+        showLineBelow={showLineBelow}
+        dragY={dragY}
+        onLayout={handleRowLayout}
+        onDragStart={handleDragStart}
+        onDragMove={handleDragMove}
+        onDragEnd={handleDragEnd}
+        onChangeText={handleTextChange}
+        onDelete={handleDelete}
+        styles={styles}
+      />
+    );
+  }, [activeDragIndex, targetDropIndex, dragY, handleRowLayout, handleDragStart, handleDragMove, handleDragEnd, handleTextChange, handleDelete, styles]);
+
   return (
-    <View style={{ width: '100%' }}>
-      {stops.map((stop, index) => {
-        const isDragging = activeDragIndex === index;
-        const showLineAbove = activeDragIndex !== null && targetDropIndex === index && index < activeDragIndex;
-        const showLineBelow = activeDragIndex !== null && targetDropIndex === index && index > activeDragIndex;
-
-        return (
-          <DraggableStopRow
-            key={index}
-            stop={stop}
-            index={index}
-            isDragging={isDragging}
-            isAnyDragging={activeDragIndex !== null}
-            showLineAbove={showLineAbove}
-            showLineBelow={showLineBelow}
-            dragY={dragY}
-            onLayout={(y, height) => {
-              rowLayouts.current[index] = { y, height };
-            }}
-            onDragStart={handleDragStart}
-            onDragMove={handleDragMove}
-            onDragEnd={handleDragEnd}
-            onChangeText={(text) => handleTextChange(text, index)}
-            onDelete={() => handleDelete(index)}
-          />
-        );
-      })}
-
-      {stops.length === 0 && (
-        <View style={{ paddingVertical: 12, alignItems: 'center' }}>
-          <Text style={{ fontSize: 13, color: colors.textSubtle, fontStyle: 'italic' }}>
-            No stops in this sequence yet.
+    <View style={styles.sequenceContainer}>
+      <View style={styles.sequenceHeader}>
+        <View style={styles.sequenceTitleBlock}>
+          <Text style={styles.sequenceHeading}>STOP SEQUENCE</Text>
+          <Text style={styles.sequenceCountLabel}>
+            ({stops.length} {stops.length === 1 ? 'stop' : 'stops'})
           </Text>
         </View>
-      )}
 
-      <View style={styles.editorFooter}>
-        <TouchableOpacity style={styles.addStopBtn} onPress={handleAddStop}>
-          <Plus size={14} color={colors.accent} />
-          <Text style={styles.addStopBtnText}>Add Stop</Text>
-        </TouchableOpacity>
+        <View style={styles.sequenceHeaderActions}>
+          <TouchableOpacity style={styles.sequenceActionChip} onPress={handleAddStop} activeOpacity={0.8}>
+            <Plus size={13} color={colors.accent} />
+            <Text style={styles.sequenceActionChipTextAccent}>Add</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={styles.bulkImportToggleBtn} 
-          onPress={() => {
-            setBulkText(stops.join('\n'));
-            setIsBulkOpen(true);
-          }}
-        >
-          <ContentPaste size={14} color={colors.textMuted} />
-          <Text style={styles.bulkImportToggleBtnText}>Bulk Edit</Text>
-        </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.sequenceActionChip} 
+            onPress={() => {
+              setBulkText(stops.join('\n'));
+              setIsBulkOpen(true);
+            }}
+            activeOpacity={0.8}
+          >
+            <ContentPaste size={13} color={colors.textMuted} />
+            <Text style={styles.sequenceActionChipText}>Bulk</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity 
-          onPress={() => {
-            Alert.alert(
-              'Clear Sequence',
-              'Are you sure you want to remove all stops from this journey?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Clear', style: 'destructive', onPress: () => onChangeStops([]) }
-              ]
-            );
-          }}
-          disabled={stops.length === 0}
-          style={[styles.clearAllBtn, stops.length === 0 && { opacity: 0.5 }]}
-        >
-          <X size={14} color={colors.error} />
-          <Text style={styles.clearAllBtnText}>Clear All</Text>
-        </TouchableOpacity>
+          {stops.length > 0 && (
+            <TouchableOpacity 
+              onPress={() => {
+                Alert.alert(
+                  'Clear Sequence',
+                  'Are you sure you want to remove all stops from this journey?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Clear', style: 'destructive', onPress: () => onChangeStops([]) }
+                  ]
+                );
+              }}
+              style={[styles.sequenceActionChip, styles.sequenceActionChipDanger]}
+              activeOpacity={0.8}
+            >
+              <Trash2 size={13} color={colors.error} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
-      <Modal
-        visible={isBulkOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsBulkOpen(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.bulkModalCard}>
-            <View style={styles.bulkModalHeader}>
-              <View style={styles.bulkModalIconBox}>
-                <ContentPaste size={20} color={isDark ? colors.text : colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.bulkModalTitle}>Bulk Edit Sequence</Text>
-                <Text style={styles.bulkModalSub}>Write one stop per line or separate by commas</Text>
-              </View>
-              <TouchableOpacity 
-                style={styles.bulkModalCloseBtn}
-                onPress={() => setIsBulkOpen(false)}
-              >
-                <X size={18} color={colors.textMuted} />
+      <FlatList
+        data={stops}
+        keyExtractor={(_item, index) => String(index)}
+        scrollEnabled={false}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        renderItem={renderStopRow}
+        ListEmptyComponent={
+          stops.length === 0 ? (
+            <View style={styles.emptyStopsBox}>
+              <Bus size={22} color={colors.textSubtle} />
+              <Text style={styles.emptyStopsText}>
+                No stops added yet in this sequence.
+              </Text>
+              <TouchableOpacity style={styles.addFirstStopBtn} onPress={handleAddStop}>
+                <Plus size={13} color={colors.accent} />
+                <Text style={styles.addFirstStopText}>Add First Stop</Text>
               </TouchableOpacity>
             </View>
+          ) : null
+        }
+      />
 
-            <View style={styles.bulkModalBody}>
-              <TextInput
-                style={styles.bulkModalInput}
-                value={bulkText}
-                onChangeText={setBulkText}
-                placeholder={"Example:\nStop A\nStop B\nStop C"}
-                placeholderTextColor={colors.textSubtle}
-                multiline
-                autoFocus
-              />
-
-              <View style={styles.detectedBadge}>
-                <View style={styles.detectedDot} />
-                <Text style={styles.detectedText}>
-                  {getDetectedCount(bulkText)} stops detected
-                </Text>
-              </View>
+      {isBulkOpen && (
+        <View style={[styles.bulkModalCard, { width: '100%', marginTop: 12 }]}>
+          <View style={styles.bulkModalHeader}>
+            <View style={styles.bulkModalIconBox}>
+              <ContentPaste size={20} color={isDark ? colors.text : colors.primary} />
             </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.bulkModalTitle}>Bulk Edit Sequence</Text>
+              <Text style={styles.bulkModalSub}>Write one stop per line or separate by commas</Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.bulkModalCloseBtn}
+              onPress={() => setIsBulkOpen(false)}
+            >
+              <X size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
 
-            <View style={styles.bulkModalActions}>
+          <View style={styles.bulkModalBody}>
+            <TextInput
+              style={styles.bulkModalInput}
+              value={bulkText}
+              onChangeText={setBulkText}
+              placeholder={"Example:\nStop A\nStop B\nStop C"}
+              placeholderTextColor={colors.textSubtle}
+              multiline
+            />
+
+            <View style={styles.detectedBadge}>
+              <View style={styles.detectedDot} />
+              <Text style={styles.detectedText}>
+                {getDetectedCount(bulkText)} stops detected
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.bulkModalActions}>
+            <TouchableOpacity 
+              style={[styles.bulkBtn, styles.bulkBtnSecondary]} 
+              onPress={() => setIsBulkOpen(false)}
+            >
+              <Text style={styles.bulkBtnTextSecondary}>Cancel</Text>
+            </TouchableOpacity>
+            
+            <View style={{ flexDirection: 'row', gap: 8 }}>
               <TouchableOpacity 
                 style={[styles.bulkBtn, styles.bulkBtnSecondary]} 
-                onPress={() => setIsBulkOpen(false)}
+                onPress={() => handleBulkImport(true)}
               >
-                <Text style={styles.bulkBtnTextSecondary}>Cancel</Text>
+                <Text style={styles.bulkBtnTextSecondary}>Append</Text>
               </TouchableOpacity>
-              
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity 
-                  style={[styles.bulkBtn, styles.bulkBtnSecondary]} 
-                  onPress={() => handleBulkImport(true)}
-                >
-                  <Text style={styles.bulkBtnTextSecondary}>Append</Text>
-                </TouchableOpacity>
 
-                <TouchableOpacity 
-                  style={[styles.bulkBtn, styles.bulkBtnPrimary]} 
-                  onPress={() => handleBulkImport(false)}
-                >
-                  <Text style={styles.bulkBtnTextPrimary}>Overwrite</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity 
+                style={[styles.bulkBtn, styles.bulkBtnPrimary]} 
+                onPress={() => handleBulkImport(false)}
+              >
+                <Text style={styles.bulkBtnTextPrimary}>Overwrite</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
-      </Modal>
+      )}
     </View>
   );
 };
 
 export const RoutesManagementScreen = () => {
   const { colors, isDark } = useTheme();
-  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
+  const styles = useMemo(() => (typeof getStyles === 'function' ? getStyles(colors) : ({} as any)), [colors]);
   const [routes, setRoutes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmModal, setConfirmModal] = useState({ visible: false, routeId: '' });
@@ -494,6 +526,7 @@ export const RoutesManagementScreen = () => {
 
   // Form State
   const [routeNumber, setRouteNumber] = useState('');
+  const [activeDirection, setActiveDirection] = useState<'up' | 'down'>('up');
   const [upFrom, setUpFrom] = useState('');
   const [upTo, setUpTo] = useState('');
   const [upStops, setUpStops] = useState<string[]>([]);
@@ -627,6 +660,7 @@ export const RoutesManagementScreen = () => {
     setUpFrom(''); setUpTo(''); setUpStops([]);
     setDownFrom(''); setDownTo(''); setDownStops([]);
     setEditingRoute(null);
+    setActiveDirection('up');
   };
 
   const startEdit = (route: any) => {
@@ -638,14 +672,19 @@ export const RoutesManagementScreen = () => {
     setDownFrom(route.directions?.down?.from || '');
     setDownTo(route.directions?.down?.to || '');
     setDownStops(route.directions?.down?.stops || []);
+    setActiveDirection('up');
     setModalVisible(true);
   };
 
-  const filteredRoutes = routes.filter(r => r.route?.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredRoutes = useMemo(() => {
+    if (!searchQuery.trim()) return routes;
+    const query = searchQuery.toLowerCase();
+    return routes.filter(r => r.route?.toLowerCase().includes(query));
+  }, [routes, searchQuery]);
 
   const getStopCount = (arr: string[]) => arr.filter(s => s.trim().length > 0).length;
 
-  const renderRouteItem = ({ item }: any) => (
+  const renderRouteItem = useCallback(({ item }: any) => (
     <TouchableOpacity style={styles.routeCard} onPress={() => startEdit(item)} activeOpacity={0.82}>
       <View style={styles.cardHeader}>
         <View style={styles.routeIconBox}>
@@ -680,7 +719,7 @@ export const RoutesManagementScreen = () => {
          <ChevronRight size={14} color={colors.accent} />
       </View>
     </TouchableOpacity>
-  );
+  ), [styles, colors]);
 
   return (
     <AdminScreen>
@@ -725,105 +764,189 @@ export const RoutesManagementScreen = () => {
       <AdminBottomSheet
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
-        title={editingRoute ? 'Edit Line' : 'Create Line'}
-        subtitle="Configure your transit network"
-        contentStyle={{ paddingHorizontal: 0 }}
+        title={editingRoute ? `Edit Line ${routeNumber}` : 'Create Line'}
+        subtitle={editingRoute ? 'Configure directions & stops sequence' : 'Define route number and sequence of stops'}
+        contentStyle={{ paddingHorizontal: 0, flex: 1 }}
+        sheetStyle={{ height: '88%' }}
       >
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.formScroll}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-                <View style={styles.idSection}>
-                   <View style={styles.idInputBox}>
-                      <Hash size={18} color={colors.accent} />
-                      <TextInput 
-                        style={styles.idInput} 
-                        placeholder="Route Number (e.g. 469)" 
-                        value={routeNumber} 
-                        onChangeText={setRouteNumber} 
-                        editable={!editingRoute} 
-                        placeholderTextColor={colors.textSubtle}
-                      />
-                   </View>
-                   <Text style={styles.hint}>This is the unique identifier for this route.</Text>
+        <View style={{ flex: 1 }}>
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.compactFormScroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Route Identifier Section (for new lines) */}
+            {!editingRoute ? (
+              <View style={styles.compactIdCard}>
+                <Text style={styles.compactInputLabel}>ROUTE IDENTIFIER</Text>
+                <View style={styles.compactIdInputWrapper}>
+                  <View style={styles.compactRouteBadge}>
+                    <Bus size={13} color={colors.white} />
+                    <Text style={styles.compactRouteBadgeText}>LINE</Text>
+                  </View>
+                  <TextInput
+                    style={styles.compactIdInput}
+                    placeholder="e.g. 469, 729, TMS"
+                    value={routeNumber}
+                    onChangeText={setRouteNumber}
+                    placeholderTextColor={colors.textSubtle}
+                    autoCapitalize="characters"
+                  />
                 </View>
+              </View>
+            ) : null}
 
-                {/* UP DIRECTION */}
-                <View style={styles.segmentCard}>
-                   <View style={styles.segmentHeader}>
-                      <LinearGradient colors={['#10B981', '#059669']} style={styles.segmentIcon}>
-                         <Navigation size={14} color="white" />
-                      </LinearGradient>
-                      <View style={{flex:1}}>
-                         <Text style={styles.segmentTitle}>UP JOURNEY</Text>
-                         <Text style={styles.segmentSub}>{getStopCount(upStops)} Stops Configured</Text>
-                      </View>
-                      <View style={styles.countBadge}><Text style={styles.countText}>{getStopCount(upStops)}</Text></View>
-                   </View>
-
-                   <View style={styles.journeyBox}>
-                      <View style={styles.journeyIcons}>
-                         <View style={styles.dot} />
-                         <View style={styles.line} />
-                         <MapPin size={14} color={colors.error} />
-                      </View>
-                      <View style={styles.journeyInputs}>
-                         <TextInput style={styles.inlineInput} placeholder="Origin Stop" value={upFrom} onChangeText={setUpFrom} placeholderTextColor={colors.textSubtle} />
-                         <View style={styles.divider} />
-                         <TextInput style={styles.inlineInput} placeholder="Destination Stop" value={upTo} onChangeText={setUpTo} placeholderTextColor={colors.textSubtle} />
-                      </View>
-                   </View>
-
-                   <View style={styles.stopsSection}>
-                      <View style={styles.stopsHeader}>
-                         <Map size={14} color={colors.textMuted} />
-                         <Text style={styles.stopsLabel}>STOP SEQUENCE</Text>
-                      </View>
-                      <StopSequenceEditor stops={upStops} onChangeStops={setUpStops} />
-                   </View>
+            {/* Direction Segment Switcher */}
+            <View style={styles.directionSegmentBar}>
+              <TouchableOpacity
+                style={[
+                  styles.directionSegmentTab,
+                  activeDirection === 'up' && styles.directionSegmentTabActive,
+                ]}
+                onPress={() => setActiveDirection('up')}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.directionDot, { backgroundColor: '#10B981' }]} />
+                <Text
+                  style={[
+                    styles.directionSegmentTitle,
+                    activeDirection === 'up' && styles.directionSegmentTitleActive,
+                  ]}
+                >
+                  Up Journey
+                </Text>
+                <View
+                  style={[
+                    styles.directionCountBadge,
+                    activeDirection === 'up' && styles.directionCountBadgeActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.directionCountText,
+                      activeDirection === 'up' && styles.directionCountTextActive,
+                    ]}
+                  >
+                    {getStopCount(upStops)}
+                  </Text>
                 </View>
+              </TouchableOpacity>
 
-                {/* DOWN DIRECTION */}
-                <View style={[styles.segmentCard, { marginTop: 12 }]}>
-                   <View style={styles.segmentHeader}>
-                      <LinearGradient colors={['#EF4444', '#B91C1C']} style={styles.segmentIcon}>
-                         <ArrowRightLeft size={14} color="white" />
-                      </LinearGradient>
-                      <View style={{flex:1}}>
-                         <Text style={styles.segmentTitle}>DOWN JOURNEY</Text>
-                         <Text style={styles.segmentSub}>{getStopCount(downStops)} Stops Configured</Text>
-                      </View>
-                      <View style={styles.countBadge}><Text style={styles.countText}>{getStopCount(downStops)}</Text></View>
-                   </View>
-
-                   <View style={styles.journeyBox}>
-                      <View style={styles.journeyIcons}>
-                         <View style={styles.dot} />
-                         <View style={styles.line} />
-                         <MapPin size={14} color={colors.error} />
-                      </View>
-                      <View style={styles.journeyInputs}>
-                         <TextInput style={styles.inlineInput} placeholder="Origin Stop" value={downFrom} onChangeText={setDownFrom} placeholderTextColor={colors.textSubtle} />
-                         <View style={styles.divider} />
-                         <TextInput style={styles.inlineInput} placeholder="Destination Stop" value={downTo} onChangeText={setDownTo} placeholderTextColor={colors.textSubtle} />
-                      </View>
-                   </View>
-
-                   <View style={styles.stopsSection}>
-                      <View style={styles.stopsHeader}>
-                         <Map size={14} color={colors.textMuted} />
-                         <Text style={styles.stopsLabel}>STOP SEQUENCE</Text>
-                      </View>
-                      <StopSequenceEditor stops={downStops} onChangeStops={setDownStops} />
-                   </View>
+              <TouchableOpacity
+                style={[
+                  styles.directionSegmentTab,
+                  activeDirection === 'down' && styles.directionSegmentTabActive,
+                ]}
+                onPress={() => setActiveDirection('down')}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.directionDot, { backgroundColor: '#EF4444' }]} />
+                <Text
+                  style={[
+                    styles.directionSegmentTitle,
+                    activeDirection === 'down' && styles.directionSegmentTitleActive,
+                  ]}
+                >
+                  Down Journey
+                </Text>
+                <View
+                  style={[
+                    styles.directionCountBadge,
+                    activeDirection === 'down' && styles.directionCountBadgeActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.directionCountText,
+                      activeDirection === 'down' && styles.directionCountTextActive,
+                    ]}
+                  >
+                    {getStopCount(downStops)}
+                  </Text>
                 </View>
-          </KeyboardAvoidingView>
-        </ScrollView>
+              </TouchableOpacity>
+            </View>
 
-        <View style={styles.sheetFooter}>
-          <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-             <LinearGradient colors={[colors.accent, '#3730A3']} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.saveGrad}>
+            {/* Compact Origin-Destination Terminals Card */}
+            <View style={styles.terminalsCard}>
+              <View style={styles.terminalRow}>
+                <View style={[styles.terminalIndicator, { backgroundColor: activeDirection === 'up' ? '#10B981' : '#EF4444' }]} />
+                <TextInput
+                  style={styles.terminalInput}
+                  placeholder={activeDirection === 'up' ? 'Origin Stop (Up)' : 'Origin Stop (Down)'}
+                  value={activeDirection === 'up' ? upFrom : downFrom}
+                  onChangeText={activeDirection === 'up' ? setUpFrom : setDownFrom}
+                  placeholderTextColor={colors.textSubtle}
+                />
+              </View>
+
+              <View style={styles.terminalDividerRow}>
+                <View style={styles.terminalTrackLine} />
+                <TouchableOpacity
+                  style={styles.swapTerminalsBtn}
+                  onPress={() => {
+                    if (activeDirection === 'up') {
+                      const tmp = upFrom; setUpFrom(upTo); setUpTo(tmp);
+                    } else {
+                      const tmp = downFrom; setDownFrom(downTo); setDownTo(tmp);
+                    }
+                  }}
+                  accessibilityLabel="Swap Terminals"
+                  activeOpacity={0.7}
+                >
+                  <ArrowRightLeft size={12} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.terminalRow}>
+                <View style={[styles.terminalIndicator, { backgroundColor: colors.error }]} />
+                <TextInput
+                  style={styles.terminalInput}
+                  placeholder={activeDirection === 'up' ? 'Destination Stop (Up)' : 'Destination Stop (Down)'}
+                  value={activeDirection === 'up' ? upTo : downTo}
+                  onChangeText={activeDirection === 'up' ? setUpTo : setDownTo}
+                  placeholderTextColor={colors.textSubtle}
+                />
+              </View>
+            </View>
+
+            {/* Helper to reverse Up sequence into Down sequence if empty */}
+            {activeDirection === 'down' && downStops.length === 0 && upStops.length > 0 && (
+              <TouchableOpacity
+                style={styles.reverseHelperChip}
+                onPress={() => {
+                  setDownStops([...upStops].reverse());
+                  if (!downFrom && upTo) setDownFrom(upTo);
+                  if (!downTo && upFrom) setDownTo(upFrom);
+                }}
+                activeOpacity={0.8}
+              >
+                <ArrowRightLeft size={13} color={colors.accent} />
+                <Text style={styles.reverseHelperText}>
+                  Auto-fill reverse of Up journey ({upStops.length} stops)
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Stop Sequence Editor */}
+            <StopSequenceEditor
+              key={activeDirection}
+              stops={activeDirection === 'up' ? upStops : downStops}
+              onChangeStops={activeDirection === 'up' ? setUpStops : setDownStops}
+              styles={styles}
+            />
+          </ScrollView>
+
+          {/* Sticky Bottom Save Action */}
+          <View style={styles.compactSheetFooter}>
+            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.88}>
+              <LinearGradient colors={[colors.accent, '#3730A3']} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.saveGrad}>
+                <Bus size={15} color={colors.white} />
                 <Text style={styles.saveText}>Save Configuration</Text>
-             </LinearGradient>
-          </TouchableOpacity>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         </View>
       </AdminBottomSheet>
 
@@ -870,78 +993,176 @@ const getStyles = (colors: any) => StyleSheet.create({
   sheetTitle: { fontSize: 22, fontWeight: '800', color: colors.text },
   sheetSubtitle: { fontSize: 12, color: colors.textMuted, fontWeight: '600', marginTop: 4 },
   closeBtn: { padding: 8, backgroundColor: colors.surfaceMuted, borderRadius: 10 },
-  formScroll: { padding: 20, paddingBottom: 30 },
+  compactFormScroll: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24 },
 
-  idSection: { marginBottom: 16 },
-  idInputBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 14, paddingHorizontal: 16, gap: 12 },
-  idInput: { flex: 1, height: 50, fontSize: 16, fontWeight: '800', color: colors.text },
-  hint: { fontSize: 11, color: colors.textSubtle, marginTop: 4, fontWeight: '600', marginLeft: 4 },
-
-  segmentCard: { backgroundColor: colors.white, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: colors.border, ...SHADOWS.card },
-  segmentHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
-  segmentIcon: { width: 34, height: 34, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  segmentTitle: { fontSize: 13, fontWeight: '900', color: colors.text, letterSpacing: 0.5 },
-  segmentSub: { fontSize: 11, color: colors.textMuted, fontWeight: '600' },
-  countBadge: { backgroundColor: colors.surfaceMuted, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
-  countText: { fontSize: 12, fontWeight: '900', color: colors.background === '#000000' ? colors.text : colors.primary },
-
-  journeyBox: { flexDirection: 'row', backgroundColor: colors.surfaceMuted, borderRadius: 16, padding: 12, marginBottom: 16 },
-  journeyIcons: { alignItems: 'center', paddingVertical: 10, paddingRight: 12 },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.success },
-  line: { width: 1.5, flex: 1, backgroundColor: colors.border, marginVertical: 4 },
-  journeyInputs: { flex: 1, gap: 4 },
-  inlineInput: { height: 40, fontSize: 14, fontWeight: '700', color: colors.text, paddingHorizontal: 4 },
-  divider: { height: 1, backgroundColor: colors.border, marginVertical: 4 },
-
-  stopsSection: { backgroundColor: colors.surface, borderRadius: 16, padding: 12, borderWidth: 1, borderColor: colors.border },
-  stopsHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  stopsLabel: { fontSize: 10, fontWeight: '900', color: colors.textMuted, letterSpacing: 0.5 },
-  stopRow: {
+  compactIdCard: { marginBottom: 12 },
+  compactInputLabel: { fontSize: 10, fontWeight: '800', color: colors.textMuted, letterSpacing: 0.5, marginBottom: 6 },
+  compactIdInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 12,
-    height: 48,
-    paddingHorizontal: 10,
-    marginBottom: 8,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 8,
+    height: 44,
     gap: 8,
   },
+  compactRouteBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.accent,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: RADIUS.sm,
+  },
+  compactRouteBadgeText: { fontSize: 11, fontWeight: '900', color: colors.white },
+  compactIdInput: { flex: 1, height: 44, fontSize: 14, fontWeight: '700', color: colors.text },
+
+  directionSegmentBar: {
+    flexDirection: 'row',
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: RADIUS.md,
+    padding: 4,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  directionSegmentTab: {
+    flex: 1,
+    height: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: RADIUS.sm,
+  },
+  directionSegmentTabActive: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...SHADOWS.card,
+  },
+  directionDot: { width: 7, height: 7, borderRadius: 3.5 },
+  directionSegmentTitle: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
+  directionSegmentTitleActive: { color: colors.text, fontWeight: '800' },
+  directionCountBadge: {
+    backgroundColor: colors.surfacePressed,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  directionCountBadgeActive: {
+    backgroundColor: colors.accentSoft,
+  },
+  directionCountText: { fontSize: 11, fontWeight: '800', color: colors.textMuted },
+  directionCountTextActive: { color: colors.accent },
+
+  terminalsCard: {
+    backgroundColor: colors.surface,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 10,
+    marginBottom: 12,
+    ...SHADOWS.card,
+  },
+  terminalRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  terminalIndicator: { width: 8, height: 8, borderRadius: 4 },
+  terminalInput: { flex: 1, height: 36, fontSize: 13, fontWeight: '700', color: colors.text, paddingVertical: 0 },
+  terminalDividerRow: { flexDirection: 'row', alignItems: 'center', height: 16, paddingLeft: 3 },
+  terminalTrackLine: { width: 2, height: 16, backgroundColor: colors.border },
+  swapTerminalsBtn: {
+    marginLeft: 14,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  reverseHelperChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: colors.accentSoft,
+    borderWidth: 1,
+    borderColor: colors.accentMuted,
+    borderRadius: RADIUS.sm,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
+  reverseHelperText: { fontSize: 11, fontWeight: '700', color: colors.accent },
+
+  sequenceContainer: {
+    backgroundColor: colors.surface,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 12,
+    marginBottom: 8,
+    ...SHADOWS.card,
+  },
+  sequenceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  sequenceTitleBlock: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  sequenceHeading: { fontSize: 11, fontWeight: '900', color: colors.textMuted, letterSpacing: 0.5 },
+  sequenceCountLabel: { fontSize: 11, fontWeight: '700', color: colors.textSubtle },
+  sequenceHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  sequenceActionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  sequenceActionChipText: { fontSize: 11, fontWeight: '700', color: colors.textMuted },
+  sequenceActionChipTextAccent: { fontSize: 11, fontWeight: '800', color: colors.accent },
+  sequenceActionChipDanger: { backgroundColor: colors.errorSoft, borderColor: colors.error + '40' },
+
+  stopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: RADIUS.sm,
+    height: 42,
+    paddingHorizontal: 8,
+    marginBottom: 6,
+    gap: 6,
+  },
   stopBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: colors.accentSoft,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.accentMuted,
   },
-  stopBadgeText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: colors.accent,
-  },
-  stopInput: {
-    flex: 1,
-    height: 44,
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    paddingHorizontal: 4,
-  },
-  dragHandle: {
-    paddingHorizontal: 6,
-    paddingVertical: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  stopBadgeText: { fontSize: 10, fontWeight: '900', color: colors.accent },
+  stopInput: { flex: 1, height: 40, fontSize: 13, fontWeight: '600', color: colors.text, paddingHorizontal: 4 },
+  stopDeleteBtn: { padding: 4, justifyContent: 'center', alignItems: 'center' },
+  dragHandle: { paddingHorizontal: 4, paddingVertical: 8, justifyContent: 'center', alignItems: 'center' },
   dropLine: {
-    height: 4,
+    height: 3,
     backgroundColor: colors.accent,
-    borderRadius: 2,
-    marginVertical: 4,
+    borderRadius: 1.5,
+    marginVertical: 3,
     width: '100%',
   },
   swipeDeleteBg: {
@@ -949,81 +1170,40 @@ const getStyles = (colors: any) => StyleSheet.create({
     left: 0,
     right: 0,
     top: 0,
-    bottom: 8,
+    bottom: 6,
     backgroundColor: colors.errorSoft,
     borderWidth: 1,
-    borderColor: '#FECDD3',
-    borderRadius: 12,
+    borderColor: colors.error + '44',
+    borderRadius: RADIUS.sm,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
     paddingRight: 16,
     gap: 6,
   },
-  swipeDeleteText: {
-    color: colors.error,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  editorFooter: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginTop: 12,
-  },
-  addStopBtn: {
+  swipeDeleteText: { color: colors.error, fontSize: 12, fontWeight: '800' },
+
+  emptyStopsBox: { paddingVertical: 20, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  emptyStopsText: { fontSize: 12, color: colors.textSubtle, fontWeight: '600' },
+  addFirstStopBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: colors.accent,
+    gap: 4,
     backgroundColor: colors.accentSoft,
-    flex: 1,
-    minWidth: 120,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginTop: 4,
   },
-  addStopBtnText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.accent,
-  },
-  bulkImportToggleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
+  addFirstStopText: { fontSize: 12, fontWeight: '800', color: colors.accent },
+
+  compactSheetFooter: {
     paddingHorizontal: 16,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceMuted,
-  },
-  bulkImportToggleBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textMuted,
-  },
-  clearAllBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#FECDD3',
-    backgroundColor: colors.errorSoft,
-  },
-  clearAllBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.error,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
   },
   bulkModalCard: {
     width: '90%',

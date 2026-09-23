@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform, StatusBar } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,12 +22,10 @@ const Eye = IconWrapper('eye');
 const EyeOff = IconWrapper('eye-off');
 const ArrowLeft = IconWrapper('arrow-left');
 const ShieldCheck = IconWrapper('shield-check');
-const TrashAlert = IconWrapper('delete-alert');
-import { resetDatabaseExceptRoutes } from '../../services/databaseResetService';
 
 export const AdminProfileScreen = () => {
-  const { colors } = useTheme();
-  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
   const admin = useAdminStore((s) => s.admin);
   const setAdmin = useAdminStore((s) => s.setAdmin);
   const logout = useAdminStore((s) => s.logout);
@@ -40,35 +38,6 @@ export const AdminProfileScreen = () => {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [resetLoading, setResetLoading] = useState(false);
-
-  const handleResetDatabase = () => {
-    Alert.alert(
-      'Reset Database (Fresh Start)',
-      'This will delete all tickets, devices, security logs, and test users. Only Routes and the Permanent Admin (maishahrukhh@gmail.com) will be preserved.\n\nAre you sure you want to proceed?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Yes, Reset Database',
-          style: 'destructive',
-          onPress: async () => {
-            setResetLoading(true);
-            try {
-              const res = await resetDatabaseExceptRoutes('maishahrukhh@gmail.com');
-              Alert.alert(
-                'Database Reset Complete',
-                `Successfully cleared database:\n- Tickets removed: ${res.ticketsDeleted}\n- Devices removed: ${res.devicesDeleted}\n- Logs purged: ${res.logsDeleted}\n- Users removed: ${res.usersDeleted}\n\nRoutes preserved & Admin ${res.adminEmail} is permanent.`
-              );
-            } catch (err: any) {
-              Alert.alert('Reset Failed', err?.message || 'Failed to reset database');
-            } finally {
-              setResetLoading(false);
-            }
-          },
-        },
-      ]
-    );
-  };
 
   const handleUpdateProfile = async () => {
     if (!name.trim()) return Alert.alert('Error', 'Name cannot be empty');
@@ -121,11 +90,11 @@ export const AdminProfileScreen = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboard}>
         <View style={styles.topBar}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Back to dashboard" onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <ArrowLeft size={20} color={colors.white} />
+            <ArrowLeft size={20} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.topBarTitle}>Profile Settings</Text>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Logout" onPress={logout} style={styles.miniLogout}>
@@ -136,7 +105,7 @@ export const AdminProfileScreen = () => {
         <ScrollView style={styles.content} contentContainerStyle={styles.contentInner} keyboardShouldPersistTaps="handled">
           <View style={styles.headerCard}>
             <View style={styles.avatar}>
-              <ShieldCheck size={24} color={colors.white} />
+              <ShieldCheck size={24} color={colors.accent} />
             </View>
             <View style={styles.adminCopy}>
               <Text style={styles.adminName} numberOfLines={1}>{admin?.name}</Text>
@@ -152,6 +121,7 @@ export const AdminProfileScreen = () => {
               onPress={() => setActiveSubTab('info')}
               activeOpacity={0.82}
             >
+              <User size={15} color={activeSubTab === 'info' ? colors.accent : colors.textMuted} />
               <Text style={[styles.tabText, activeSubTab === 'info' && styles.tabTextActive]}>Basic Info</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -159,6 +129,7 @@ export const AdminProfileScreen = () => {
               onPress={() => setActiveSubTab('security')}
               activeOpacity={0.82}
             >
+              <Lock size={15} color={activeSubTab === 'security' ? colors.accent : colors.textMuted} />
               <Text style={[styles.tabText, activeSubTab === 'security' && styles.tabTextActive]}>Security</Text>
             </TouchableOpacity>
           </View>
@@ -219,77 +190,143 @@ export const AdminProfileScreen = () => {
             )}
           </View>
 
-          {/* Database Reset Danger Zone */}
-          <View style={[styles.section, styles.dangerSection]}>
-            <View style={styles.dangerHeader}>
-              <TrashAlert size={20} color={colors.error} />
-              <Text style={styles.dangerTitle}>System Database Reset</Text>
-            </View>
-            <Text style={styles.dangerDesc}>
-              Wipe all test data (tickets, devices, logs, users) to start fresh. Bus routes and permanent admin (maishahrukhh@gmail.com) will remain untouched.
-            </Text>
-            <TouchableOpacity
-              style={[styles.mainBtn, styles.dangerBtn, resetLoading && styles.btnDisabled]}
-              onPress={handleResetDatabase}
-              disabled={resetLoading}
-              activeOpacity={0.86}
-            >
-              {resetLoading ? (
-                <ActivityIndicator color={colors.white} />
-              ) : (
-                <>
-                  <TrashAlert size={16} color={colors.white} />
-                  <Text style={styles.btnText}>Fresh Database Reset</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-
           <Text style={styles.footerText}>One Delhi Admin Panel v2.1.0</Text>
         </ScrollView>
+        <SafeAreaView edges={['bottom']} style={{ backgroundColor: colors.background }} />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
-function getStyles(colors: any) {
+function getStyles(colors: any, isDark: boolean) {
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.primary },
-  keyboard: { flex: 1, backgroundColor: colors.background },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, paddingBottom: SPACING.md, backgroundColor: colors.primary, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
-  topBarTitle: { fontSize: 15, fontWeight: '800', color: colors.white },
-  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.md, backgroundColor: colors.glass, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
-  miniLogout: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.md, backgroundColor: colors.errorSoft },
-  content: { flex: 1 },
-  contentInner: { padding: SPACING.xl, paddingBottom: 44 },
-  headerCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, padding: SPACING.lg, borderRadius: RADIUS.md, marginBottom: SPACING.lg, borderWidth: 1, borderColor: colors.border, ...SHADOWS.card },
-  avatar: { width: 52, height: 52, borderRadius: RADIUS.md, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  adminCopy: { flex: 1, minWidth: 0 },
-  adminName: { fontSize: 17, lineHeight: 22, fontWeight: '800', color: colors.text },
-  adminRole: { fontSize: 12, color: colors.accent, fontWeight: '800', marginTop: 3 },
-  tabSelector: { flexDirection: 'row', backgroundColor: colors.surfaceMuted, borderRadius: RADIUS.md, padding: 4, marginBottom: SPACING.lg, borderWidth: 1, borderColor: colors.border },
-  tabItem: { flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.sm },
-  tabActive: { backgroundColor: colors.surface, ...SHADOWS.card },
-  tabText: { fontSize: 12, fontWeight: '800', color: colors.textMuted },
-  tabTextActive: { color: colors.primary },
-  section: { backgroundColor: colors.surface, borderRadius: RADIUS.md, padding: SPACING.lg, borderWidth: 1, borderColor: colors.border, ...SHADOWS.card },
-  inputGroup: { marginBottom: SPACING.lg },
-  label: { fontSize: 11, fontWeight: '800', color: colors.textMuted, marginBottom: 7, textTransform: 'uppercase', letterSpacing: 0 },
-  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceMuted, borderRadius: RADIUS.md, paddingHorizontal: 12, minHeight: 48, borderWidth: 1, borderColor: colors.border },
-  readOnlyWrapper: { backgroundColor: '#F8FAFC' },
-  dangerInput: { borderColor: '#FECACA', backgroundColor: '#FFF7F7' },
-  input: { flex: 1, minWidth: 0, marginLeft: 9, fontSize: 14, color: colors.text, fontWeight: '700', paddingVertical: 0 },
-  eyeBtn: { padding: 8, marginRight: -6 },
-  readOnlyText: { flex: 1, fontSize: 12, color: colors.textMuted, fontFamily: 'monospace', fontWeight: '700' },
-  mainBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, minHeight: 50, borderRadius: RADIUS.md, gap: 8, marginTop: 2, ...SHADOWS.floating },
-  securityBtn: { backgroundColor: colors.success },
-  btnText: { color: colors.white, fontWeight: '800', fontSize: 14 },
-  footerText: { textAlign: 'center', fontSize: 10, color: colors.textSubtle, marginTop: SPACING.xxl, fontWeight: '800' },
-  dangerSection: { marginTop: SPACING.lg, borderColor: '#FECACA', backgroundColor: '#FFF8F8' },
-  dangerHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  dangerTitle: { fontSize: 14, fontWeight: '800', color: colors.error },
-  dangerDesc: { fontSize: 12, color: colors.textMuted, lineHeight: 18, marginBottom: 14 },
-  dangerBtn: { backgroundColor: colors.error },
-  btnDisabled: { opacity: 0.6 },
+    container: { flex: 1, backgroundColor: colors.surface },
+    keyboard: { flex: 1, backgroundColor: colors.background },
+    topBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: SPACING.lg,
+      paddingTop: SPACING.sm,
+      paddingBottom: SPACING.md,
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    topBarTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
+    backBtn: {
+      width: 40,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: RADIUS.md,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    miniLogout: {
+      width: 40,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: RADIUS.md,
+      backgroundColor: colors.errorSoft,
+    },
+    content: { flex: 1 },
+    contentInner: { padding: SPACING.xl, paddingBottom: 44 },
+    headerCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      padding: SPACING.lg,
+      borderRadius: RADIUS.lg,
+      marginBottom: SPACING.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      ...SHADOWS.card,
+    },
+    avatar: {
+      width: 52,
+      height: 52,
+      borderRadius: RADIUS.md,
+      backgroundColor: colors.accentSoft,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    adminCopy: { flex: 1, minWidth: 0 },
+    adminName: { fontSize: 17, lineHeight: 22, fontWeight: '800', color: colors.text },
+    adminRole: { fontSize: 12, color: colors.accent, fontWeight: '800', marginTop: 3 },
+    tabSelector: {
+      flexDirection: 'row',
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: RADIUS.md,
+      padding: 4,
+      marginBottom: SPACING.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    tabItem: {
+      flex: 1,
+      minHeight: 42,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      borderRadius: RADIUS.sm,
+    },
+    tabActive: {
+      backgroundColor: isDark ? colors.surfacePressed : colors.surface,
+      borderWidth: 1,
+      borderColor: isDark ? colors.borderStrong : colors.border,
+      ...SHADOWS.card,
+    },
+    tabText: { fontSize: 13, fontWeight: '700', color: colors.textMuted },
+    tabTextActive: { color: colors.accent, fontWeight: '800' },
+    section: {
+      backgroundColor: colors.surface,
+      borderRadius: RADIUS.lg,
+      padding: SPACING.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      ...SHADOWS.card,
+    },
+    inputGroup: { marginBottom: SPACING.lg },
+    label: { fontSize: 11, fontWeight: '800', color: colors.textMuted, marginBottom: 7, textTransform: 'uppercase', letterSpacing: 0 },
+    inputWrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: RADIUS.md,
+      paddingHorizontal: 12,
+      minHeight: 48,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    readOnlyWrapper: {
+      backgroundColor: colors.surfacePressed || colors.surfaceMuted,
+      borderColor: colors.border,
+    },
+    dangerInput: {
+      borderColor: colors.error + '44',
+      backgroundColor: colors.errorSoft,
+    },
+    input: { flex: 1, minWidth: 0, marginLeft: 9, fontSize: 14, color: colors.text, fontWeight: '700', paddingVertical: 0 },
+    eyeBtn: { padding: 8, marginRight: -6 },
+    readOnlyText: { flex: 1, fontSize: 12, color: colors.textMuted, fontFamily: 'monospace', fontWeight: '700' },
+    mainBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.accent,
+      minHeight: 50,
+      borderRadius: RADIUS.md,
+      gap: 8,
+      marginTop: 2,
+      ...SHADOWS.floating,
+    },
+    securityBtn: { backgroundColor: colors.success },
+    btnText: { color: colors.white, fontWeight: '800', fontSize: 14 },
+    footerText: { textAlign: 'center', fontSize: 10, color: colors.textSubtle, marginTop: SPACING.xxl, fontWeight: '800' },
   });
 }

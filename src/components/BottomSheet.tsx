@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,11 @@ import {
   ActivityIndicator,
   StyleProp,
   ViewStyle,
+  Keyboard,
+  Platform,
+  Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const IconWrapper = (name: any) => (props: any) => (
@@ -48,20 +51,52 @@ export const AdminBottomSheet = ({
 }: BottomSheetProps) => {
   const { colors } = useTheme();
   const styles = getStyles(colors);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const insets = useSafeAreaInsets();
+  const screenHeight = Dimensions.get('window').height;
+  const topSafeOffset = Math.max(insets.top, 24);
+  const maxSheetHeight = keyboardHeight > 0
+    ? Math.max(screenHeight - keyboardHeight - topSafeOffset, 200)
+    : Math.max(screenHeight - topSafeOffset - 20, 200);
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={() => !loading && onClose()}
+      onRequestClose={() => {
+        Keyboard.dismiss();
+        if (!loading) onClose();
+      }}
     >
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { paddingBottom: keyboardHeight }]}>
         <TouchableOpacity
           style={styles.backdrop}
           activeOpacity={1}
-          onPress={() => !loading && onClose()}
+          onPress={() => {
+            Keyboard.dismiss();
+            if (!loading) onClose();
+          }}
         />
-        <View style={[styles.sheet, sheetStyle]}>
+        <View style={[styles.sheet, { maxHeight: maxSheetHeight }, sheetStyle]}>
           <View style={styles.handle} />
 
           <View style={styles.header}>
@@ -71,7 +106,10 @@ export const AdminBottomSheet = ({
               {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
             </View>
             <TouchableOpacity
-              onPress={() => !loading && onClose()}
+              onPress={() => {
+                Keyboard.dismiss();
+                if (!loading) onClose();
+              }}
               style={styles.closeBtn}
               disabled={loading}
             >
@@ -104,7 +142,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     justifyContent: 'flex-end',
   },
   backdrop: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
   },
   sheet: {
     backgroundColor: colors.surface,
@@ -112,7 +150,6 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderTopRightRadius: 32,
     paddingTop: 12,
     ...SHADOWS.floating,
-    maxHeight: '90%',
   },
   handle: {
     width: 40,

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../core/ThemeContext';
@@ -130,7 +131,12 @@ export const EditTicketModal: React.FC<EditTicketModalProps> = ({
       title="Edit Ticket Details"
       subtitle={ticket ? `Route ${ticket.route || ''} • Ticket #${ticket.id?.slice(0, 8)}...` : undefined}
     >
-      <View style={styles.formContainer}>
+      <ScrollView
+        style={{ flexShrink: 1 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.formContainer}
+      >
         {/* From (Source Stop) */}
         <View style={styles.inputGroup}>
           <Text style={styles.inputLabel}>From (Boarding Stop)</Text>
@@ -244,7 +250,7 @@ export const EditTicketModal: React.FC<EditTicketModalProps> = ({
             )}
           </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
     </AdminBottomSheet>
   );
 };

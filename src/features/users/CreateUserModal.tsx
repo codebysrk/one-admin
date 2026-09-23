@@ -9,6 +9,7 @@ import {
   Alert,
   Share,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
@@ -233,7 +234,12 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           </TouchableOpacity>
         </View>
       ) : (
-        <View style={styles.formContainer}>
+        <ScrollView
+          style={{ flexShrink: 1 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.formContainer}
+        >
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>FULL NAME</Text>
             <TextInput
@@ -329,7 +335,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
               </>
             )}
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       )}
     </AdminBottomSheet>
   );

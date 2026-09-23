@@ -60,7 +60,7 @@ export const LogsScreen = () => {
     try {
       let queryBuilder = supabase
         .from('activity_logs')
-        .select('*')
+        .select('*, users(name, email)')
         .order('created_at', { ascending: false })
         .limit(150);
 
@@ -79,8 +79,8 @@ export const LogsScreen = () => {
       if (data) {
         setLogs(data.map((l: any) => ({
           id: l.id,
-          userName: l.user_name,
-          userEmail: l.user_email,
+          userName: l.users?.name || (l.type === 'SYSTEM' ? 'System' : 'Admin/User'),
+          userEmail: l.users?.email || '',
           action: l.action,
           details: l.details,
           type: l.type,
@@ -91,6 +91,7 @@ export const LogsScreen = () => {
           ...l,
         })));
       }
+
     } catch (err) {
       if (__DEV__) console.warn('Logs error:', err);
     } finally {
@@ -181,6 +182,30 @@ export const LogsScreen = () => {
     }
   };
 
+  const handleDeleteSingleLog = useCallback((logId: string) => {
+    Alert.alert(
+      'Delete Log Record',
+      'Are you sure you want to permanently delete this audit log entry?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase.from('activity_logs').delete().eq('id', logId);
+              if (error) throw error;
+              fetchLogs();
+            } catch (err: any) {
+              if (__DEV__) console.warn('Single log delete error:', err);
+              Alert.alert('Error', 'Failed to delete log entry.');
+            }
+          },
+        },
+      ]
+    );
+  }, [fetchLogs]);
+
   const renderLogItem = useCallback(
     ({ item, index }: any) => {
       const theme = getLogStyle(item.action);
@@ -199,16 +224,27 @@ export const LogsScreen = () => {
             style={styles.logCard}
           >
             <View style={styles.logHeader}>
-              <View style={[styles.typeBadge, { backgroundColor: item.type === 'ADMIN' ? colors.primary : colors.info }]}>
-                {item.type === 'ADMIN' ? <Shield size={10} color={colors.white} /> : <User size={10} color={colors.white} />}
-                <Text style={styles.typeText}>{item.type || 'SYSTEM'}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View style={[styles.typeBadge, { backgroundColor: item.type === 'ADMIN' ? colors.primary : colors.info }]}>
+                  {item.type === 'ADMIN' ? <Shield size={10} color={colors.white} /> : <User size={10} color={colors.white} />}
+                  <Text style={styles.typeText}>{item.type || 'SYSTEM'}</Text>
+                </View>
+                <View style={styles.timeWrapper}>
+                  <Clock size={12} color={colors.textSubtle} />
+                  <Text style={styles.timeText}>
+                    {formatFullTimestamp(item.timestamp)}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.timeWrapper}>
-                <Clock size={12} color={colors.textSubtle} />
-                <Text style={styles.timeText}>
-                  {formatFullTimestamp(item.timestamp)}
-                </Text>
-              </View>
+
+              <TouchableOpacity
+                accessibilityLabel="Delete this log"
+                onPress={() => handleDeleteSingleLog(item.id)}
+                style={{ padding: 4 }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Trash2 size={15} color={colors.textSubtle} />
+              </TouchableOpacity>
             </View>
 
             <Text style={styles.logAction} numberOfLines={1}>{item.action}</Text>
@@ -271,7 +307,7 @@ export const LogsScreen = () => {
         </View>
       );
     },
-    [filteredLogs, getLogStyle, handleNavigate]
+    [filteredLogs, getLogStyle, handleNavigate, handleDeleteSingleLog, colors]
   );
 
   return (

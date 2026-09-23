@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   Alert,
   Modal,
+  Keyboard,
+  Platform,
+  Dimensions,
 } from "react-native";
 import { supabase } from "../../services/supabase";
 import { useTheme } from '../../core/ThemeContext';
@@ -80,6 +83,24 @@ export const FareConfigScreen = () => {
   const [maxKm, setMaxKm] = useState("");
   const [nonACFare, setNonACFare] = useState("");
   const [acFare, setAcFare] = useState("");
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const loadConfig = useCallback(async () => {
     setLoading(true);
@@ -363,10 +384,24 @@ export const FareConfigScreen = () => {
         visible={modalVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setModalVisible(false);
+        }}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <View style={[styles.modalOverlay, { paddingBottom: keyboardHeight }]}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => {
+              Keyboard.dismiss();
+              setModalVisible(false);
+            }}
+          />
+          <View style={[
+            styles.modalContent,
+            keyboardHeight > 0 && { maxHeight: Math.max(Dimensions.get('window').height - keyboardHeight - 50, 200) }
+          ]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
                 {editIndex !== null ? "Edit Fare Slab" : "Create Fare Slab"}
@@ -376,7 +411,7 @@ export const FareConfigScreen = () => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.modalForm}>
+            <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={styles.modalForm} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               <FormField
                 label="Minimum Distance (Km)"
                 keyboardType="numeric"

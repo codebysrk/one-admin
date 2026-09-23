@@ -20,8 +20,6 @@ export const logActivity = async (options: LogOptions) => {
   try {
     await supabase.from('activity_logs').insert({
       user_id: admin?.uid || admin?.id || null,
-      user_name: admin?.name || admin?.userName || admin?.email || 'Admin',
-      user_email: admin?.email || 'admin@onedelhi.gov.in',
       action: options.action,
       details: options.details,
       type: options.type === 'SYSTEM' ? 'USER' : options.type,
@@ -29,6 +27,7 @@ export const logActivity = async (options: LogOptions) => {
       target_type: options.targetType || null,
       notes: options.notes || null,
     });
+
   } catch (error) {
     if (__DEV__) console.error('Logging failed:', error);
   }

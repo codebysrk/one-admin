@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Modal, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Modal, TextInput, Platform, ActivityIndicator, ScrollView, Keyboard, Dimensions } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../services/supabase';
 import { useTheme } from '../../core/ThemeContext';
 import { RADIUS, SHADOWS, SPACING  } from '../../core/theme';
@@ -33,6 +34,7 @@ const NOTIFICATION_TYPES = [
 
 export const NotificationsScreen = () => {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
   const [notifications, setNotifications] = useState<any[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
@@ -43,6 +45,24 @@ export const NotificationsScreen = () => {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [type, setType] = useState('general');
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const fetchNotifications = React.useCallback(async () => {
     try {
@@ -84,10 +104,10 @@ export const NotificationsScreen = () => {
         title: title.trim(),
         message: message.trim(),
         type,
-        is_broadcast: true,
         sent_by: 'Admin Hub',
         target_count: totalUsers
       };
+
 
       await supabase.from('notifications').insert(payload);
       setModalVisible(false);
@@ -150,21 +170,38 @@ export const NotificationsScreen = () => {
         ListEmptyComponent={loading ? <LoadingState label="Loading..." compact /> : <EmptyState title="No history" />}
       />
 
-      <Modal visible={modalVisible} transparent animationType="slide">
-        <View style={styles.overlay}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboard}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <View>
-                  <Text style={styles.modalTitle}>Dispatch Hub</Text>
-                  <Text style={styles.modalSubtitle}>Configure system-wide announcement</Text>
-                </View>
-                <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}>
-                  <X size={20} color={colors.textMuted} />
-                </TouchableOpacity>
+      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => { Keyboard.dismiss(); setModalVisible(false); }}>
+        <View style={[styles.overlay, { paddingBottom: keyboardHeight }]}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => {
+              Keyboard.dismiss();
+              setModalVisible(false);
+            }}
+          />
+          <View style={[
+            styles.modalContent,
+            keyboardHeight > 0 
+              ? { maxHeight: Math.max(Dimensions.get('window').height - keyboardHeight - Math.max(insets.top, 24), 200) }
+              : { maxHeight: Math.max(Dimensions.get('window').height - Math.max(insets.top, 24) - 20, 200) }
+          ]}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Dispatch Hub</Text>
+                <Text style={styles.modalSubtitle}>Configure system-wide announcement</Text>
               </View>
+              <TouchableOpacity onPress={() => { Keyboard.dismiss(); setModalVisible(false); }} style={styles.closeBtn}>
+                <X size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
 
-              <View style={styles.formBody}>
+            <ScrollView 
+              style={{ flexShrink: 1 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.formBody}
+            >
                 <Text style={styles.label}>Broadcast Category</Text>
                 <View style={styles.categoryGrid}>
                    {NOTIFICATION_TYPES.map(t => (
@@ -194,10 +231,9 @@ export const NotificationsScreen = () => {
                       {sending ? <ActivityIndicator color="white" size="small" /> : <Text style={styles.sendText}>Dispatch to {totalUsers} Users</Text>}
                    </LinearGradient>
                 </TouchableOpacity>
-              </View>
-            </View>
-            <View style={styles.bottomBleed} />
-          </KeyboardAvoidingView>
+            </ScrollView>
+            <SafeAreaView edges={['bottom']} />
+          </View>
         </View>
       </Modal>
     </AdminScreen>
@@ -243,5 +279,5 @@ const getStyles = (colors: any) => StyleSheet.create({
   sendBtn: { borderRadius: 16, overflow: 'hidden', marginTop: 8, ...SHADOWS.accent },
   sendGrad: { height: 56, alignItems: 'center', justifyContent: 'center' },
   sendText: { color: colors.white, fontSize: 16, fontWeight: '800' },
-  bottomBleed: { position: 'absolute', bottom: -100, left: 0, right: 0, height: 120, backgroundColor: colors.surface, zIndex: 1 },
+  bottomBleed: { position: 'absolute', bottom: -100, left: 0, right: 0, height: 120, backgroundColor: colors.surface, zIndex: -1 },
 });

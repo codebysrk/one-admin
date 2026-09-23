@@ -1,204 +1,421 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, useWindowDimensions, StatusBar, RefreshControl } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { LineChart } from 'react-native-chart-kit';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  useWindowDimensions,
+  StatusBar,
+  RefreshControl,
+} from "react-native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LineChart } from "react-native-chart-kit";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 const IconWrapper = (name: any) => (props: any) => (
   <MaterialCommunityIcons name={name} {...props} />
 );
 
-const Bell = IconWrapper('bell');
-const Bus = IconWrapper('bus');
-const ChevronRight = IconWrapper('chevron-right');
-const Smartphone = IconWrapper('cellphone');
-const Ticket = IconWrapper('ticket');
-const TrendingUp = IconWrapper('trending-up');
-const UserCircle = IconWrapper('account-circle');
-const Users = IconWrapper('account-group');
-const IndianRupee = IconWrapper('currency-inr');
-const MapPin = IconWrapper('map-marker');
-const ArrowUpRight = IconWrapper('arrow-top-right');
-import { useAdminStore } from '../../store/useAdminStore';
-import { useTheme } from '../../core/ThemeContext';
-import { RADIUS, SHADOWS, SPACING } from '../../core/theme';
-import { supabase } from '../../services/supabase';
-import { AdminPressable, Card, SectionHeader, LoadingState, SkeletonBlock } from '../../components/AdminUI';
+const Bell = IconWrapper("bell");
+const Bus = IconWrapper("bus");
+const ChevronRight = IconWrapper("chevron-right");
+const Smartphone = IconWrapper("cellphone");
+const Ticket = IconWrapper("ticket");
+const TrendingUp = IconWrapper("trending-up");
+const UserCircle = IconWrapper("account-circle");
+const Users = IconWrapper("account-group");
+const IndianRupee = IconWrapper("currency-inr");
+const MapPin = IconWrapper("map-marker");
+const ArrowUpRight = IconWrapper("arrow-top-right");
+const Cash = IconWrapper("cash-multiple");
+const Activity = IconWrapper("pulse");
+import { useAdminStore } from "../../store/useAdminStore";
+import { useTheme } from "../../core/ThemeContext";
+import { RADIUS, SHADOWS, SPACING } from "../../core/theme";
+import { supabase } from "../../services/supabase";
+import {
+  AdminPressable,
+  Card,
+  SectionHeader,
+  LoadingState,
+  SkeletonBlock,
+} from "../../components/AdminUI";
 
 const formatLogTime = (timestamp: any) => {
-  if (!timestamp) return 'Recent';
+  if (!timestamp) return "Recent";
   const date = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
-  if (Number.isNaN(date.getTime())) return 'Recent';
+  if (Number.isNaN(date.getTime())) return "Recent";
 
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
-  const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+  const timeStr = date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
 
-  return isToday ? `Today, ${timeStr}` : `${date.toLocaleDateString([], { day: '2-digit', month: 'short' })}, ${timeStr}`;
+  return isToday
+    ? `Today, ${timeStr}`
+    : `${date.toLocaleDateString([], { day: "2-digit", month: "short" })}, ${timeStr}`;
 };
 
 const CompactHeader = React.memo(({ admin, onProfilePress }: any) => {
   const { colors, isDark } = useTheme();
-  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
+  const styles =
+    typeof getStyles === "function" ? getStyles(colors) : ({} as any);
   return (
-  <LinearGradient colors={['#4F46E5', '#3730A3']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.headerGradient}>
-    <SafeAreaView edges={['top']}>
-      <View style={styles.header}>
-        <View style={styles.headerCopy}>
-          <Text style={styles.greeting}>One Delhi • Command Center</Text>
-          <Text style={styles.adminName} numberOfLines={1}>{admin?.name || 'Administrator'}</Text>
+    <View style={styles.headerShell}>
+      <SafeAreaView edges={["top"]}>
+        <View style={styles.header}>
+          <View style={styles.headerCopy}>
+            <View style={styles.statusIndicatorRow}>
+              <View style={styles.statusDot} />
+              <Text style={styles.greeting}>ONE DELHI • COMMAND CENTER</Text>
+            </View>
+            <Text style={styles.adminName} numberOfLines={1}>
+              {admin?.name || "Administrator"}
+            </Text>
+          </View>
+          <AdminPressable
+            accessibilityRole="button"
+            accessibilityLabel="Open profile settings"
+            onPress={onProfilePress}
+            style={styles.profileBtn}
+          >
+            <UserCircle size={22} color={colors.text} />
+          </AdminPressable>
         </View>
-        <AdminPressable accessibilityRole="button" accessibilityLabel="Open profile settings" onPress={onProfilePress} style={styles.profileBtn}>
-          <UserCircle size={28} color={colors.white} />
-        </AdminPressable>
-      </View>
-    </SafeAreaView>
-  </LinearGradient>
+      </SafeAreaView>
+    </View>
   );
 });
 
-const StatsGrid = React.memo(({ stats, weeklyRevenue, loading }: any) => {
-  const { colors, isDark } = useTheme();
-  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
-  const cards = [
+const StatsGrid = React.memo(
+  ({ stats, weeklyRevenue, loading, navigation }: any) => {
+    const { colors, isDark } = useTheme();
+    const styles =
+      typeof getStyles === "function" ? getStyles(colors) : ({} as any);
+    const cards = [
+      {
+        key: "weekly",
+        label: "Weekly Earnings",
+        icon: TrendingUp,
+        value: loading ? "..." : `₹${weeklyRevenue.toLocaleString("en-IN")}`,
+        tone: colors.accent,
+        bg: colors.accentSoft,
+        badge: "Live",
+        route: "Tickets",
+      },
+      {
+        key: "revenue",
+        label: "Total Revenue",
+        icon: IndianRupee,
+        value: loading
+          ? "..."
+          : `₹${stats.revenue > 1000 ? (stats.revenue / 1000).toFixed(1) + "k" : stats.revenue}`,
+        tone: colors.success,
+        bg: colors.successSoft,
+        badge: "Gross",
+        route: "Tickets",
+      },
+      {
+        key: "users",
+        label: "Active Users",
+        icon: Users,
+        value: loading ? "..." : stats.users.toLocaleString("en-IN"),
+        tone: colors.info,
+        bg: colors.infoSoft,
+        badge: "Total",
+        route: "Users",
+      },
+      {
+        key: "routes",
+        label: "Active Routes",
+        icon: Bus,
+        value: loading ? "..." : stats.routes.toLocaleString("en-IN"),
+        tone: colors.warning,
+        bg: colors.warningSoft,
+        badge: "Lines",
+        route: "Routes",
+      },
+    ];
+
+    return (
+      <View style={styles.statsGrid}>
+        {cards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <AdminPressable
+              key={card.key}
+              style={styles.statCard}
+              onPress={() => card.route && navigation?.navigate(card.route)}
+              accessibilityRole="button"
+              accessibilityLabel={`${card.label}: ${card.value}`}
+            >
+              <View style={styles.statCardHeader}>
+                <View style={[styles.statIcon, { backgroundColor: card.bg }]}>
+                  <Icon size={15} color={card.tone} />
+                </View>
+                <View style={[styles.statBadge, { backgroundColor: card.bg }]}>
+                  <Text style={[styles.statBadgeText, { color: card.tone }]}>
+                    {card.badge}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.statValue} numberOfLines={1}>
+                {card.value}
+              </Text>
+              <View style={styles.statFooterRow}>
+                <Text style={styles.statLabel} numberOfLines={1}>
+                  {card.label}
+                </Text>
+                <ArrowUpRight size={12} color={colors.textSubtle} />
+              </View>
+            </AdminPressable>
+          );
+        })}
+      </View>
+    );
+  },
+);
+
+const QuickActions = React.memo(({ navigation }: any) => {
+  const { colors } = useTheme();
+  const styles =
+    typeof getStyles === "function" ? getStyles(colors) : ({} as any);
+  const actions = [
     {
-      key: 'weekly',
-      label: 'Weekly Earnings',
-      icon: TrendingUp,
-      value: loading ? '...' : `₹${weeklyRevenue.toLocaleString('en-IN')}`,
-      tone: colors.primary,
-      bg: colors.primarySoft,
-    },
-    {
-      key: 'revenue',
-      label: 'Total Revenue',
-      icon: IndianRupee,
-      value: loading ? '...' : `₹${stats.revenue > 1000 ? (stats.revenue / 1000).toFixed(1) + 'k' : stats.revenue}`,
-      tone: colors.success,
-      bg: colors.successSoft,
-    },
-    {
-      key: 'users',
-      label: 'Active Users',
-      icon: Users,
-      value: loading ? '...' : stats.users.toLocaleString('en-IN'),
-      tone: colors.accent,
+      label: "Routes",
+      icon: Bus,
+      route: "Routes",
+      color: colors.accent,
       bg: colors.accentSoft,
     },
     {
-      key: 'routes',
-      label: 'Routes',
-      icon: Bus,
-      value: loading ? '...' : stats.routes.toLocaleString('en-IN'),
-      tone: colors.warning,
+      label: "Fare Slabs",
+      icon: Cash,
+      route: "Fare",
+      color: colors.success,
+      bg: colors.successSoft,
+    },
+    {
+      label: "Users",
+      icon: Users,
+      route: "Users",
+      color: colors.info,
+      bg: colors.infoSoft,
+    },
+    {
+      label: "Logs",
+      icon: Activity,
+      route: "Logs",
+      color: colors.warning,
       bg: colors.warningSoft,
     },
   ];
 
   return (
-    <View style={styles.statsGrid}>
-      {cards.map((card) => {
-        const Icon = card.icon;
+    <View style={styles.quickActionsContainer}>
+      {actions.map((act) => {
+        const Icon = act.icon;
         return (
-          <Card key={card.key} style={styles.statCard}>
-            <View style={styles.statCardHeader}>
-              <View style={[styles.statIcon, { backgroundColor: card.bg }]}>
-                <Icon size={16} color={card.tone} />
-              </View>
-              <Text style={styles.statLabel} numberOfLines={1}>{card.label}</Text>
+          <AdminPressable
+            key={act.label}
+            style={styles.quickActionBtn}
+            onPress={() => navigation.navigate(act.route)}
+          >
+            <View
+              style={[styles.quickActionIconShell, { backgroundColor: act.bg }]}
+            >
+              <Icon size={18} color={act.color} />
             </View>
-            <Text style={styles.statValue} numberOfLines={1}>{card.value}</Text>
-          </Card>
+            <Text style={styles.quickActionLabel} numberOfLines={1}>
+              {act.label}
+            </Text>
+          </AdminPressable>
         );
       })}
     </View>
   );
 });
 
-const RevenueChart = React.memo(({ loading, chartWidth, revenueData, chartConfig }: any) => {
-  const { colors, isDark } = useTheme();
-  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
-  return (
-  <Card style={styles.chartCard}>
-    <SectionHeader
-      icon={<TrendingUp size={17} color={isDark ? colors.text : colors.primary} />}
-      title="Revenue Performance"
-      caption="Earnings (₹) over the last 7 days"
-    />
-    <View style={styles.chartFrame}>
-      {loading ? (
-        <SkeletonBlock style={{ width: '100%', height: 160, borderRadius: 12 }} />
-      ) : (
-        <LineChart
-          data={{
-            labels: ['6d', '5d', '4d', '3d', '2d', '1d', 'Now'],
-            datasets: [{ data: revenueData }],
-          }}
-          width={chartWidth}
-          height={160}
-          chartConfig={chartConfig}
-          bezier
-          withInnerLines
-          withOuterLines={false}
-          style={styles.chart}
+const RevenueChart = React.memo(
+  ({ loading, chartWidth, revenueData, chartConfig }: any) => {
+    const { colors, isDark } = useTheme();
+    const styles =
+      typeof getStyles === "function" ? getStyles(colors) : ({} as any);
+    const total7Day = useMemo(
+      () =>
+        revenueData.reduce(
+          (acc: number, v: number) => acc + (Number(v) || 0),
+          0,
+        ),
+      [revenueData],
+    );
+
+    return (
+      <Card style={styles.chartCard}>
+        <SectionHeader
+          icon={
+            <TrendingUp
+              size={17}
+              color={isDark ? colors.text : colors.primary}
+            />
+          }
+          title="Revenue Performance"
+          caption="Earnings (₹) over the last 7 days"
+          action={
+            <View
+              style={[styles.statBadge, { backgroundColor: colors.accentSoft }]}
+            >
+              <Text style={[styles.statBadgeText, { color: colors.accent }]}>
+                {loading ? "..." : `₹${total7Day.toLocaleString("en-IN")}`}
+              </Text>
+            </View>
+          }
         />
-      )}
-    </View>
-  </Card>
-  );
-});
+        <View style={styles.chartFrame}>
+          {loading ? (
+            <SkeletonBlock
+              style={{ width: "100%", height: 160, borderRadius: 12 }}
+            />
+          ) : (
+            <LineChart
+              data={{
+                labels: ["6d", "5d", "4d", "3d", "2d", "1d", "Now"],
+                datasets: [{ data: revenueData }],
+              }}
+              width={chartWidth}
+              height={160}
+              chartConfig={chartConfig}
+              bezier
+              withInnerLines
+              withOuterLines={false}
+              style={styles.chart}
+            />
+          )}
+        </View>
+      </Card>
+    );
+  },
+);
 
 const ActivityItem = React.memo(({ log, isLast }: any) => {
   const { colors, isDark } = useTheme();
-  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
+  const styles =
+    typeof getStyles === "function" ? getStyles(colors) : ({} as any);
+  const isSecurity =
+    log.action &&
+    (log.action.includes("BAN") ||
+      log.action.includes("LOGOUT") ||
+      log.action.includes("DELETE"));
   return (
-  <View style={[styles.activityRow, isLast && styles.activityRowLast]}>
-    <View style={[styles.activityDot, { backgroundColor: log.type === 'ADMIN' ? colors.primary : colors.info }]} />
-    <View style={styles.activityContent}>
-      <Text style={styles.activityTxt} numberOfLines={1}>{log.details || log.action}</Text>
-      <Text style={styles.activityMeta}>{formatLogTime(log.timestamp)} • {log.userName || 'System'}</Text>
-    </View>
-  </View>
-  );
-});
-
-const TicketItem = React.memo(({ ticket, isLast }: any) => {
-  const { colors, isDark } = useTheme();
-  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
-  return (
-  <View style={[styles.activityRow, isLast && styles.activityRowLast]}>
-    <View style={[styles.activityDot, { backgroundColor: ticket.busType === 'AC' ? colors.primary : colors.warning }]} />
-    <View style={styles.activityContent}>
-      <Text style={styles.activityTxt} numberOfLines={1}>{(ticket.route || 'Route')} • {ticket.source} to {ticket.dest}</Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-        <Text style={styles.activityMeta}>{formatLogTime(ticket.timestamp)} • </Text>
-        {Number(ticket.fare) > Number(ticket.total || ticket.finalFare) && (
-          <Text style={[styles.activityMeta, { textDecorationLine: 'line-through', opacity: 0.5 }]}>
-            ₹{ticket.fare}
-          </Text>
-        )}
+    <View style={[styles.activityRow, isLast && styles.activityRowLast]}>
+      <View
+        style={[
+          styles.activityIconBox,
+          { backgroundColor: isSecurity ? colors.errorSoft : colors.infoSoft },
+        ]}
+      >
+        <Bell size={16} color={isSecurity ? colors.error : colors.info} />
+      </View>
+      <View style={styles.activityContent}>
+        <Text style={styles.activityTxt} numberOfLines={1}>
+          {log.details || log.action}
+        </Text>
         <Text style={styles.activityMeta}>
-          ₹{ticket.total || ticket.finalFare} • {ticket.qty} Ticket(s)
+          {formatLogTime(log.timestamp)} • {log.userName || "System"}
         </Text>
       </View>
     </View>
-  </View>
+  );
+});
+
+const TicketItem = React.memo(({ ticket, isLast, onPress }: any) => {
+  const { colors, isDark } = useTheme();
+  const styles =
+    typeof getStyles === "function" ? getStyles(colors) : ({} as any);
+  const isAC =
+    String(ticket.busType || ticket.bus_type || "").toUpperCase() === "AC" ||
+    (ticket.route && String(ticket.route).toLowerCase().includes("ac"));
+  const fareVal = ticket.fare ?? ticket.total ?? ticket.finalFare ?? 0;
+  const qtyVal = ticket.passengers ?? ticket.qty ?? 1;
+  const fromStop = ticket.source || ticket.from || "Source";
+  const toStop =
+    ticket.destination || ticket.dest || ticket.to || "Destination";
+
+  return (
+    <AdminPressable
+      style={[styles.activityRow, isLast && styles.activityRowLast]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Ticket ${ticket.route}: ${fromStop} to ${toStop}`}
+    >
+      <View
+        style={[
+          styles.activityIconBox,
+          { backgroundColor: isAC ? colors.accentSoft : colors.warningSoft },
+        ]}
+      >
+        <Ticket size={16} color={isAC ? colors.accent : colors.warning} />
+      </View>
+      <View style={styles.activityContent}>
+        <View style={styles.activityHeaderRow}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text style={styles.activityRouteBadge}>
+              {ticket.route || "TRANSIT"}
+            </Text>
+            <View
+              style={[
+                styles.busTypePill,
+                {
+                  backgroundColor: isAC
+                    ? colors.accentSoft
+                    : colors.surfaceMuted,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.busTypePillText,
+                  { color: isAC ? colors.accent : colors.textSubtle },
+                ]}
+              >
+                {isAC ? "AC" : "Non-AC"}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.activityPrice}>₹{fareVal}</Text>
+        </View>
+        <Text style={styles.activitySubtitle} numberOfLines={1}>
+          {fromStop} → {toStop}
+        </Text>
+        <Text style={styles.activityMeta}>
+          {formatLogTime(ticket.timestamp || ticket.created_at)} • {qtyVal}{" "}
+          Ticket{qtyVal !== 1 ? "s" : ""}
+        </Text>
+      </View>
+    </AdminPressable>
   );
 });
 
 export const DashboardScreen = () => {
-  console.log('DashboardScreen loaded successfully');
   const { colors, isDark } = useTheme();
-  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
+  const styles = useMemo(
+    () => (typeof getStyles === "function" ? getStyles(colors) : ({} as any)),
+    [colors],
+  );
   const admin = useAdminStore((state) => state.admin);
   const navigation = useNavigation<any>();
   const { width } = useWindowDimensions();
 
   const [stats, setStats] = useState({ users: 0, revenue: 0, routes: 0 });
   const [weeklyRevenue, setWeeklyRevenue] = useState(0);
-  const [revenueData, setRevenueData] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
+  const [revenueData, setRevenueData] = useState<number[]>([
+    0, 0, 0, 0, 0, 0, 0,
+  ]);
   const [topRoutes, setTopRoutes] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
   const [liveTickets, setLiveTickets] = useState<any[]>([]);
@@ -209,79 +426,64 @@ export const DashboardScreen = () => {
   const fetchAllDashboard = useCallback(async (isManualRefresh = false) => {
     if (isManualRefresh) setRefreshing(true);
     try {
-      const [{ count: usersCount }, { count: routesCount }, { data: ticketsData }, { data: logsData }] = await Promise.all([
-        supabase.from('users').select('*', { count: 'exact', head: true }),
-        supabase.from('routes').select('*', { count: 'exact', head: true }),
-        supabase.from('tickets').select('*').order('timestamp', { ascending: false }).limit(500),
-        supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(5),
-      ]);
+      const [statsRes, { data: liveTicketsData }, { data: logsData }] =
+        await Promise.all([
+          supabase.rpc("get_admin_dashboard_stats"),
+          supabase
+            .from("tickets")
+            .select("*, users(name, email)")
+            .order("created_at", { ascending: false })
+            .limit(5),
+          supabase
+            .from("activity_logs")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .limit(5),
+        ]);
 
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setHours(0, 0, 0, 0);
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-
-      let totalRev = 0;
-      let weeklyTotal = 0;
-      const dailyRev = [0, 0, 0, 0, 0, 0, 0];
-      const routeCount: Record<string, { count: number; revenue: number; originalRevenue: number }> = {};
-
-      if (ticketsData) {
-        ticketsData.forEach((data: any) => {
-          const fare = Number(data.fare) || 0;
-          const date = data.timestamp ? new Date(data.timestamp) : new Date();
-
-          if (!Number.isNaN(date.getTime())) {
-            const dayIndex = Math.floor((date.getTime() - sevenDaysAgo.getTime()) / (1000 * 3600 * 24));
-            if (dayIndex >= 0 && dayIndex < 7) {
-              dailyRev[dayIndex] += fare;
-              weeklyTotal += fare;
-            }
-          }
-
-          totalRev += fare;
-          const rName = data.route || 'Unknown';
-          if (!routeCount[rName]) routeCount[rName] = { count: 0, revenue: 0, originalRevenue: 0 };
-          routeCount[rName].count += 1;
-          routeCount[rName].revenue += fare;
-          routeCount[rName].originalRevenue += fare;
-        });
-
-        const sortedRoutes = Object.entries(routeCount)
-          .map(([name, val]) => ({ name, ...val }))
-          .sort((a, b) => b.revenue - a.revenue)
-          .slice(0, 3);
-
+      if (statsRes.data) {
+        const d = statsRes.data;
         setStats({
-          users: usersCount || 0,
-          revenue: totalRev,
-          routes: routesCount || 0,
+          users: Number(d.users_count || 0),
+          revenue: Number(d.total_revenue || 0),
+          routes: Number(d.routes_count || 0),
         });
-        setWeeklyRevenue(weeklyTotal);
-        setRevenueData(dailyRev);
-        setTopRoutes(sortedRoutes);
+        setWeeklyRevenue(Number(d.weekly_revenue || 0));
+        setRevenueData(d.daily_revenue || [0, 0, 0, 0, 0, 0, 0]);
+        setTopRoutes(d.top_routes || []);
+      }
 
-        const liveTickets = ticketsData.slice(0, 5).map((d: any) => ({
+      const liveTickets = (liveTicketsData || []).map((d: any) => {
+        const isAC =
+          String(d.bus_type || d.busType || "").toUpperCase() === "AC" ||
+          (d.route && String(d.route).toLowerCase().includes("ac"));
+        return {
           id: d.id,
           ...d,
+          busType: isAC ? "AC" : "Non-AC",
+          bus_type: isAC ? "AC" : "Non-AC",
           from: d.source,
           to: d.destination,
-        }));
-        setLiveTickets(liveTickets);
-        const acCount = liveTickets.filter((t: any) => t.busType === 'AC').length;
-        setBusStats({ ac: acCount, nonAc: liveTickets.length - acCount });
-      }
+          timestamp: d.created_at,
+        };
+      });
+      setLiveTickets(liveTickets);
+      const acCount = liveTickets.filter((t: any) => t.busType === "AC").length;
+      setBusStats({ ac: acCount, nonAc: liveTickets.length - acCount });
 
       if (logsData) {
-        setActivities(logsData.map((l: any) => ({
-          id: l.id,
-          action: l.action,
-          details: l.details,
-          userName: l.user_name,
-          timestamp: l.created_at,
-        })));
+        setActivities(
+          logsData.map((l: any) => ({
+            id: l.id,
+            action: l.action,
+            details: l.details,
+            userName: l.user_name,
+            timestamp: l.created_at,
+          })),
+        );
       }
     } catch (error) {
-      if (__DEV__) console.warn('Dashboard stats fetch failed:', error);
+      if (__DEV__) console.warn("Dashboard stats fetch failed:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -291,34 +493,45 @@ export const DashboardScreen = () => {
   useFocusEffect(
     useCallback(() => {
       fetchAllDashboard();
-    }, [fetchAllDashboard])
+    }, [fetchAllDashboard]),
   );
 
   useEffect(() => {
     fetchAllDashboard();
 
     const channel = supabase
-      .channel('dashboard-realtime-sub')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
-        fetchAllDashboard();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_logs' }, () => {
-        fetchAllDashboard();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
-        fetchAllDashboard();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'routes' }, () => {
-        fetchAllDashboard();
-      })
+      .channel("dashboard-realtime-sub")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tickets" },
+        () => {
+          fetchAllDashboard();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "activity_logs" },
+        () => {
+          fetchAllDashboard();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "users" },
+        () => {
+          fetchAllDashboard();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "routes" },
+        () => {
+          fetchAllDashboard();
+        },
+      )
       .subscribe();
 
-    const interval = setInterval(() => {
-      fetchAllDashboard();
-    }, 10000);
-
     return () => {
-      clearInterval(interval);
       supabase.removeChannel(channel);
     };
   }, [fetchAllDashboard]);
@@ -333,20 +546,38 @@ export const DashboardScreen = () => {
       backgroundGradientFrom: colors.surface,
       backgroundGradientTo: colors.surface,
       decimalPlaces: 0,
-      color: (opacity = 1) => `rgba(99, 102, 241, ${opacity})`,
-      labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`,
-      propsForDots: { r: '4', strokeWidth: '2', stroke: colors.white },
-      propsForBackgroundLines: { strokeDasharray: '', stroke: colors.border, opacity: 0.5 },
+      color: (opacity = 1) =>
+        isDark
+          ? `rgba(96, 165, 250, ${opacity})`
+          : `rgba(37, 99, 235, ${opacity})`,
+      labelColor: (opacity = 1) =>
+        isDark
+          ? `rgba(161, 161, 170, ${opacity})`
+          : `rgba(100, 116, 139, ${opacity})`,
+      propsForDots: { r: "3", strokeWidth: "1.5", stroke: colors.surface },
+      propsForBackgroundLines: {
+        strokeDasharray: "",
+        stroke: colors.border,
+        opacity: 0.6,
+      },
     }),
-    []
+    [colors, isDark],
   );
+
+  const maxRouteVolume = useMemo(() => {
+    if (!topRoutes || topRoutes.length === 0) return 1;
+    return Math.max(...topRoutes.map((r: any) => Number(r.count) || 1), 1);
+  }, [topRoutes]);
 
   const chartWidth = Math.max(260, width - 64);
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      <CompactHeader admin={admin} onProfilePress={() => navigation.navigate('Profile')} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+      <CompactHeader
+        admin={admin}
+        onProfilePress={() => navigation.navigate("Profile")}
+      />
 
       <ScrollView
         style={styles.content}
@@ -356,97 +587,314 @@ export const DashboardScreen = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
           />
         }
       >
-        <StatsGrid stats={stats} weeklyRevenue={weeklyRevenue} loading={loading} />
-        <RevenueChart loading={loading} chartWidth={chartWidth} revenueData={revenueData} chartConfig={chartConfig} />
+        <StatsGrid
+          stats={stats}
+          weeklyRevenue={weeklyRevenue}
+          loading={loading}
+          navigation={navigation}
+        />
+        <QuickActions navigation={navigation} />
+        <RevenueChart
+          loading={loading}
+          chartWidth={chartWidth}
+          revenueData={revenueData}
+          chartConfig={chartConfig}
+        />
 
         <SectionHeader
-          icon={<MapPin size={17} color={isDark ? colors.text : colors.primary} />}
+          icon={<MapPin size={16} color={colors.accent} />}
           title="Top Performing Routes"
           caption="Routes generating highest ticket volume"
+          action={
+            <AdminPressable
+              style={styles.viewAll}
+              onPress={() => navigation.navigate("Routes")}
+            >
+              <Text style={styles.viewAllText}>Manage</Text>
+              <ChevronRight size={14} color={colors.accent} />
+            </AdminPressable>
+          }
         />
-        
+
         <View style={styles.routesGrid}>
-          {topRoutes.length === 0 ? (
+          {loading ? (
+            [0, 1, 2].map((idx) => (
+              <View
+                key={idx}
+                style={[styles.routeRow, idx === 2 && styles.routeRowLast]}
+              >
+                <SkeletonBlock
+                  style={{ width: 28, height: 28, borderRadius: RADIUS.sm }}
+                />
+                <View style={{ flex: 1, marginLeft: 12, gap: 5 }}>
+                  <SkeletonBlock
+                    style={{
+                      width: "50%",
+                      height: 13,
+                      borderRadius: RADIUS.xs,
+                    }}
+                  />
+                  <SkeletonBlock
+                    style={{
+                      width: "32%",
+                      height: 10,
+                      borderRadius: RADIUS.xs,
+                    }}
+                  />
+                </View>
+                <SkeletonBlock
+                  style={{ width: 48, height: 13, borderRadius: RADIUS.xs }}
+                />
+              </View>
+            ))
+          ) : topRoutes.length === 0 ? (
             <Text style={styles.noData}>Collecting route data...</Text>
-          ) : topRoutes.map((route, idx) => (
-            <View key={route.name} style={styles.routeRow}>
-              <View style={[styles.routeRank, { backgroundColor: idx === 0 ? '#FEF3C7' : colors.surfaceMuted }]}>
-                <Text style={[styles.rankText, { color: idx === 0 ? '#D97706' : colors.textMuted }]}>{idx + 1}</Text>
-              </View>
-              <View style={styles.routeInfo}>
-                <Text style={styles.routeName}>{route.name}</Text>
-                <Text style={styles.routeVolume}>{route.count} tickets issued</Text>
-              </View>
-              <View style={[styles.routeMetrics, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
-                {route.originalRevenue > route.revenue && (
-                  <Text style={[styles.routeVolume, { textDecorationLine: 'line-through', fontSize: 11, opacity: 0.5 }]}>
-                    ₹{route.originalRevenue.toLocaleString('en-IN')}
+          ) : (
+            topRoutes.map((route, idx) => (
+              <AdminPressable
+                key={route.name}
+                style={[
+                  styles.routeRow,
+                  idx === topRoutes.length - 1 && styles.routeRowLast,
+                ]}
+                onPress={() => navigation.navigate("Routes")}
+              >
+                <View
+                  style={[
+                    styles.routeRank,
+                    {
+                      backgroundColor:
+                        idx === 0 ? colors.accentSoft : colors.surfaceMuted,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.rankText,
+                      { color: idx === 0 ? colors.accent : colors.textMuted },
+                    ]}
+                  >
+                    {idx + 1}
                   </Text>
-                )}
-                <Text style={styles.routeRev}>₹{route.revenue.toLocaleString('en-IN')}</Text>
-              </View>
-            </View>
-          ))}
+                </View>
+                <View style={styles.routeInfo}>
+                  <Text style={styles.routeName}>{route.name}</Text>
+                  <View style={styles.routeProgressContainer}>
+                    <View
+                      style={[
+                        styles.routeProgressBar,
+                        {
+                          width: `${Math.min(100, Math.max(8, Math.round(((Number(route.count) || 0) / maxRouteVolume) * 100)))}%`,
+                          backgroundColor:
+                            idx === 0 ? colors.accent : colors.border,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.routeVolume}>
+                    {route.count} ticket{route.count !== 1 ? "s" : ""} issued
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.routeMetrics,
+                    { flexDirection: "row", alignItems: "center", gap: 6 },
+                  ]}
+                >
+                  {route.originalRevenue > route.revenue && (
+                    <Text
+                      style={[
+                        styles.routeVolume,
+                        {
+                          textDecorationLine: "line-through",
+                          fontSize: 11,
+                          opacity: 0.5,
+                        },
+                      ]}
+                    >
+                      ₹{route.originalRevenue.toLocaleString("en-IN")}
+                    </Text>
+                  )}
+                  <Text style={styles.routeRev}>
+                    ₹{route.revenue.toLocaleString("en-IN")}
+                  </Text>
+                </View>
+              </AdminPressable>
+            ))
+          )}
         </View>
 
         <SectionHeader
-          icon={<Smartphone size={17} color={isDark ? colors.text : colors.primary} />}
+          icon={<Smartphone size={16} color={colors.accent} />}
           title="Fleet Performance"
           caption="Ticket distribution by bus type"
         />
-        
+
         <View style={styles.fleetGrid}>
           <Card style={styles.fleetCard}>
-            <Text style={styles.fleetLabel}>AC BUSES</Text>
-            <Text style={[styles.fleetValue, { color: isDark ? colors.text : colors.primary }]}>{busStats.ac}</Text>
+            <View style={styles.fleetCardHeader}>
+              <Text style={styles.fleetLabel}>AC FLEET</Text>
+              <View
+                style={[styles.fleetDot, { backgroundColor: colors.accent }]}
+              />
+            </View>
+            <Text style={[styles.fleetValue, { color: colors.accent }]}>
+              {busStats.ac}
+            </Text>
+            <Text style={styles.fleetSub}>Buses operational</Text>
           </Card>
           <Card style={styles.fleetCard}>
-            <Text style={styles.fleetLabel}>NON-AC BUSES</Text>
-            <Text style={[styles.fleetValue, { color: colors.warning }]}>{busStats.nonAc}</Text>
+            <View style={styles.fleetCardHeader}>
+              <Text style={styles.fleetLabel}>NON-AC FLEET</Text>
+              <View
+                style={[styles.fleetDot, { backgroundColor: colors.warning }]}
+              />
+            </View>
+            <Text style={[styles.fleetValue, { color: colors.warning }]}>
+              {busStats.nonAc}
+            </Text>
+            <Text style={styles.fleetSub}>Buses operational</Text>
           </Card>
         </View>
 
         <SectionHeader
-          icon={<Ticket size={17} color={isDark ? colors.text : colors.primary} />}
+          icon={<Ticket size={16} color={colors.accent} />}
           title="Live Ticket Feed"
           caption="Real-time passenger bookings"
-        />
-
-        <Card style={styles.activityFeed}>
-          {liveTickets.length === 0 ? (
-            <Text style={styles.noData}>Waiting for bookings...</Text>
-          ) : liveTickets.map((ticket, index) => (
-            <TicketItem key={ticket.id} ticket={ticket} isLast={index === liveTickets.length - 1} />
-          ))}
-        </Card>
-
-        <SectionHeader
-          icon={<Bell size={17} color={isDark ? colors.text : colors.primary} />}
-          title="Security Feed"
-          caption="Latest critical system activities"
-          action={(
-            <AdminPressable style={styles.viewAll} onPress={() => navigation.navigate('Logs')}>
+          action={
+            <AdminPressable
+              style={styles.viewAll}
+              onPress={() => navigation.navigate("Tickets")}
+            >
               <Text style={styles.viewAllText}>View All</Text>
               <ChevronRight size={14} color={colors.accent} />
             </AdminPressable>
-          )}
+          }
         />
 
         <Card style={styles.activityFeed}>
           {loading ? (
-            <View style={{ padding: 16 }}>
-              <SkeletonBlock style={{ height: 40, width: '100%', marginBottom: 12, borderRadius: 8 }} />
-              <SkeletonBlock style={{ height: 40, width: '100%', marginBottom: 12, borderRadius: 8 }} />
-              <SkeletonBlock style={{ height: 40, width: '100%', borderRadius: 8 }} />
-            </View>
-          ) : activities.map((log: any, index) => (
-            <ActivityItem key={log.id} log={log} isLast={index === activities.length - 1} />
-          ))}
+            [0, 1, 2].map((idx) => (
+              <View
+                key={idx}
+                style={[
+                  styles.activityRow,
+                  idx === 2 && styles.activityRowLast,
+                ]}
+              >
+                <SkeletonBlock
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: RADIUS.sm,
+                    marginRight: 12,
+                  }}
+                />
+                <View style={{ flex: 1, gap: 6 }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <SkeletonBlock
+                      style={{ width: 64, height: 13, borderRadius: RADIUS.xs }}
+                    />
+                    <SkeletonBlock
+                      style={{ width: 42, height: 13, borderRadius: RADIUS.xs }}
+                    />
+                  </View>
+                  <SkeletonBlock
+                    style={{
+                      width: "70%",
+                      height: 11,
+                      borderRadius: RADIUS.xs,
+                    }}
+                  />
+                  <SkeletonBlock
+                    style={{ width: "45%", height: 9, borderRadius: RADIUS.xs }}
+                  />
+                </View>
+              </View>
+            ))
+          ) : liveTickets.length === 0 ? (
+            <Text style={styles.noData}>Waiting for bookings...</Text>
+          ) : (
+            liveTickets.map((ticket, index) => (
+              <TicketItem
+                key={ticket.id}
+                ticket={ticket}
+                isLast={index === liveTickets.length - 1}
+                onPress={() => navigation.navigate("Tickets")}
+              />
+            ))
+          )}
+        </Card>
+
+        <SectionHeader
+          icon={<Bell size={16} color={colors.accent} />}
+          title="Security Feed"
+          caption="Latest critical system activities"
+          action={
+            <AdminPressable
+              style={styles.viewAll}
+              onPress={() => navigation.navigate("Logs")}
+            >
+              <Text style={styles.viewAllText}>View All</Text>
+              <ChevronRight size={14} color={colors.accent} />
+            </AdminPressable>
+          }
+        />
+
+        <Card style={styles.activityFeed}>
+          {loading
+            ? [0, 1, 2].map((idx) => (
+                <View
+                  key={idx}
+                  style={[
+                    styles.activityRow,
+                    idx === 2 && styles.activityRowLast,
+                  ]}
+                >
+                  <SkeletonBlock
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: RADIUS.sm,
+                      marginRight: 12,
+                    }}
+                  />
+                  <View style={{ flex: 1, gap: 6 }}>
+                    <SkeletonBlock
+                      style={{
+                        width: "65%",
+                        height: 13,
+                        borderRadius: RADIUS.xs,
+                      }}
+                    />
+                    <SkeletonBlock
+                      style={{
+                        width: "40%",
+                        height: 10,
+                        borderRadius: RADIUS.xs,
+                      }}
+                    />
+                  </View>
+                </View>
+              ))
+            : activities.map((log: any, index) => (
+                <ActivityItem
+                  key={log.id}
+                  log={log}
+                  isLast={index === activities.length - 1}
+                />
+              ))}
         </Card>
       </ScrollView>
     </View>
@@ -455,46 +903,286 @@ export const DashboardScreen = () => {
 
 function getStyles(colors: any) {
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  headerGradient: { paddingBottom: 20, borderBottomLeftRadius: RADIUS.xl, borderBottomRightRadius: RADIUS.xl },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg },
-  headerCopy: { flex: 1 },
-  greeting: { fontSize: 10, color: '#E0E7FF', fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
-  adminName: { fontSize: 24, fontWeight: '800', color: colors.white, marginTop: 4 },
-  profileBtn: { width: 44, height: 44, borderRadius: RADIUS.md, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
-  content: { flex: 1, marginTop: 16 },
-  contentInner: { paddingHorizontal: SPACING.lg, paddingBottom: 40 },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 20 },
-  statCard: { width: '47%', flexGrow: 1, marginBottom: 0, padding: 14 },
-  statCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-  statIcon: { width: 28, height: 28, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center' },
-  statValue: { color: colors.text, fontSize: 20, fontWeight: '800' },
-  statLabel: { color: colors.textMuted, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', flexShrink: 1 },
-  chartCard: { padding: 16, marginBottom: 24 },
-  chartFrame: { marginTop: 16 },
-  chart: { marginLeft: -15 },
-  routesGrid: { backgroundColor: colors.surface, borderRadius: RADIUS.lg, padding: 16, marginBottom: 24, borderWidth: 1, borderColor: colors.border, ...SHADOWS.card },
-  routeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  routeRank: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  rankText: { fontSize: 12, fontWeight: '800' },
-  routeInfo: { flex: 1, marginLeft: 12 },
-  routeName: { fontSize: 14, fontWeight: '800', color: colors.text },
-  routeVolume: { fontSize: 11, color: colors.textSubtle, marginTop: 2, fontWeight: '600' },
-  routeMetrics: { alignItems: 'flex-end' },
-  routeRev: { fontSize: 14, fontWeight: '800', color: colors.success },
-  noData: { textAlign: 'center', color: colors.textMuted, fontSize: 12, paddingVertical: 10 },
-  viewAll: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  viewAllText: { fontSize: 11, fontWeight: '800', color: colors.accent },
-  activityFeed: { padding: 0, overflow: 'hidden' },
-  activityRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
-  activityRowLast: { borderBottomWidth: 0 },
-  activityDot: { width: 6, height: 6, borderRadius: 3, marginRight: 12 },
-  activityContent: { flex: 1 },
-  activityTxt: { fontSize: 13, color: colors.text, fontWeight: '700' },
-  activityMeta: { fontSize: 10, color: colors.textSubtle, marginTop: 2, fontWeight: '600' },
-  fleetGrid: { flexDirection: 'row', gap: 12, marginBottom: 20 },
-  fleetCard: { flex: 1, padding: 16, alignItems: 'center', justifyContent: 'center' },
-  fleetLabel: { fontSize: 9, fontWeight: '800', color: colors.textMuted, letterSpacing: 0.5, marginBottom: 4 },
-  fleetValue: { fontSize: 24, fontWeight: '900' },
+    container: { flex: 1, backgroundColor: colors.background },
+    headerShell: {
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: SPACING.xl,
+      paddingTop: SPACING.sm,
+      paddingBottom: SPACING.md,
+    },
+    headerCopy: { flex: 1 },
+    statusIndicatorRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      marginBottom: 4,
+    },
+    statusDot: {
+      width: 7,
+      height: 7,
+      borderRadius: 3.5,
+      backgroundColor: colors.success,
+    },
+    greeting: {
+      fontSize: 10,
+      color: colors.textSubtle,
+      fontWeight: "700",
+      textTransform: "uppercase",
+      letterSpacing: 0.8,
+    },
+    adminName: {
+      fontSize: 22,
+      fontWeight: "800",
+      color: colors.text,
+      letterSpacing: -0.3,
+    },
+    profileBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: RADIUS.md,
+      backgroundColor: colors.surfacePressed,
+      borderWidth: 1,
+      borderColor: colors.border,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    content: { flex: 1 },
+    contentInner: {
+      paddingHorizontal: SPACING.lg,
+      paddingTop: SPACING.lg,
+      paddingBottom: 40,
+    },
+    statsGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 10,
+      marginBottom: 14,
+    },
+    statCard: {
+      width: "48%",
+      flexGrow: 1,
+      marginBottom: 0,
+      padding: 14,
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      ...SHADOWS.card,
+    },
+    statCardHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 10,
+    },
+    statIcon: {
+      width: 30,
+      height: 30,
+      borderRadius: RADIUS.sm,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    statBadge: {
+      paddingHorizontal: 7,
+      paddingVertical: 2,
+      borderRadius: RADIUS.pill,
+    },
+    statBadgeText: {
+      fontSize: 9,
+      fontWeight: "700",
+      textTransform: "uppercase",
+      letterSpacing: 0.3,
+    },
+    statValue: {
+      color: colors.text,
+      fontSize: 22,
+      fontWeight: "800",
+      letterSpacing: -0.4,
+      marginBottom: 2,
+    },
+    statLabel: { color: colors.textMuted, fontSize: 11, fontWeight: "600" },
+    statFooterRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginTop: 4,
+    },
+    quickActionsContainer: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: 8,
+      marginBottom: 16,
+    },
+    quickActionBtn: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: RADIUS.lg,
+      paddingVertical: 10,
+      alignItems: "center",
+      justifyContent: "center",
+      ...SHADOWS.card,
+    },
+    quickActionIconShell: {
+      width: 34,
+      height: 34,
+      borderRadius: RADIUS.sm,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 6,
+    },
+    quickActionLabel: {
+      fontSize: 10,
+      fontWeight: "700",
+      color: colors.text,
+      letterSpacing: 0.2,
+    },
+    chartCard: {
+      padding: 16,
+      marginBottom: 20,
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    chartFrame: { marginTop: 12 },
+    chart: { marginLeft: -15 },
+    routesGrid: {
+      backgroundColor: colors.surface,
+      borderRadius: RADIUS.lg,
+      padding: 14,
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor: colors.border,
+      ...SHADOWS.card,
+    },
+    routeRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    routeRowLast: { borderBottomWidth: 0, paddingBottom: 0 },
+    routeRank: {
+      width: 28,
+      height: 28,
+      borderRadius: RADIUS.sm,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    rankText: { fontSize: 11, fontWeight: "700" },
+    routeInfo: { flex: 1, marginLeft: 12 },
+    routeName: { fontSize: 13, fontWeight: "700", color: colors.text },
+    routeVolume: {
+      fontSize: 11,
+      color: colors.textSubtle,
+      marginTop: 2,
+      fontWeight: "500",
+    },
+    routeProgressContainer: {
+      height: 4,
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: 2,
+      marginTop: 4,
+      marginBottom: 3,
+      overflow: "hidden",
+    },
+    routeProgressBar: {
+      height: "100%",
+      borderRadius: 2,
+    },
+    routeMetrics: { alignItems: "flex-end" },
+    routeRev: { fontSize: 13, fontWeight: "700", color: colors.success },
+    noData: {
+      textAlign: "center",
+      color: colors.textMuted,
+      fontSize: 12,
+      paddingVertical: 12,
+    },
+    viewAll: { flexDirection: "row", alignItems: "center", gap: 4 },
+    viewAllText: { fontSize: 11, fontWeight: "700", color: colors.accent },
+    activityFeed: {
+      padding: 0,
+      overflow: "hidden",
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    activityRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    activityRowLast: { borderBottomWidth: 0 },
+    activityIconBox: {
+      width: 32,
+      height: 32,
+      borderRadius: RADIUS.sm,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 12,
+    },
+    activityContent: { flex: 1 },
+    activityHeaderRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 2,
+    },
+    activityRouteBadge: { fontSize: 13, fontWeight: "700", color: colors.text },
+    busTypePill: {
+      paddingHorizontal: 6,
+      paddingVertical: 1.5,
+      borderRadius: RADIUS.xs,
+    },
+    busTypePillText: { fontSize: 9, fontWeight: "700" },
+    activityPrice: { fontSize: 13, fontWeight: "700", color: colors.success },
+    activitySubtitle: {
+      fontSize: 11,
+      color: colors.textMuted,
+      marginBottom: 2,
+    },
+    activityTxt: { fontSize: 13, color: colors.text, fontWeight: "600" },
+    activityMeta: { fontSize: 10, color: colors.textSubtle, fontWeight: "500" },
+    fleetGrid: { flexDirection: "row", gap: 10, marginBottom: 16 },
+    fleetCard: {
+      flex: 1,
+      padding: 14,
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: 0,
+    },
+    fleetCardHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 6,
+    },
+    fleetLabel: {
+      fontSize: 10,
+      fontWeight: "700",
+      color: colors.textMuted,
+      letterSpacing: 0.5,
+    },
+    fleetDot: { width: 6, height: 6, borderRadius: 3 },
+    fleetValue: { fontSize: 22, fontWeight: "800", letterSpacing: -0.3 },
+    fleetSub: {
+      fontSize: 10,
+      color: colors.textSubtle,
+      marginTop: 2,
+      fontWeight: "500",
+    },
   });
 }

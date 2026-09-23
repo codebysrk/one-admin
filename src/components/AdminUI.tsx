@@ -150,21 +150,17 @@ export const AdminHeader = ({
   action,
   compact,
 }: HeaderProps) => {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const s = useAdminUIStyles();
   return (
-    <LinearGradient
-      colors={["#4F46E5", "#3730A3"]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={s.headerShell}
-    >
-      <StatusBar barStyle="light-content" />
+    <View style={s.headerShell}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       <SafeAreaView edges={["top"]}>
         <View style={[s.header, compact && s.headerCompact]}>
           <View style={s.headerCopy}>
-            <View style={s.eyebrowPill}>
-              <Text style={s.eyebrow}>One Delhi • Admin System</Text>
+            <View style={s.eyebrowRow}>
+              <View style={s.eyebrowDot} />
+              <Text style={s.eyebrow}>ONE DELHI ADMIN</Text>
             </View>
             <Text style={s.headerTitle} numberOfLines={1}>
               {title}
@@ -178,7 +174,7 @@ export const AdminHeader = ({
           {action ? <View style={s.headerAction}>{action}</View> : null}
         </View>
       </SafeAreaView>
-    </LinearGradient>
+    </View>
   );
 };
 
@@ -455,30 +451,38 @@ export const LoadingState = React.memo(
   ({
     label = "Loading data...",
     compact,
+    count = 5,
   }: {
     label?: string;
     compact?: boolean;
+    count?: number;
   }) => {
     const s = useAdminUIStyles();
     const { colors } = useTheme();
+    const cardCount = compact ? 1 : count;
+    const items = Array.from({ length: cardCount }, (_, i) => i);
+
     return (
       <View style={[s.loading, compact && s.loadingCompact]}>
-        <View style={s.loadingCard}>
-          <View style={s.loadingHeader}>
-            <ActivityIndicator color={colors.accent} />
-            <Text style={s.loadingText}>{label}</Text>
-          </View>
-          <SkeletonBlock style={s.skeletonTitle} />
-          <SkeletonBlock style={s.skeletonLine} />
-          <SkeletonBlock style={s.skeletonShort} />
+        <View style={s.loadingHeader}>
+          <ActivityIndicator size="small" color={colors.accent} />
+          <Text style={s.loadingText}>{label}</Text>
         </View>
-        {!compact ? (
-          <View style={s.loadingCard}>
-            <SkeletonBlock style={s.skeletonTitle} />
+
+        {items.map((item) => (
+          <View key={item} style={s.loadingCard}>
+            <View style={s.loadingCardTop}>
+              <SkeletonBlock style={s.skeletonAvatar} />
+              <View style={s.skeletonTextCol}>
+                <SkeletonBlock style={s.skeletonTitle} />
+                <SkeletonBlock style={s.skeletonSubtitle} />
+              </View>
+              <SkeletonBlock style={s.skeletonBadge} />
+            </View>
+            <View style={s.skeletonDivider} />
             <SkeletonBlock style={s.skeletonLine} />
-            <SkeletonBlock style={s.skeletonShort} />
           </View>
-        ) : null}
+        ))}
       </View>
     );
   },
@@ -643,55 +647,61 @@ function useAdminUIStyles() {
         pressed: { opacity: 0.86, transform: [{ scale: 0.985 }] },
         disabled: { opacity: 0.62 },
         headerShell: {
-          borderBottomLeftRadius: RADIUS.xxl,
-          borderBottomRightRadius: RADIUS.xxl,
-          ...SHADOWS.floating,
+          backgroundColor: colors.surface,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
         },
         header: {
-          minHeight: 118,
+          minHeight: 72,
           paddingHorizontal: SPACING.xl,
-          paddingTop: SPACING.md,
-          paddingBottom: SPACING.xl,
+          paddingTop: SPACING.sm,
+          paddingBottom: SPACING.md,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
           gap: SPACING.md,
         },
-        headerCompact: { minHeight: 94, paddingBottom: SPACING.lg },
+        headerCompact: { minHeight: 60, paddingBottom: SPACING.sm },
         headerCopy: { flex: 1, minWidth: 0 },
+        eyebrowRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+          marginBottom: 4,
+        },
+        eyebrowDot: {
+          width: 6,
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: colors.accent,
+        },
         eyebrowPill: {
-          alignSelf: "flex-start",
-          paddingHorizontal: 9,
-          paddingVertical: 5,
-          borderRadius: RADIUS.pill,
-          backgroundColor: colors.glass,
-          borderWidth: 1,
-          borderColor: "rgba(255,255,255,0.12)",
-          marginBottom: 10,
+          display: "none",
         },
         eyebrow: {
-          color: "#E0E7FF",
-          fontSize: 9,
-          fontWeight: "900",
+          color: colors.textSubtle,
+          fontSize: 10,
+          fontWeight: "700",
           textTransform: "uppercase",
-          letterSpacing: 1,
+          letterSpacing: 0.8,
         },
         headerTitle: {
-          color: colors.white,
-          fontSize: 24,
-          lineHeight: 30,
+          color: colors.text,
+          fontSize: 22,
+          lineHeight: 28,
           fontWeight: "800",
+          letterSpacing: -0.3,
         },
         headerSubtitle: {
-          color: "#C7D2FE",
-          fontSize: 12,
+          color: colors.textMuted,
+          fontSize: 13,
           lineHeight: 18,
-          fontWeight: "600",
-          marginTop: 4,
+          fontWeight: "500",
+          marginTop: 2,
         },
         headerAction: { flexShrink: 0 },
         searchBox: {
-          minHeight: 50,
+          minHeight: 46,
           flexDirection: "row",
           alignItems: "center",
           backgroundColor: colors.surface,
@@ -713,23 +723,23 @@ function useAdminUIStyles() {
           fontSize: TYPOGRAPHY.body,
           fontWeight: "600",
           paddingVertical: 0,
-          minHeight: 46,
+          minHeight: 44,
         },
         clearSearch: {
-          width: 28,
-          height: 28,
-          borderRadius: RADIUS.md,
+          width: 26,
+          height: 26,
+          borderRadius: RADIUS.sm,
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: colors.surfaceMuted,
         },
         card: {
           backgroundColor: colors.surface,
-          borderRadius: RADIUS.md,
+          borderRadius: RADIUS.lg,
           borderWidth: 1,
           borderColor: colors.border,
           padding: SPACING.lg,
-          marginBottom: SPACING.lg,
+          marginBottom: SPACING.md,
           ...SHADOWS.card,
         },
         sectionHeader: {
@@ -913,38 +923,81 @@ function useAdminUIStyles() {
         emptyAction: { marginTop: SPACING.lg },
         loading: {
           flex: 1,
-          padding: SPACING.xl,
-          gap: SPACING.lg,
-          justifyContent: "center",
+          paddingHorizontal: SPACING.xl,
+          paddingTop: SPACING.sm,
+          paddingBottom: SPACING.xl,
+          gap: 12,
+          justifyContent: "flex-start",
         },
-        loadingCompact: { paddingVertical: SPACING.lg },
+        loadingCompact: {
+          paddingHorizontal: SPACING.lg,
+          paddingTop: SPACING.xs,
+          paddingBottom: SPACING.md,
+        },
+        loadingHeader: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 10,
+          paddingVertical: 6,
+          paddingHorizontal: 2,
+        },
+        loadingText: {
+          color: colors.textMuted,
+          fontSize: 12,
+          fontWeight: "700",
+        },
         loadingCard: {
           backgroundColor: colors.surface,
           borderRadius: RADIUS.md,
           borderWidth: 1,
           borderColor: colors.border,
-          padding: SPACING.lg,
-          gap: SPACING.md,
+          padding: 14,
+          gap: 10,
           ...SHADOWS.card,
         },
-        loadingHeader: {
+        loadingCardTop: {
           flexDirection: "row",
           alignItems: "center",
-          gap: SPACING.md,
-          marginBottom: SPACING.xs,
+          gap: 12,
         },
-        loadingText: {
-          color: colors.textMuted,
-          fontSize: TYPOGRAPHY.bodySmall,
-          fontWeight: "800",
+        skeletonAvatar: {
+          width: 40,
+          height: 40,
+          borderRadius: RADIUS.md,
+        },
+        skeletonTextCol: {
+          flex: 1,
+          gap: 6,
+        },
+        skeletonTitle: {
+          width: "55%",
+          height: 14,
+          borderRadius: RADIUS.xs,
+        },
+        skeletonSubtitle: {
+          width: "35%",
+          height: 11,
+          borderRadius: RADIUS.xs,
+        },
+        skeletonBadge: {
+          width: 50,
+          height: 20,
+          borderRadius: RADIUS.pill,
+        },
+        skeletonDivider: {
+          height: 1,
+          backgroundColor: colors.border,
+          marginVertical: 2,
+        },
+        skeletonLine: {
+          width: "80%",
+          height: 11,
+          borderRadius: RADIUS.xs,
         },
         skeleton: {
           backgroundColor: colors.surfacePressed,
           borderRadius: RADIUS.sm,
         },
-        skeletonTitle: { width: "48%", height: 16 },
-        skeletonLine: { width: "100%", height: 12 },
-        skeletonShort: { width: "72%", height: 12 },
         modalOverlay: {
           flex: 1,
           backgroundColor: colors.overlay,

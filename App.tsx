@@ -3,7 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View, Text, Platform, ActivityIndicator } from 'react-native';
 import { LoginScreen } from './src/features/auth/LoginScreen';
 import { useAdminStore } from './src/store/useAdminStore';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AdminNavigator } from './src/navigation/AdminNavigator';
 import { COLORS } from './src/core/theme';
@@ -30,7 +30,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   render() {
     if (this.state.hasError) {
       return (
-        <View style={errorStyles.wrap}>
+        <SafeAreaView style={errorStyles.wrap} edges={['top', 'bottom']}>
           <Text style={errorStyles.title}>Something went wrong</Text>
           <Text style={errorStyles.body}>{this.state.message}</Text>
           <AdminPressable
@@ -41,7 +41,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
           >
             <Text style={errorStyles.btnText}>Try again</Text>
           </AdminPressable>
-        </View>
+        </SafeAreaView>
       );
     }
     return this.props.children;

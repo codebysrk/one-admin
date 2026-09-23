@@ -110,7 +110,10 @@ export const AdminsManagementScreen = () => {
   };
 
   const promoteUser = async () => {
-    if (!inviteEmail.trim()) return;
+    if (!inviteEmail.trim()) {
+      Alert.alert('Email Required', 'Please enter a user email address to promote.');
+      return;
+    }
     try {
       const { data: user, error: findError } = await supabase
         .from('users')
@@ -255,7 +258,7 @@ export const AdminsManagementScreen = () => {
         subtitle={editingAdmin?.name || 'Administrator'}
         contentStyle={{ paddingHorizontal: 0 }}
       >
-        <ScrollView style={styles.rightsScroll}>
+        <ScrollView style={styles.rightsScroll} keyboardShouldPersistTaps="handled">
           {editingAdmin?.email === 'admin@onedelhi.com' && (
             <View style={styles.superAdminNotice}>
               <ShieldCheck size={16} color={colors.success} />
@@ -299,19 +302,21 @@ export const AdminsManagementScreen = () => {
         title="Add New Admin"
         subtitle="Promote an existing user to admin"
       >
-        <View style={styles.inviteBox}>
-          <Text style={styles.inputLabel}>USER EMAIL ADDRESS</Text>
-          <SearchField 
-            placeholder="Search by email..." 
-            value={inviteEmail} 
-            onChangeText={setInviteEmail} 
-          />
-          <Text style={styles.inviteHint}>The user must have an active account on the One Delhi app to be promoted.</Text>
-          
-          <TouchableOpacity style={styles.promoteBtn} onPress={promoteUser} activeOpacity={0.8}>
-            <Text style={styles.promoteText}>Grant Admin Access</Text>
-          </TouchableOpacity>
-        </View>
+        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <View style={styles.inviteBox}>
+            <Text style={styles.inputLabel}>USER EMAIL ADDRESS</Text>
+            <SearchField 
+              placeholder="Search by email..." 
+              value={inviteEmail} 
+              onChangeText={setInviteEmail} 
+            />
+            <Text style={styles.inviteHint}>The user must have an active account on the One Delhi app to be promoted.</Text>
+            
+            <TouchableOpacity style={styles.promoteBtn} onPress={promoteUser} activeOpacity={0.8}>
+              <Text style={styles.promoteText}>Grant Admin Access</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </AdminBottomSheet>
 
       <ConfirmationModal

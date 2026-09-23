@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 const AnyFlashList = FlashList as any;
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../services/supabase';
-import { COLORS, SPACING } from '../../core/theme';
+import { COLORS, SPACING, RADIUS, SHADOWS } from '../../core/theme';
+import { useTheme } from '../../core/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const IconWrapper = (name: any) => (props: any) => (
@@ -13,46 +15,126 @@ const IconWrapper = (name: any) => (props: any) => (
 const Ticket = IconWrapper('ticket');
 const Download = IconWrapper('download-outline');
 import { exportToCSV } from '../../utils/csvHelper';
-import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, ReasonModal, SearchField, ConfirmationModal } from '../../components/AdminUI';
+import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField } from '../../components/AdminUI';
 import { logActivity } from '../../services/logService';
 import { TicketCard } from '../../components/TicketCard';
 import { EditTicketModal } from './EditTicketModal';
 
+// Floating Undo Toast Component (Option 3)
+const UndoToast = ({
+  visible,
+  message = 'Ticket deleted',
+  onUndo,
+}: {
+  visible: boolean;
+  message?: string;
+  onUndo: () => void;
+}) => {
+  const insets = useSafeAreaInsets();
+  const translateY = useRef(new Animated.Value(100)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.spring(translateY, { toValue: 0, friction: 8, tension: 80, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(translateY, { toValue: 100, duration: 180, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0, duration: 160, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible, translateY, opacity]);
+
+  if (!visible) return null;
+
+  return (
+    <Animated.View
+      style={[
+        styles.undoToast,
+        {
+          bottom: Math.max(insets.bottom, 16) + 12,
+          transform: [{ translateY }],
+          opacity,
+        },
+      ]}
+    >
+      <View style={styles.undoToastCopy}>
+        <MaterialCommunityIcons name="check-circle" size={18} color="#10B981" />
+        <Text style={styles.undoToastMessage}>{message}</Text>
+      </View>
+      <TouchableOpacity
+        onPress={onUndo}
+        activeOpacity={0.7}
+        style={styles.undoToastBtn}
+        accessibilityRole="button"
+        accessibilityLabel="Undo delete"
+      >
+        <Text style={styles.undoToastBtnText}>UNDO</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
 export const AllTicketsScreen = () => {
+  const { colors } = useTheme();
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [confirmModal, setConfirmModal] = useState({ visible: false, ticketId: '' });
-  const [reasonModal, setReasonModal] = useState({ visible: false, ticketId: '' });
   const [editModal, setEditModal] = useState<{ visible: boolean; ticket: any | null }>({ visible: false, ticket: null });
+  const [expandedTicketId, setExpandedTicketId] = useState<string | null>(null);
+
+  // Undo Toast & Deletion Queue Refs
+  const [toastVisible, setToastVisible] = useState(false);
+  const pendingDeleteRef = useRef<{ id: string; ticket: any; timer: ReturnType<typeof setTimeout> | null } | null>(null);
+
+  const handleToggleExpand = useCallback((id: string) => {
+    setExpandedTicketId((prev) => (prev === id ? null : id));
+  }, []);
 
   const fetchTickets = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('tickets')
-        .select('*')
-        .order('timestamp', { ascending: false })
+        .select('*, users(name, email)')
+        .order('created_at', { ascending: false })
         .limit(100);
 
       if (error) throw error;
       if (data) {
-        setTickets(data.map((t: any) => ({
-          id: t.id,
-          userId: t.user_id,
-          userName: t.user_name || 'Unknown User',
-          userEmail: t.user_email,
-          route: t.route,
-          fare: t.fare,
-          passengers: t.passengers,
-          busNumber: t.bus_number,
-          qrPayload: t.qr_payload,
-          isUsed: t.is_used,
-          status: t.status,
-          timestamp: t.timestamp,
-          from: t.source,
-          to: t.destination,
-        })));
+        setTickets(data.map((t: any) => {
+          const d = t.created_at ? new Date(t.created_at) : new Date();
+          const dateStr = !isNaN(d.getTime()) ? `${d.getDate().toString().padStart(2, '0')} ${d.toLocaleString('en-GB', { month: 'short' })}, ${d.getFullYear()}` : '';
+          const timeStr = !isNaN(d.getTime()) ? d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
+
+          return {
+            id: t.id,
+            tid: t.id,
+            userId: t.user_id,
+            userName: t.users?.name || 'User',
+            userEmail: t.users?.email || '',
+            route: t.route,
+            busType: t.bus_type || (t.route && String(t.route).toLowerCase().includes('ac') ? 'AC' : 'Non-AC'),
+            bus_type: t.bus_type || (t.route && String(t.route).toLowerCase().includes('ac') ? 'AC' : 'Non-AC'),
+            fare: t.fare,
+            total: t.fare,
+            passengers: t.passengers || 1,
+            qty: t.passengers || 1,
+            status: t.status,
+            timestamp: t.created_at,
+            created_at: t.created_at,
+            date: dateStr,
+            time: timeStr,
+            from: t.source,
+            source: t.source,
+            to: t.destination,
+            destination: t.destination,
+            dest: t.destination,
+          };
+        }));
       }
     } catch (err) {
       if (__DEV__) console.warn('Fetch tickets error:', err);
@@ -93,12 +175,13 @@ export const AllTicketsScreen = () => {
     );
   }, [tickets, searchQuery]);
 
-  const handleDelete = useCallback((id: string) => {
-    setConfirmModal({ visible: true, ticketId: id });
-  }, []);
+  // Commit pending delete to DB
+  const commitPendingDelete = useCallback(async () => {
+    if (!pendingDeleteRef.current) return;
+    const { id } = pendingDeleteRef.current;
+    pendingDeleteRef.current = null;
+    setToastVisible(false);
 
-  const confirmDelete = useCallback(async (reason: string) => {
-    const id = reasonModal.ticketId;
     try {
       const { error } = await supabase.from('tickets').delete().eq('id', id);
       if (error) throw error;
@@ -108,14 +191,54 @@ export const AllTicketsScreen = () => {
         details: `Ticket ${id} was deleted.`,
         targetId: id,
         targetType: 'TICKET',
-        notes: reason,
       });
-      setReasonModal({ visible: false, ticketId: '' });
-      fetchTickets();
     } catch (error) {
-      if (__DEV__) console.warn('Error deleting ticket:', error);
+      if (__DEV__) console.warn('Error deleting ticket from database:', error);
     }
-  }, [reasonModal.ticketId, fetchTickets]);
+  }, []);
+
+  // Instant Delete with 4s Undo window (Option 3)
+  const handleDelete = useCallback((id: string) => {
+    if (pendingDeleteRef.current) {
+      if (pendingDeleteRef.current.timer) clearTimeout(pendingDeleteRef.current.timer);
+      commitPendingDelete();
+    }
+
+    const ticketToDelete = tickets.find((t) => t.id === id);
+    if (!ticketToDelete) return;
+
+    // Optimistically remove from state immediately
+    setTickets((prev) => prev.filter((t) => t.id !== id));
+    setToastVisible(true);
+
+    const timer = setTimeout(() => {
+      commitPendingDelete();
+    }, 4000);
+
+    pendingDeleteRef.current = { id, ticket: ticketToDelete, timer };
+  }, [tickets, commitPendingDelete]);
+
+  // Undo deletion
+  const handleUndo = useCallback(() => {
+    if (!pendingDeleteRef.current) return;
+    const { ticket, timer } = pendingDeleteRef.current;
+    if (timer) clearTimeout(timer);
+    pendingDeleteRef.current = null;
+    setToastVisible(false);
+
+    // Restore ticket back into list
+    setTickets((prev) => [ticket, ...prev]);
+  }, []);
+
+  // Flush pending delete on unmount
+  useEffect(() => {
+    return () => {
+      if (pendingDeleteRef.current) {
+        if (pendingDeleteRef.current.timer) clearTimeout(pendingDeleteRef.current.timer);
+        commitPendingDelete();
+      }
+    };
+  }, [commitPendingDelete]);
 
   const handleEdit = useCallback((ticket: any) => {
     setEditModal({ visible: true, ticket });
@@ -123,9 +246,16 @@ export const AllTicketsScreen = () => {
 
   const renderTicket = useCallback(
     ({ item }: { item: any }) => (
-      <TicketCard ticket={item} showUserInfo={true} onDelete={handleDelete} onEdit={handleEdit} />
+      <TicketCard 
+        ticket={item} 
+        showUserInfo={true} 
+        onDelete={handleDelete} 
+        onEdit={handleEdit} 
+        expanded={expandedTicketId === item.id}
+        onToggleExpand={() => handleToggleExpand(item.id)}
+      />
     ),
-    [handleDelete, handleEdit]
+    [handleDelete, handleEdit, expandedTicketId, handleToggleExpand]
   );
 
   return (
@@ -157,40 +287,36 @@ export const AllTicketsScreen = () => {
       ) : (
         <AnyFlashList
           data={filteredTickets}
+          extraData={expandedTicketId}
           estimatedItemSize={150}
           keyExtractor={(item: any) => item.id}
           renderItem={renderTicket}
           contentContainerStyle={styles.list}
           refreshing={refreshing}
           onRefresh={handleRefresh}
-          ListEmptyComponent={<EmptyState icon={<Ticket size={30} color={COLORS.textSubtle} />} title="No bookings found" message="Try a different route, user, or ticket ID." />}
+          ListEmptyComponent={
+            <EmptyState
+              icon={<Ticket size={30} color={colors.textSubtle} />}
+              title="No bookings found"
+              message="Try a different route, user, or ticket ID."
+            />
+          }
         />
       )}
 
-      <ReasonModal
-        visible={reasonModal.visible}
-        onClose={() => setReasonModal({ visible: false, ticketId: '' })}
-        title="Delete Ticket Record"
-        onSubmit={confirmDelete}
-      />
-
-      <ConfirmationModal
-        visible={confirmModal.visible}
-        onClose={() => setConfirmModal({ visible: false, ticketId: '' })}
-        onConfirm={() => {
-          const id = confirmModal.ticketId;
-          setConfirmModal({ visible: false, ticketId: '' });
-          setReasonModal({ visible: true, ticketId: id });
-        }}
-        title="Void Ticket?"
-        message="This will permanently mark this ticket as invalid and remove it from the system audit."
-      />
-
+      {/* Edit Ticket Modal (for editing details) */}
       <EditTicketModal
         visible={editModal.visible}
         ticket={editModal.ticket}
         onClose={() => setEditModal({ visible: false, ticket: null })}
         onTicketUpdated={fetchTickets}
+      />
+
+      {/* Modern Floating Undo Toast (Option 3) */}
+      <UndoToast
+        visible={toastVisible}
+        message="Ticket deleted"
+        onUndo={handleUndo}
       />
     </AdminScreen>
   );
@@ -198,5 +324,42 @@ export const AllTicketsScreen = () => {
 
 const styles = StyleSheet.create({
   searchWrap: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg },
-  list: { padding: SPACING.xl, paddingBottom: 40 },
+  list: { padding: SPACING.xl, paddingBottom: 60 },
+  undoToast: {
+    position: 'absolute',
+    left: SPACING.xl,
+    right: SPACING.xl,
+    backgroundColor: '#18181B',
+    borderRadius: RADIUS.lg,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    ...SHADOWS.floating,
+    elevation: 8,
+    zIndex: 9999,
+  },
+  undoToastCopy: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  undoToastMessage: {
+    color: '#F4F4F5',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  undoToastBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderRadius: RADIUS.sm,
+  },
+  undoToastBtnText: {
+    color: '#60A5FA',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
 });

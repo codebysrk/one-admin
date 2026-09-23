@@ -64,15 +64,15 @@ const UserCard = React.memo(({ item, userRevenue, initiateDelete, initiateStatus
           style={styles.deleteBtn} 
           activeOpacity={0.7}
         >
-          <Trash2 size={16} color={colors.error} />
+          <Trash2 size={15} color={colors.error} />
         </TouchableOpacity>
       </View>
 
-      <View style={styles.revenueRow}>
-        <View style={styles.revBox}>
+      <View style={styles.cardMetricsRow}>
+        <View style={styles.metricBadge}>
           <IndianRupee size={12} color={colors.success} />
-          <Text style={styles.revLabel}>Lifetime Revenue</Text>
-          <Text style={styles.revValue}>₹{revenue.toLocaleString('en-IN')}</Text>
+          <Text style={styles.metricLabel}>Lifetime Revenue</Text>
+          <Text style={styles.metricValue}>₹{revenue.toLocaleString('en-IN')}</Text>
         </View>
       </View>
 
@@ -423,7 +423,7 @@ function getStyles(colors: any) {
     justifyContent: 'center', 
     backgroundColor: colors.errorSoft, 
     borderWidth: 1,
-    borderColor: '#FECDD3',
+    borderColor: colors.error + '33',
     borderRadius: RADIUS.md 
   },
   
@@ -438,35 +438,50 @@ function getStyles(colors: any) {
     borderWidth: 1,
     borderColor: colors.border
   },
-  revBox: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  revLabel: { fontSize: 11, fontWeight: '700', color: colors.textSubtle },
-  revValue: { fontSize: 12, fontWeight: '800', color: colors.text },
+  cardMetricsRow: { 
+    marginTop: 10, 
+    flexDirection: 'row', 
+    alignItems: 'center',
+  },
+  metricBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.surfaceMuted,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  metricLabel: { fontSize: 10, fontWeight: '700', color: colors.textSubtle, textTransform: 'uppercase', letterSpacing: 0.3 },
+  metricValue: { fontSize: 11, fontWeight: '800', color: colors.text },
 
   cardActions: { flexDirection: 'row', marginTop: 12, gap: 10 },
   actionBtn: { 
     flex: 1, 
-    minHeight: 38, 
+    minHeight: 36, 
     flexDirection: 'row', 
     alignItems: 'center', 
     justifyContent: 'center', 
     paddingHorizontal: 12, 
     paddingVertical: 8, 
-    borderRadius: RADIUS.md, 
+    borderRadius: RADIUS.sm, 
     gap: 6, 
     borderWidth: 1, 
   },
-  actionBtnText: { fontSize: 11, fontWeight: '800' },
+  actionBtnText: { fontSize: 11, fontWeight: '700' },
   banBtn: {
     backgroundColor: colors.errorSoft,
-    borderColor: '#FECDD3',
+    borderColor: colors.error + '33',
   },
   unbanBtn: {
     backgroundColor: colors.successSoft,
-    borderColor: '#BBF7D0',
+    borderColor: colors.success + '33',
   },
   viewTicketsBtn: {
     backgroundColor: colors.accentSoft,
-    borderColor: 'rgba(37, 99, 235, 0.15)',
+    borderColor: colors.accent + '33',
   },
   });
 }

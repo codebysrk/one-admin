@@ -29,14 +29,14 @@ export const DevicesListScreen = () => {
   const fetchDevices = useCallback(async () => {
     const { data } = await supabase
       .from('devices')
-      .select('*')
+      .select('*, users(name, email)')
       .order('last_active', { ascending: false });
     if (data) {
       setDevices(data.map((d: any) => ({
         id: d.id,
         deviceName: d.device_name,
-        userName: d.user_name,
-        userEmail: d.user_email,
+        userName: d.users?.name || 'Unknown User',
+        userEmail: d.users?.email || '',
         status: d.status,
         forceLogout: d.force_logout,
         platform: d.platform,
@@ -48,6 +48,7 @@ export const DevicesListScreen = () => {
       setLoading(false);
     }
   }, []);
+
 
   useEffect(() => {
     fetchDevices();
@@ -63,7 +64,7 @@ export const DevicesListScreen = () => {
   }, [fetchDevices]);
 
   const toggleStatus = async (id: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'ACTIVE' || currentStatus === 'APPROVED' ? 'BANNED' : 'ACTIVE';
+    const newStatus = currentStatus === 'BANNED' ? 'ACTIVE' : 'BANNED';
     try {
       await supabase.from('devices').update({ status: newStatus }).eq('id', id);
       fetchDevices();
@@ -82,16 +83,17 @@ export const DevicesListScreen = () => {
   };
 
   const renderDeviceItem = ({ item }: any) => {
-    const approved = item.status === 'APPROVED';
+    const isBanned = item.status === 'BANNED';
+    const isAllowed = !isBanned;
     const isAndroid = (item.platform || '').toLowerCase().includes('android');
     const isIOS = (item.platform || '').toLowerCase().includes('ios');
 
     return (
-      <View style={[styles.deviceCard, !approved && styles.deviceCardBanned]}>
+      <View style={[styles.deviceCard, isBanned && styles.deviceCardBanned]}>
         <View style={styles.deviceHeader}>
           <View style={styles.deviceInfo}>
-            <View style={[styles.avatar, approved ? styles.avatarApproved : styles.avatarBanned]}>
-              <Smartphone size={20} color={approved ? colors.success : colors.error} />
+            <View style={[styles.avatar, isAllowed ? styles.avatarApproved : styles.avatarBanned]}>
+              <Smartphone size={20} color={isAllowed ? colors.success : colors.error} />
             </View>
             <View style={styles.deviceCopy}>
               <Text style={styles.deviceName} numberOfLines={1}>{item.deviceName || 'Unknown Device'}</Text>
@@ -99,7 +101,7 @@ export const DevicesListScreen = () => {
             </View>
           </View>
           <View style={styles.badgeCol}>
-            <StatusBadge label={item.status || 'Unknown'} tone={approved ? 'success' : 'error'} />
+            <StatusBadge label={item.status || 'ACTIVE'} tone={isAllowed ? 'success' : 'error'} />
           </View>
         </View>
 
@@ -125,13 +127,13 @@ export const DevicesListScreen = () => {
 
         <View style={styles.actions}>
           <TouchableOpacity
-            style={[styles.actionBtn, approved ? styles.banBtn : styles.approveBtn]}
+            style={[styles.actionBtn, isAllowed ? styles.banBtn : styles.approveBtn]}
             onPress={() => toggleStatus(item.id, item.status)}
             activeOpacity={0.7}
           >
-            {approved ? <ShieldAlert size={15} color={colors.error} /> : <ShieldCheck size={15} color={colors.success} />}
-            <Text style={[styles.actionBtnText, { color: approved ? colors.error : colors.success }]}>
-              {approved ? 'Ban Device' : 'Approve Device'}
+            {isAllowed ? <ShieldAlert size={15} color={colors.error} /> : <ShieldCheck size={15} color={colors.success} />}
+            <Text style={[styles.actionBtnText, { color: isAllowed ? colors.error : colors.success }]}>
+              {isAllowed ? 'Ban Device' : 'Unban Device'}
             </Text>
           </TouchableOpacity>
 
@@ -302,15 +304,15 @@ const getStyles = (colors: any) => StyleSheet.create({
   },
   banBtn: { 
     backgroundColor: colors.errorSoft, 
-    borderColor: '#FECDD3' 
+    borderColor: colors.error + '33' 
   },
   approveBtn: { 
     backgroundColor: colors.successSoft, 
-    borderColor: '#BBF7D0' 
+    borderColor: colors.success + '33' 
   },
   logoutActiveBtn: { 
     backgroundColor: colors.infoSoft, 
-    borderColor: '#BFDBFE' 
+    borderColor: colors.info + '33' 
   },
   logoutInactiveBtn: { 
     backgroundColor: colors.surfaceMuted, 

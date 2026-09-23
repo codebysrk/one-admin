@@ -2,15 +2,21 @@ import Constants from 'expo-constants';
 import * as Linking from 'expo-linking';
 import { Alert } from 'react-native';
 
-// TODO: Replace with your actual GitHub details
-const GITHUB_OWNER = 'YOUR_GITHUB_USERNAME'; 
+const GITHUB_OWNER = 'codebysrk'; 
 const GITHUB_REPO = 'one-admin';
 
 export const checkAppUpdate = async () => {
   try {
     const response = await fetch(
-      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`,
+      {
+        headers: {
+          Accept: 'application/vnd.github.v3+json',
+          'User-Agent': 'OneAdmin-App',
+        },
+      }
     );
+    if (!response.ok) return;
     const data = await response.json();
 
     if (data.tag_name) {

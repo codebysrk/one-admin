@@ -1,6 +1,7 @@
 import { useTheme } from '../core/ThemeContext';
 import React, { Suspense, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Platform, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../core/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAdminStore } from '../store/useAdminStore';
@@ -62,7 +63,8 @@ const Tab = createBottomTabNavigator();
 
 const CustomTabBar = React.memo(({ state, descriptors, navigation, visibleTabs }: any) => {
   const { colors, isDark } = useTheme();
-  const styles = getStyles(colors);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => getStyles(colors, insets), [colors, insets]);
   return (
     <View style={styles.tabBarContainer}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
@@ -90,10 +92,8 @@ const CustomTabBar = React.memo(({ state, descriptors, navigation, visibleTabs }
               accessibilityRole="button"
               accessibilityLabel={`Open ${tab.label}`}
             >
-              <View style={[styles.iconBox, isActive && styles.iconBoxActive]}>
-                <IconComponent size={18} color={isActive ? colors.white : colors.textMuted} />
-              </View>
-              <Text style={[styles.tabLabel, { color: isActive ? (isDark ? colors.white : colors.primary) : colors.textMuted }]}>
+              <IconComponent size={19} color={isActive ? colors.accent : colors.textSubtle} />
+              <Text style={[styles.tabLabel, { color: isActive ? colors.text : colors.textMuted, fontWeight: isActive ? '700' : '500' }]}>
                 {tab.label}
               </Text>
             </AdminPressable>
@@ -145,44 +145,36 @@ export const AdminNavigator = () => {
   );
 };
 
-function getStyles(colors: any) {
+function getStyles(colors: any, insets?: any) {
+  const bottomInset = insets?.bottom ?? 0;
   return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   screenContainer: { flex: 1 },
   tabBarContainer: {
     backgroundColor: colors.surface,
-    paddingBottom: Platform.OS === 'ios' ? 22 : 12,
-    paddingTop: 12,
+    paddingBottom: Math.max(bottomInset, Platform.OS === 'ios' ? 20 : 10),
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    ...SHADOWS.floating,
   },
   tabBar: {
     flexDirection: 'row',
     paddingHorizontal: SPACING.md,
     alignItems: 'center',
-    gap: SPACING.sm,
+    gap: SPACING.xs,
     flexGrow: 1,
-    justifyContent: 'center',
   },
   tabItem: {
-    width: 76,
-    minHeight: 60,
+    paddingHorizontal: 12,
+    minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
+    gap: 4,
     borderRadius: RADIUS.md,
   },
-  tabItemActive: { backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accentMuted },
-  iconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: RADIUS.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceMuted,
+  tabItemActive: {
+    backgroundColor: colors.surfacePressed,
   },
-  iconBoxActive: { backgroundColor: colors.accent, ...SHADOWS.accent },
-  tabLabel: { fontSize: 10, lineHeight: 13, fontWeight: '800' },
+  tabLabel: { fontSize: 11, lineHeight: 14 },
   });
 }

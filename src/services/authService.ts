@@ -55,7 +55,9 @@ export const loginAdmin = async (email: string, password: string) => {
       phone: profile.phone || '',
       role: profile.role,
       status: profile.status,
-      permissions: ['FULL_ACCESS'],
+      permissions: profile.permissions && Array.isArray(profile.permissions) && profile.permissions.length > 0 
+        ? profile.permissions 
+        : ['FULL_ACCESS'],
       createdAt: new Date(profile.created_at).getTime(),
     };
 
