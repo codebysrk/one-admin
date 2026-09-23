@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Modal, TextI
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../services/supabase';
 import { useTheme } from '../../core/ThemeContext';
-import { RADIUS, SHADOWS, SPACING  } from '../../core/theme';
+import { RADIUS, SHADOWS } from '../../core/theme';
 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -19,9 +19,7 @@ const Info = IconWrapper('information-outline');
 const AlertTriangle = IconWrapper('alert');
 const Bus = IconWrapper('bus');
 const X = IconWrapper('close');
-const Send = IconWrapper('send');
-import { AdminHeader, AdminScreen, EmptyState, LoadingState, StatusBadge } from '../../components/AdminUI';
-import { logActivity } from '../../services/logService';
+import { AdminHeader, AdminScreen, EmptyState, LoadingState } from '../../components/AdminUI';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const NOTIFICATION_TYPES = [
@@ -33,9 +31,9 @@ const NOTIFICATION_TYPES = [
 ];
 
 export const NotificationsScreen = () => {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
+  const styles = typeof getStyles === 'function' ? getStyles(colors, isDark) : {} as any;
   const [notifications, setNotifications] = useState<any[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -167,7 +165,16 @@ export const NotificationsScreen = () => {
              </LinearGradient>
           </TouchableOpacity>
         )}
-        ListEmptyComponent={loading ? <LoadingState label="Loading..." compact /> : <EmptyState title="No history" />}
+        ListEmptyComponent={
+          loading ? (
+            <LoadingState label="Loading broadcasts..." compact />
+          ) : (
+            <EmptyState 
+              title="No Broadcast History" 
+              message="Sent announcements and global alerts will appear here." 
+            />
+          )
+        }
       />
 
       <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => { Keyboard.dismiss(); setModalVisible(false); }}>
@@ -204,22 +211,52 @@ export const NotificationsScreen = () => {
             >
                 <Text style={styles.label}>Broadcast Category</Text>
                 <View style={styles.categoryGrid}>
-                   {NOTIFICATION_TYPES.map(t => (
-                     <TouchableOpacity key={t.id} style={[styles.catBtn, type === t.id && { borderColor: t.tone, backgroundColor: t.bg }]} onPress={() => setType(t.id)}>
-                        <t.icon size={16} color={type === t.id ? t.tone : colors.textMuted} />
-                        <Text style={[styles.catLabel, type === t.id && { color: t.tone }]}>{t.label}</Text>
-                     </TouchableOpacity>
-                   ))}
+                   {NOTIFICATION_TYPES.map(t => {
+                     const isSelected = type === t.id;
+                     return (
+                       <TouchableOpacity 
+                         key={t.id} 
+                         style={[
+                           styles.catBtn, 
+                           isSelected && { 
+                             borderColor: t.tone, 
+                             backgroundColor: isDark ? t.tone + '25' : t.bg 
+                           }
+                         ]} 
+                         onPress={() => setType(t.id)}
+                       >
+                          <t.icon size={16} color={isSelected ? t.tone : colors.textMuted} />
+                          <Text style={[styles.catLabel, isSelected && { color: t.tone }]}>{t.label}</Text>
+                       </TouchableOpacity>
+                     );
+                   })}
                 </View>
 
                 <View style={styles.inputSection}>
-                  <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Headline (e.g., Schedule Update)" placeholderTextColor={colors.textSubtle} maxLength={45} />
-                  <TextInput style={[styles.input, styles.area]} value={message} onChangeText={setMessage} multiline numberOfLines={3} placeholder="Describe the announcement..." placeholderTextColor={colors.textSubtle} />
+                  <TextInput 
+                    style={styles.input} 
+                    value={title} 
+                    onChangeText={setTitle} 
+                    placeholder="Announcement title (e.g. Route 419 Update)" 
+                    placeholderTextColor={colors.textSubtle} 
+                    maxLength={45} 
+                  />
+                  <TextInput 
+                    style={[styles.input, styles.area]} 
+                    value={message} 
+                    onChangeText={setMessage} 
+                    multiline 
+                    numberOfLines={3} 
+                    placeholder="Enter announcement details for passengers..." 
+                    placeholderTextColor={colors.textSubtle} 
+                  />
                 </View>
 
                 <View style={styles.previewCard}>
                    <View style={styles.previewHeader}>
-                      <View style={[styles.previewIcon, { backgroundColor: selectedType.bg }]}><selectedType.icon size={12} color={selectedType.tone} /></View>
+                      <View style={[styles.previewIcon, { backgroundColor: isDark ? selectedType.tone + '25' : selectedType.bg }]}>
+                        <selectedType.icon size={12} color={selectedType.tone} />
+                      </View>
                       <Text style={styles.previewType}>{selectedType.label} Announcement • Now</Text>
                    </View>
                    <Text style={styles.previewTitle} numberOfLines={1}>{title || 'Headline'}</Text>
@@ -240,21 +277,21 @@ export const NotificationsScreen = () => {
   );
 };
 
-const getStyles = (colors: any) => StyleSheet.create({
+const getStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   listContent: { padding: 20, paddingBottom: 60 },
-  mainAction: { marginBottom: 16, borderRadius: 16, overflow: 'hidden', ...SHADOWS.card },
+  mainAction: { marginBottom: 16, borderRadius: RADIUS.card, overflow: 'hidden', ...SHADOWS.card },
   actionGrad: { padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14 },
   actionCopy: { flex: 1 },
   actionTitle: { color: colors.white, fontSize: 17, fontWeight: '800' },
   actionSub: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '600' },
-  notifCard: { backgroundColor: colors.surface, borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: colors.border },
+  notifCard: { backgroundColor: colors.surface, borderRadius: RADIUS.card, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border, ...SHADOWS.card },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   typeInfo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  typeIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  typeIcon: { width: 30, height: 30, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center' },
   dateText: { fontSize: 10, color: colors.textSubtle, fontWeight: '700' },
-  deleteBtn: { padding: 6, backgroundColor: colors.errorSoft, borderRadius: 6 },
-  notifTitle: { fontSize: 14, fontWeight: '800', color: colors.text, marginBottom: 2 },
-  notifMessage: { fontSize: 12, color: colors.textMuted, fontWeight: '600' },
+  deleteBtn: { padding: 6, backgroundColor: colors.errorSoft, borderRadius: RADIUS.sm },
+  notifTitle: { fontSize: 15, fontWeight: '800', color: colors.text, marginBottom: 3 },
+  notifMessage: { fontSize: 12, color: colors.textMuted, fontWeight: '600', lineHeight: 18 },
   overlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'flex-end' },
   keyboard: { width: '100%', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: colors.surface, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 24, paddingTop: 30, paddingBottom: 40, maxHeight: '98%' },
@@ -270,7 +307,7 @@ const getStyles = (colors: any) => StyleSheet.create({
   inputSection: { gap: 12 },
   input: { backgroundColor: colors.surfaceMuted, borderRadius: 14, padding: 16, fontSize: 15, fontWeight: '700', color: colors.text, borderWidth: 1, borderColor: colors.border },
   area: { height: 110, textAlignVertical: 'top' },
-  previewCard: { backgroundColor: colors.white, borderRadius: 16, padding: 18, borderWidth: 1, borderColor: colors.border, ...SHADOWS.card },
+  previewCard: { backgroundColor: isDark ? colors.surfaceElevated : colors.surface, borderRadius: 16, padding: 18, borderWidth: 1, borderColor: colors.border, ...SHADOWS.card },
   previewHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10 },
   previewIcon: { width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   previewType: { fontSize: 12, fontWeight: '800', color: colors.textMuted, flex: 1 },

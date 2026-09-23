@@ -164,7 +164,7 @@ export const DevicesListScreen = () => {
           keyExtractor={(item) => item.id}
           renderItem={renderDeviceItem}
           contentContainerStyle={styles.listContent}
-          ListEmptyComponent={<EmptyState icon={<Smartphone size={30} color={colors.textSubtle} />} title="No devices registered" message="Approved and flagged user devices will appear here." />}
+          ListEmptyComponent={<EmptyState icon={<Smartphone size={30} color={colors.textSubtle} />} title="No Devices Found" message="Active user device sessions will appear here." />}
         />
       )}
     </AdminScreen>
@@ -175,8 +175,8 @@ const getStyles = (colors: any) => StyleSheet.create({
   listContent: { padding: SPACING.xl, paddingBottom: 40 },
   deviceCard: { 
     backgroundColor: colors.surface, 
-    borderRadius: RADIUS.lg, 
-    padding: 14, 
+    borderRadius: RADIUS.card, 
+    padding: 16, 
     marginBottom: 12, 
     borderWidth: 1, 
     borderColor: colors.border, 
@@ -191,12 +191,12 @@ const getStyles = (colors: any) => StyleSheet.create({
     justifyContent: 'space-between', 
     alignItems: 'center', 
     marginBottom: 12, 
-    gap: 10 
+    gap: 12 
   },
   deviceInfo: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    gap: 10, 
+    gap: 12, 
     flex: 1, 
     minWidth: 0 
   },
@@ -205,9 +205,9 @@ const getStyles = (colors: any) => StyleSheet.create({
     minWidth: 0 
   },
   avatar: { 
-    width: 36, 
-    height: 36, 
-    borderRadius: RADIUS.md, 
+    width: 40, 
+    height: 40, 
+    borderRadius: RADIUS.lg, 
     justifyContent: 'center', 
     alignItems: 'center', 
     borderWidth: 1 
@@ -221,7 +221,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderColor: 'rgba(225, 29, 72, 0.15)' 
   },
   deviceName: { 
-    fontSize: 14, 
+    fontSize: 15, 
     fontWeight: '800', 
     color: colors.text 
   },

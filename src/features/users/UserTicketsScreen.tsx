@@ -292,8 +292,8 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
           ListEmptyComponent={
             <EmptyState
               icon={<Ticket size={30} color={colors.textSubtle} />}
-              title="No tickets found"
-              message="This user has no booking history yet."
+              title="No Tickets Found"
+              message="This user has not booked any bus tickets yet."
             />
           }
         />

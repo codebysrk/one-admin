@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import * as SecureStore from "expo-secure-store";
 
 export type AdminPermission = 'MANAGE_ROUTES' | 'MANAGE_TICKETS' | 'MANAGE_LOGS' | 'MANAGE_USERS' | 'MANAGE_ADMINS' | 'FULL_ACCESS';
 
@@ -75,5 +76,8 @@ export const loginAdmin = async (email: string, password: string) => {
 };
 
 export const logoutAdmin = async () => {
+  try {
+    await SecureStore.deleteItemAsync('admin_creds');
+  } catch (_) {}
   await supabase.auth.signOut();
 };

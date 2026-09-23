@@ -141,7 +141,7 @@ export const AdminProfileScreen = () => {
                   <Text style={styles.label}>Full Name</Text>
                   <View style={styles.inputWrapper}>
                     <User size={16} color={colors.textMuted} />
-                    <TextInput style={styles.input} value={name} onChangeText={setName} selectionColor={colors.accent} />
+                    <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Enter your full name" placeholderTextColor={colors.textSubtle} selectionColor={colors.accent} />
                   </View>
                 </View>
                 <View style={styles.inputGroup}>
@@ -160,14 +160,14 @@ export const AdminProfileScreen = () => {
                   <Text style={styles.label}>Email Address</Text>
                   <View style={styles.inputWrapper}>
                     <Mail size={16} color={colors.textMuted} />
-                    <TextInput style={styles.input} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" selectionColor={colors.accent} />
+                    <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="admin@onedelhi.com" placeholderTextColor={colors.textSubtle} keyboardType="email-address" autoCapitalize="none" selectionColor={colors.accent} />
                   </View>
                 </View>
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>New Password</Text>
                   <View style={styles.inputWrapper}>
                     <Lock size={16} color={colors.textMuted} />
-                    <TextInput style={styles.input} value={newPassword} onChangeText={setNewPassword} secureTextEntry={!showNewPassword} placeholder="Optional new password" placeholderTextColor={colors.textSubtle} selectionColor={colors.accent} />
+                    <TextInput style={styles.input} value={newPassword} onChangeText={setNewPassword} secureTextEntry={!showNewPassword} placeholder="Enter new password (optional)" placeholderTextColor={colors.textSubtle} selectionColor={colors.accent} />
                     <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)} style={styles.eyeBtn}>
                       {showNewPassword ? <EyeOff size={16} color={colors.textMuted} /> : <Eye size={16} color={colors.textMuted} />}
                     </TouchableOpacity>
@@ -177,7 +177,7 @@ export const AdminProfileScreen = () => {
                   <Text style={styles.label}>Current Password</Text>
                   <View style={[styles.inputWrapper, styles.dangerInput]}>
                     <Lock size={16} color={colors.error} />
-                    <TextInput style={styles.input} value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry={!showCurrentPassword} placeholder="Confirm current password" placeholderTextColor={colors.textSubtle} selectionColor={colors.error} />
+                    <TextInput style={styles.input} value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry={!showCurrentPassword} placeholder="Enter current password to confirm" placeholderTextColor={colors.textSubtle} selectionColor={colors.error} />
                     <TouchableOpacity onPress={() => setShowCurrentPassword(!showCurrentPassword)} style={styles.eyeBtn}>
                       {showCurrentPassword ? <EyeOff size={16} color={colors.textMuted} /> : <Eye size={16} color={colors.textMuted} />}
                     </TouchableOpacity>
@@ -190,7 +190,7 @@ export const AdminProfileScreen = () => {
             )}
           </View>
 
-          <Text style={styles.footerText}>One Delhi Admin Panel v2.1.0</Text>
+          <Text style={styles.footerText}>One Delhi Admin Panel v1.2.1</Text>
         </ScrollView>
         <SafeAreaView edges={['bottom']} style={{ backgroundColor: colors.background }} />
       </KeyboardAvoidingView>
@@ -213,7 +213,7 @@ function getStyles(colors: any, isDark: boolean) {
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
-    topBarTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
+    topBarTitle: { fontSize: 16, fontWeight: '700', color: colors.text, letterSpacing: -0.2 },
     backBtn: {
       width: 40,
       height: 40,
@@ -239,7 +239,7 @@ function getStyles(colors: any, isDark: boolean) {
       alignItems: 'center',
       backgroundColor: colors.surface,
       padding: SPACING.lg,
-      borderRadius: RADIUS.lg,
+      borderRadius: RADIUS.card,
       marginBottom: SPACING.lg,
       borderWidth: 1,
       borderColor: colors.border,
@@ -248,19 +248,19 @@ function getStyles(colors: any, isDark: boolean) {
     avatar: {
       width: 52,
       height: 52,
-      borderRadius: RADIUS.md,
+      borderRadius: RADIUS.lg,
       backgroundColor: colors.accentSoft,
       justifyContent: 'center',
       alignItems: 'center',
-      marginRight: 12,
+      marginRight: 14,
     },
     adminCopy: { flex: 1, minWidth: 0 },
-    adminName: { fontSize: 17, lineHeight: 22, fontWeight: '800', color: colors.text },
+    adminName: { fontSize: 18, lineHeight: 24, fontWeight: '900', color: colors.text },
     adminRole: { fontSize: 12, color: colors.accent, fontWeight: '800', marginTop: 3 },
     tabSelector: {
       flexDirection: 'row',
       backgroundColor: colors.surfaceMuted,
-      borderRadius: RADIUS.md,
+      borderRadius: RADIUS.pill,
       padding: 4,
       marginBottom: SPACING.lg,
       borderWidth: 1,
@@ -268,12 +268,12 @@ function getStyles(colors: any, isDark: boolean) {
     },
     tabItem: {
       flex: 1,
-      minHeight: 42,
+      minHeight: 40,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 8,
-      borderRadius: RADIUS.sm,
+      borderRadius: RADIUS.pill,
     },
     tabActive: {
       backgroundColor: isDark ? colors.surfacePressed : colors.surface,
@@ -285,20 +285,20 @@ function getStyles(colors: any, isDark: boolean) {
     tabTextActive: { color: colors.accent, fontWeight: '800' },
     section: {
       backgroundColor: colors.surface,
-      borderRadius: RADIUS.lg,
+      borderRadius: RADIUS.card,
       padding: SPACING.lg,
       borderWidth: 1,
       borderColor: colors.border,
       ...SHADOWS.card,
     },
     inputGroup: { marginBottom: SPACING.lg },
-    label: { fontSize: 11, fontWeight: '800', color: colors.textMuted, marginBottom: 7, textTransform: 'uppercase', letterSpacing: 0 },
+    label: { fontSize: 10, fontWeight: '700', color: colors.textMuted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.8 },
     inputWrapper: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.surfaceMuted,
-      borderRadius: RADIUS.md,
-      paddingHorizontal: 12,
+      borderRadius: RADIUS.lg,
+      paddingHorizontal: 14,
       minHeight: 48,
       borderWidth: 1,
       borderColor: colors.border,
@@ -319,11 +319,11 @@ function getStyles(colors: any, isDark: boolean) {
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: colors.accent,
-      minHeight: 50,
-      borderRadius: RADIUS.md,
+      minHeight: 48,
+      borderRadius: RADIUS.lg,
       gap: 8,
       marginTop: 2,
-      ...SHADOWS.floating,
+      ...SHADOWS.subtle,
     },
     securityBtn: { backgroundColor: colors.success },
     btnText: { color: colors.white, fontWeight: '800', fontSize: 14 },

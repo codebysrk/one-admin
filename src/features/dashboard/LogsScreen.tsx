@@ -13,7 +13,6 @@ const IconWrapper = (name: any) => (props: any) => (
   <MaterialCommunityIcons name={name} {...props} />
 );
 
-const Search = IconWrapper('magnify');
 const Clock = IconWrapper('clock-outline');
 const User = IconWrapper('account');
 const Download = IconWrapper('download-outline');
@@ -27,7 +26,6 @@ const Settings = IconWrapper('cog-outline');
 const AlertTriangle = IconWrapper('alert');
 import { exportToCSV } from '../../utils/csvHelper';
 import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField, AdminBottomSheet, ConfirmationModal } from '../../components/AdminUI';
-import { useAdminStore } from '../../store/useAdminStore';
 
 const formatFullTimestamp = (timestamp: any) => {
   if (!timestamp) return 'Pending';
@@ -44,8 +42,8 @@ const formatFullTimestamp = (timestamp: any) => {
 };
 
 export const LogsScreen = () => {
-  const { colors } = useTheme();
-  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
+  const { colors, isDark } = useTheme();
+  const styles = typeof getStyles === 'function' ? getStyles(colors, isDark) : {} as any;
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -225,7 +223,7 @@ export const LogsScreen = () => {
           >
             <View style={styles.logHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <View style={[styles.typeBadge, { backgroundColor: item.type === 'ADMIN' ? colors.primary : colors.info }]}>
+                <View style={[styles.typeBadge, { backgroundColor: item.type === 'ADMIN' ? (isDark ? '#6366F1' : colors.primary) : colors.info }]}>
                   {item.type === 'ADMIN' ? <Shield size={10} color={colors.white} /> : <User size={10} color={colors.white} />}
                   <Text style={styles.typeText}>{item.type || 'SYSTEM'}</Text>
                 </View>
@@ -299,7 +297,7 @@ export const LogsScreen = () => {
               {item.targetType && (
                 <View style={styles.navIndicator}>
                   <Text style={styles.navText}>View Details</Text>
-                  <ChevronRight size={12} color={colors.primary} />
+                  <ChevronRight size={12} color={isDark ? colors.accent : colors.primary} />
                 </View>
               )}
             </View>
@@ -307,7 +305,7 @@ export const LogsScreen = () => {
         </View>
       );
     },
-    [filteredLogs, getLogStyle, handleNavigate, handleDeleteSingleLog, colors]
+    [filteredLogs, getLogStyle, handleNavigate, handleDeleteSingleLog, colors, isDark]
   );
 
   return (
@@ -337,7 +335,7 @@ export const LogsScreen = () => {
 
       <View style={styles.controls}>
         <SearchField
-          placeholder="Search by action, user or details..."
+          placeholder="Filter by action, admin, or target ID..."
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
@@ -452,19 +450,19 @@ export const LogsScreen = () => {
   );
 };
 
-const getStyles = (colors: any) => StyleSheet.create({
+const getStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   controls: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg, gap: SPACING.md },
   filterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
   tabGroup: { flexDirection: 'row', gap: 6 },
   dateGroup: { flexDirection: 'row', gap: 4, backgroundColor: colors.surfaceMuted, padding: 3, borderRadius: RADIUS.md },
   filterTab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.pill, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border },
-  activeFilterTab: { backgroundColor: colors.primary, borderColor: colors.primary },
+  activeFilterTab: { backgroundColor: isDark ? colors.accent : colors.primary, borderColor: isDark ? colors.accent : colors.primary },
   filterTabText: { fontSize: 10, fontWeight: '800', color: colors.textMuted },
   activeFilterTabText: { color: colors.white },
   dateTab: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   activeDateTab: { backgroundColor: colors.surface, ...SHADOWS.card },
   dateTabText: { fontSize: 10, fontWeight: '800', color: colors.textSubtle },
-  activeDateTabText: { color: colors.primary },
+  activeDateTabText: { color: isDark ? colors.accent : colors.primary },
   
   listContent: { paddingHorizontal: SPACING.xl, paddingVertical: SPACING.xl, paddingBottom: 60 },
   logWrapper: { flexDirection: 'row', marginBottom: 2 },
@@ -475,7 +473,7 @@ const getStyles = (colors: any) => StyleSheet.create({
   logCard: { 
     flex: 1, 
     backgroundColor: colors.surface, 
-    borderRadius: RADIUS.lg, 
+    borderRadius: RADIUS.card, 
     padding: SPACING.lg, 
     marginBottom: 20, 
     borderWidth: 1, 
@@ -483,22 +481,29 @@ const getStyles = (colors: any) => StyleSheet.create({
     ...SHADOWS.card 
   },
   logHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  typeBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: RADIUS.sm },
-  typeText: { fontSize: 9, fontWeight: '800', color: colors.white, textTransform: 'uppercase' },
+  typeBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: RADIUS.pill },
+  typeText: { fontSize: 9, fontWeight: '800', color: colors.white, textTransform: 'uppercase', letterSpacing: 0.4 },
   timeWrapper: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   timeText: { fontSize: 11, color: colors.textSubtle, fontWeight: '700' },
   
   logAction: { fontSize: 15, fontWeight: '800', color: colors.text, marginBottom: 4 },
   logDetails: { fontSize: 13, color: colors.textMuted, lineHeight: 18, marginBottom: 12, fontWeight: '500' },
   
-  deltaBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceMuted, padding: 10, borderRadius: RADIUS.md, gap: 12, marginBottom: 16 },
+  deltaBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceMuted, padding: 12, borderRadius: RADIUS.lg, gap: 12, marginBottom: 16 },
   deltaRow: { flex: 1 },
   deltaLabel: { fontSize: 8, fontWeight: '800', color: colors.textSubtle, marginBottom: 2 },
   deltaValue: { fontSize: 13, fontWeight: '700', color: colors.text },
   
-  noteBox: { backgroundColor: '#FDF4FF', borderLeftWidth: 3, borderLeftColor: '#D946EF', padding: 10, borderRadius: 6, marginBottom: 16 },
+  noteBox: { 
+    backgroundColor: isDark ? 'rgba(217, 70, 239, 0.12)' : '#FDF4FF', 
+    borderLeftWidth: 3, 
+    borderLeftColor: '#D946EF', 
+    padding: 10, 
+    borderRadius: RADIUS.md, 
+    marginBottom: 16 
+  },
   noteLabel: { fontSize: 9, fontWeight: '800', color: '#D946EF', marginBottom: 4 },
-  noteText: { fontSize: 12, color: '#701A75', fontWeight: '600', fontStyle: 'italic' },
+  noteText: { fontSize: 12, color: isDark ? '#F5D0FE' : '#701A75', fontWeight: '600', fontStyle: 'italic' },
   
   logFooter: { 
     flexDirection: 'row', 
@@ -513,8 +518,8 @@ const getStyles = (colors: any) => StyleSheet.create({
   actorInitial: { fontSize: 11, fontWeight: '800', color: colors.accent },
   actorName: { fontSize: 12, color: colors.text, fontWeight: '700', flex: 1 },
   navIndicator: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  navText: { fontSize: 10, fontWeight: '800', color: colors.primary },
-  metaBox: { marginTop: 12, padding: 12, backgroundColor: '#F8FAFC', borderRadius: RADIUS.md, borderWidth: 1, borderColor: '#E2E8F0' },
+  navText: { fontSize: 10, fontWeight: '800', color: isDark ? colors.accent : colors.primary },
+  metaBox: { marginTop: 12, padding: 12, backgroundColor: isDark ? colors.surfaceMuted : '#F8FAFC', borderRadius: RADIUS.md, borderWidth: 1, borderColor: colors.border },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   metaTitle: { fontSize: 9, fontWeight: '900', color: colors.textSubtle, letterSpacing: 0.5 },
   deviceDetails: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 4 },

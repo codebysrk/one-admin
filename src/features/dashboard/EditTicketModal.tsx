@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../core/ThemeContext';
-import { RADIUS, SPACING } from '../../core/theme';
+import { RADIUS } from '../../core/theme';
 import { AdminBottomSheet } from '../../components/AdminUI';
 import { supabase } from '../../services/supabase';
 import { logActivity } from '../../services/logService';
@@ -180,7 +180,7 @@ export const EditTicketModal: React.FC<EditTicketModalProps> = ({
                 style={styles.textInput}
                 value={fare}
                 onChangeText={setFare}
-                placeholder="Fare"
+                placeholder="e.g. 25"
                 placeholderTextColor={colors.textMuted}
                 keyboardType="numeric"
                 editable={!loading}
@@ -197,7 +197,7 @@ export const EditTicketModal: React.FC<EditTicketModalProps> = ({
                 style={styles.textInput}
                 value={passengers}
                 onChangeText={setPassengers}
-                placeholder="Qty"
+                placeholder="e.g. 1"
                 placeholderTextColor={colors.textMuted}
                 keyboardType="number-pad"
                 editable={!loading}
@@ -308,8 +308,8 @@ const getStyles = (colors: any, isDark: boolean) =>
       borderColor: colors.border,
     },
     passengerChipActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
+      backgroundColor: isDark ? colors.accent : colors.primary,
+      borderColor: isDark ? colors.accent : colors.primary,
     },
     passengerChipText: {
       fontSize: 13,
@@ -343,7 +343,7 @@ const getStyles = (colors: any, isDark: boolean) =>
       flex: 2,
       height: 48,
       borderRadius: RADIUS.md,
-      backgroundColor: colors.primary,
+      backgroundColor: isDark ? colors.accent : colors.primary,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',

@@ -276,14 +276,14 @@ export const AllTicketsScreen = () => {
 
       <View style={styles.searchWrap}>
         <SearchField
-          placeholder="Search by TID, user or route..."
+          placeholder="Search by ticket ID, user, or route..."
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
       </View>
 
       {loading ? (
-        <LoadingState label="Loading bookings..." />
+        <LoadingState label="Loading tickets..." />
       ) : (
         <AnyFlashList
           data={filteredTickets}
@@ -297,8 +297,8 @@ export const AllTicketsScreen = () => {
           ListEmptyComponent={
             <EmptyState
               icon={<Ticket size={30} color={colors.textSubtle} />}
-              title="No bookings found"
-              message="Try a different route, user, or ticket ID."
+              title="No Tickets Found"
+              message="Try searching with a different ticket ID, passenger name, or route number."
             />
           }
         />

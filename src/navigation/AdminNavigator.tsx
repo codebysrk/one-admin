@@ -1,8 +1,8 @@
 import { useTheme } from '../core/ThemeContext';
-import React, { Suspense, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform, ActivityIndicator } from 'react-native';
+import React, { useMemo, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, RADIUS, SHADOWS, SPACING } from '../core/theme';
+import { RADIUS, SHADOWS } from '../core/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAdminStore } from '../store/useAdminStore';
 import { AdminPressable } from '../components/AdminUI';
@@ -16,7 +16,6 @@ const Bus = IconWrapper('bus');
 const Users = IconWrapper('account-group');
 const Bell = IconWrapper('bell');
 const Ticket = IconWrapper('ticket');
-const UserMinus = IconWrapper('account-minus');
 const Smartphone = IconWrapper('cellphone');
 const Activity = IconWrapper('pulse');
 const UserCircle = IconWrapper('account-circle');
@@ -62,12 +61,19 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 const Tab = createBottomTabNavigator();
 
 const CustomTabBar = React.memo(({ state, descriptors, navigation, visibleTabs }: any) => {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => getStyles(colors, insets), [colors, insets]);
+  const scrollViewRef = useRef<ScrollView>(null);
+
   return (
     <View style={styles.tabBarContainer}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
+      <ScrollView
+        ref={scrollViewRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.tabBar}
+      >
         {visibleTabs.map((tab: any) => {
           const isActive = state.index === state.routes.findIndex((r: any) => r.name === tab.key);
           const IconComponent = tab.icon;
@@ -92,10 +98,21 @@ const CustomTabBar = React.memo(({ state, descriptors, navigation, visibleTabs }
               accessibilityRole="button"
               accessibilityLabel={`Open ${tab.label}`}
             >
-              <IconComponent size={19} color={isActive ? colors.accent : colors.textSubtle} />
-              <Text style={[styles.tabLabel, { color: isActive ? colors.text : colors.textMuted, fontWeight: isActive ? '700' : '500' }]}>
+              <View style={[styles.iconWrapper, isActive && styles.iconWrapperActive]}>
+                <IconComponent size={18} color={isActive ? colors.accent : colors.textSubtle} />
+              </View>
+              <Text
+                style={[
+                  styles.tabLabel,
+                  {
+                    color: isActive ? colors.accent : colors.textMuted,
+                    fontWeight: isActive ? '800' : '600',
+                  },
+                ]}
+              >
                 {tab.label}
               </Text>
+              {isActive && <View style={styles.activeIndicator} />}
             </AdminPressable>
           );
         })}
@@ -148,33 +165,61 @@ export const AdminNavigator = () => {
 function getStyles(colors: any, insets?: any) {
   const bottomInset = insets?.bottom ?? 0;
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  screenContainer: { flex: 1 },
-  tabBarContainer: {
-    backgroundColor: colors.surface,
-    paddingBottom: Math.max(bottomInset, Platform.OS === 'ios' ? 20 : 10),
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    paddingHorizontal: SPACING.md,
-    alignItems: 'center',
-    gap: SPACING.xs,
-    flexGrow: 1,
-  },
-  tabItem: {
-    paddingHorizontal: 12,
-    minHeight: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    borderRadius: RADIUS.md,
-  },
-  tabItemActive: {
-    backgroundColor: colors.surfacePressed,
-  },
-  tabLabel: { fontSize: 11, lineHeight: 14 },
+    container: { flex: 1, backgroundColor: colors.background },
+    screenContainer: { flex: 1 },
+    tabBarContainer: {
+      backgroundColor: colors.surface,
+      paddingBottom: Math.max(bottomInset, Platform.OS === 'ios' ? 16 : 8),
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      ...SHADOWS.card,
+    },
+    tabBar: {
+      flexDirection: 'row',
+      paddingHorizontal: 12,
+      alignItems: 'center',
+      gap: 6,
+      flexGrow: 1,
+    },
+    tabItem: {
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 3,
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: 'transparent',
+    },
+    tabItemActive: {
+      backgroundColor: colors.accentSoft,
+      borderColor: colors.accentMuted,
+    },
+    iconWrapper: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    iconWrapperActive: {
+      backgroundColor: colors.surface,
+      ...SHADOWS.subtle,
+    },
+    tabLabel: {
+      fontSize: 11,
+      lineHeight: 14,
+      letterSpacing: 0.2,
+    },
+    activeIndicator: {
+      position: 'absolute',
+      top: 4,
+      right: 8,
+      width: 5,
+      height: 5,
+      borderRadius: 2.5,
+      backgroundColor: colors.accent,
+    },
   });
 }

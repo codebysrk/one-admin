@@ -23,7 +23,6 @@ const IconWrapper = (name: any) => (props: any) => (
 );
 
 const UserPlus = IconWrapper('account-plus');
-const Key = IconWrapper('key');
 const ContentCopy = IconWrapper('content-copy');
 const Check = IconWrapper('check');
 const ShareVariant = IconWrapper('share-variant');
@@ -271,7 +270,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
             <Text style={styles.label}>MOBILE NUMBER</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. 9876543210"
+              placeholder="10-digit mobile number (e.g. 9876543210)"
               placeholderTextColor={colors.textSubtle}
               value={phone}
               onChangeText={setPhone}
@@ -298,7 +297,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
             <View style={styles.passwordInputContainer}>
               <TextInput
                 style={[styles.input, styles.passwordInput]}
-                placeholder="Enter or generate password"
+                placeholder="Min 6 characters or tap Generate"
                 placeholderTextColor={colors.textSubtle}
                 value={password}
                 onChangeText={setPassword}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { supabase } from "../../services/supabase";
 import { useTheme } from '../../core/ThemeContext';
-import { SPACING, RADIUS   } from "../../core/theme";
+import { SPACING, RADIUS, SHADOWS } from "../../core/theme";
 
 
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -68,8 +68,8 @@ const DEFAULT_FARE_CONFIG = {
 };
 
 export const FareConfigScreen = () => {
-  const { colors } = useTheme();
-  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
+  const { colors, isDark } = useTheme();
+  const styles = typeof getStyles === 'function' ? getStyles(colors, isDark) : {} as any;
   const [activeTab, setActiveTab] = useState<"delhi" | "interstate">("delhi");
   const [delhiSlabs, setDelhiSlabs] = useState<FareSlab[]>([]);
   const [interstateSlabs, setInterstateSlabs] = useState<FareSlab[]>([]);
@@ -331,7 +331,7 @@ export const FareConfigScreen = () => {
                   </View>
                   <View style={styles.fareBlock}>
                     <Text style={styles.fareLabel}>AC Fare</Text>
-                    <Text style={[styles.fareValue, { color: colors.primary }]}>
+                    <Text style={[styles.fareValue, { color: isDark ? colors.text : colors.primary }]}>
                       ₹{slab.acFare}
                     </Text>
                   </View>
@@ -343,7 +343,7 @@ export const FareConfigScreen = () => {
                   style={[styles.actionButton, styles.editButton]}
                   onPress={() => openEditModal(slab, index)}
                 >
-                  <Edit size={16} color={colors.primary} />
+                  <Edit size={16} color={isDark ? colors.text : colors.primary} />
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.actionButton, styles.deleteButton]}
@@ -466,29 +466,29 @@ export const FareConfigScreen = () => {
   );
 };
 
-const getStyles = (colors: any) => StyleSheet.create({
+const getStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   tabContainer: {
     flexDirection: "row",
     backgroundColor: colors.surfaceMuted,
-    padding: 6,
+    padding: 4,
     marginHorizontal: SPACING.xl,
     marginTop: SPACING.lg,
-    borderRadius: RADIUS.md,
-    gap: 6,
+    borderRadius: RADIUS.pill,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 9,
     alignItems: "center",
-    borderRadius: RADIUS.sm,
+    borderRadius: RADIUS.pill,
   },
   tabButtonActive: {
-    backgroundColor: colors.white,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...SHADOWS.card,
   },
   tabButtonText: {
     fontSize: 13,
@@ -496,7 +496,8 @@ const getStyles = (colors: any) => StyleSheet.create({
     fontWeight: "700",
   },
   tabButtonTextActive: {
-    color: colors.primary,
+    color: colors.accent,
+    fontWeight: "800",
   },
   container: {
     flex: 1,
@@ -510,7 +511,11 @@ const getStyles = (colors: any) => StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     padding: 16,
-    marginBottom: 10,
+    marginBottom: 12,
+    borderRadius: RADIUS.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...SHADOWS.card,
   },
   slabInfo: {
     flex: 1,
@@ -519,15 +524,17 @@ const getStyles = (colors: any) => StyleSheet.create({
   distanceBlock: {},
   slabLabel: {
     fontSize: 9,
-    fontWeight: "800",
-    color: colors.textMuted,
+    fontWeight: "700",
+    color: colors.textSubtle,
     textTransform: "uppercase",
+    letterSpacing: 0.6,
   },
   slabValue: {
     fontSize: 16,
     fontWeight: "800",
     color: colors.text,
     marginTop: 2,
+    letterSpacing: -0.2,
   },
   fareGrid: {
     flexDirection: "row",
@@ -535,10 +542,11 @@ const getStyles = (colors: any) => StyleSheet.create({
   },
   fareBlock: {},
   fareLabel: {
-    fontSize: 8,
-    fontWeight: "800",
-    color: colors.textMuted,
+    fontSize: 9,
+    fontWeight: "700",
+    color: colors.textSubtle,
     textTransform: "uppercase",
+    letterSpacing: 0.6,
   },
   fareValue: {
     fontSize: 14,
@@ -631,7 +639,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.primary,
+    backgroundColor: isDark ? colors.accent : colors.primary,
   },
   modalSaveText: {
     fontSize: 14,

@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Modal,
   TouchableOpacity,
-  Animated,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -16,7 +15,7 @@ const IconWrapper = (name: any) => (props: any) => (
 const AlertTriangle = IconWrapper('alert');
 const Info = IconWrapper('information-outline');
 import { useTheme } from '../core/ThemeContext';
-import { RADIUS, SHADOWS, SPACING  } from '../core/theme';
+import { SHADOWS } from '../core/theme';
 
 
 interface ConfirmationModalProps {

@@ -29,7 +29,7 @@ const Star = IconWrapper('star');
 
 const UserCard = React.memo(({ item, userRevenue, initiateDelete, initiateStatusToggle, setSelectedUser }: any) => {
   const { colors, isDark } = useTheme();
-  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
+  const styles = typeof getStyles === 'function' ? getStyles(colors, isDark) : {} as any;
   const banned = item.status === 'BANNED';
   const isAdmin = item.role === 'admin';
   const revenue = userRevenue[item.id] || 0;
@@ -105,7 +105,7 @@ type FilterType = 'ALL' | 'ACTIVE' | 'BANNED' | 'ADMINS';
 
 export const UsersListScreen = () => {
   const { colors, isDark } = useTheme();
-  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
+  const styles = typeof getStyles === 'function' ? getStyles(colors, isDark) : {} as any;
   const [, startTransition] = useTransition();
   const [users, setUsers] = useState<any[]>([]);
   const [userRevenue, setUserRevenue] = useState<Record<string, number>>({});
@@ -284,7 +284,7 @@ export const UsersListScreen = () => {
       
       <View style={styles.controls}>
         <SearchField
-          placeholder="Search by name or email..."
+          placeholder="Search by name, email, or mobile..."
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
@@ -305,7 +305,7 @@ export const UsersListScreen = () => {
       </View>
 
       {loading ? (
-        <LoadingState label="Indexing users..." />
+        <LoadingState label="Loading users..." />
       ) : (
         <FlashList
           data={filteredUsers}
@@ -317,8 +317,8 @@ export const UsersListScreen = () => {
           ListEmptyComponent={
             <EmptyState 
               icon={<Search size={30} color={colors.textSubtle} />} 
-              title={`No ${activeFilter.toLowerCase()} users`} 
-              message="No records found matching your search or filter." 
+              title={activeFilter === 'ALL' ? 'No Users Found' : `No ${activeFilter.charAt(0) + activeFilter.slice(1).toLowerCase()} Users`} 
+              message="No registered users match your search criteria or filter." 
             />
           }
         />
@@ -345,7 +345,7 @@ export const UsersListScreen = () => {
   );
 };
 
-function getStyles(colors: any) {
+function getStyles(colors: any, isDark: boolean) {
   return StyleSheet.create({
   controls: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg, gap: 12 },
   filterBar: { gap: 8, paddingBottom: 4 },
@@ -358,8 +358,8 @@ function getStyles(colors: any) {
     borderColor: colors.border 
   },
   filterTabActive: { 
-    backgroundColor: colors.primary, 
-    borderColor: colors.primary 
+    backgroundColor: isDark ? colors.accent : colors.primary, 
+    borderColor: isDark ? colors.accent : colors.primary 
   },
   filterText: { fontSize: 11, fontWeight: '800', color: colors.textMuted },
   filterTextActive: { color: colors.white },
@@ -367,8 +367,8 @@ function getStyles(colors: any) {
   list: { padding: SPACING.xl, paddingBottom: 40 },
   userCard: { 
     backgroundColor: colors.surface, 
-    borderRadius: RADIUS.lg, 
-    padding: 14, 
+    borderRadius: RADIUS.card, 
+    padding: 16, 
     marginBottom: 12, 
     borderWidth: 1, 
     borderColor: colors.border, 
@@ -378,11 +378,11 @@ function getStyles(colors: any) {
     borderColor: colors.errorSoft,
     backgroundColor: colors.surfaceMuted,
   },
-  cardMain: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  cardMain: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatar: { 
-    width: 40, 
-    height: 40, 
-    borderRadius: RADIUS.md, 
+    width: 42, 
+    height: 42, 
+    borderRadius: RADIUS.lg, 
     justifyContent: 'center', 
     alignItems: 'center',
     borderWidth: 1,
@@ -393,7 +393,7 @@ function getStyles(colors: any) {
   },
   avatarAdmin: {
     backgroundColor: colors.primarySoft,
-    borderColor: 'rgba(11, 18, 32, 0.15)',
+    borderColor: isDark ? colors.border : 'rgba(11, 18, 32, 0.15)',
   },
   avatarBanned: {
     backgroundColor: colors.errorSoft,
@@ -401,24 +401,24 @@ function getStyles(colors: any) {
   },
   userInfo: { flex: 1, minWidth: 0 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  userName: { fontSize: 14, fontWeight: '800', color: colors.text, flexShrink: 1 },
+  userName: { fontSize: 15, fontWeight: '800', color: colors.text, flexShrink: 1 },
   vipBadge: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     gap: 3, 
     backgroundColor: '#FEF3C7', 
-    paddingHorizontal: 6, 
+    paddingHorizontal: 7, 
     paddingVertical: 2, 
-    borderRadius: RADIUS.xs, 
+    borderRadius: RADIUS.pill, 
     borderWidth: 1, 
     borderColor: '#FDE68A' 
   },
   vipText: { fontSize: 9, fontWeight: '900', color: '#B45309' },
-  userEmail: { fontSize: 11, color: colors.textMuted, marginTop: 1, fontWeight: '600' },
+  userEmail: { fontSize: 12, color: colors.textMuted, marginTop: 1, fontWeight: '600' },
   statusRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 6 },
   deleteBtn: { 
-    width: 36, 
-    height: 36, 
+    width: 38, 
+    height: 38, 
     alignItems: 'center', 
     justifyContent: 'center', 
     backgroundColor: colors.errorSoft, 

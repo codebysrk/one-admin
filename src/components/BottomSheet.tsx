@@ -21,7 +21,7 @@ const IconWrapper = (name: any) => (props: any) => (
 
 const X = IconWrapper('close');
 import { useTheme } from '../core/ThemeContext';
-import { RADIUS, SHADOWS, SPACING  } from '../core/theme';
+import { SHADOWS } from '../core/theme';
 
 
 interface BottomSheetProps {

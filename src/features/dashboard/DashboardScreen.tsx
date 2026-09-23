@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
   useWindowDimensions,
   StatusBar,
   RefreshControl,
@@ -39,7 +38,6 @@ import {
   AdminPressable,
   Card,
   SectionHeader,
-  LoadingState,
   SkeletonBlock,
 } from "../../components/AdminUI";
 
@@ -653,7 +651,7 @@ export const DashboardScreen = () => {
               </View>
             ))
           ) : topRoutes.length === 0 ? (
-            <Text style={styles.noData}>Collecting route data...</Text>
+            <Text style={styles.noData}>No route activity recorded yet</Text>
           ) : (
             topRoutes.map((route, idx) => (
               <AdminPressable
@@ -824,7 +822,7 @@ export const DashboardScreen = () => {
               </View>
             ))
           ) : liveTickets.length === 0 ? (
-            <Text style={styles.noData}>Waiting for bookings...</Text>
+            <Text style={styles.noData}>No recent ticket bookings</Text>
           ) : (
             liveTickets.map((ticket, index) => (
               <TicketItem
@@ -888,13 +886,17 @@ export const DashboardScreen = () => {
                   </View>
                 </View>
               ))
-            : activities.map((log: any, index) => (
-                <ActivityItem
-                  key={log.id}
-                  log={log}
-                  isLast={index === activities.length - 1}
-                />
-              ))}
+            : activities.length === 0 ? (
+                <Text style={styles.noData}>No recent security activity</Text>
+              ) : (
+                activities.map((log: any, index) => (
+                  <ActivityItem
+                    key={log.id}
+                    log={log}
+                    isLast={index === activities.length - 1}
+                  />
+                ))
+              )}
         </Card>
       </ScrollView>
     </View>
@@ -922,12 +924,12 @@ function getStyles(colors: any) {
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
-      marginBottom: 4,
+      marginBottom: 3,
     },
     statusDot: {
-      width: 7,
-      height: 7,
-      borderRadius: 3.5,
+      width: 5,
+      height: 5,
+      borderRadius: 2.5,
       backgroundColor: colors.success,
     },
     greeting: {
@@ -935,13 +937,13 @@ function getStyles(colors: any) {
       color: colors.textSubtle,
       fontWeight: "700",
       textTransform: "uppercase",
-      letterSpacing: 0.8,
+      letterSpacing: 1.2,
     },
     adminName: {
-      fontSize: 22,
+      fontSize: 20,
       fontWeight: "800",
       color: colors.text,
-      letterSpacing: -0.3,
+      letterSpacing: -0.4,
     },
     profileBtn: {
       width: 38,
@@ -962,15 +964,15 @@ function getStyles(colors: any) {
     statsGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      gap: 10,
-      marginBottom: 14,
+      gap: 12,
+      marginBottom: 16,
     },
     statCard: {
-      width: "48%",
+      width: "47%",
       flexGrow: 1,
       marginBottom: 0,
-      padding: 14,
-      borderRadius: RADIUS.lg,
+      padding: 16,
+      borderRadius: RADIUS.card,
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surface,
@@ -980,45 +982,45 @@ function getStyles(colors: any) {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
-      marginBottom: 10,
+      marginBottom: 12,
     },
     statIcon: {
-      width: 30,
-      height: 30,
-      borderRadius: RADIUS.sm,
+      width: 34,
+      height: 34,
+      borderRadius: RADIUS.md,
       alignItems: "center",
       justifyContent: "center",
     },
     statBadge: {
-      paddingHorizontal: 7,
-      paddingVertical: 2,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
       borderRadius: RADIUS.pill,
     },
     statBadgeText: {
       fontSize: 9,
-      fontWeight: "700",
+      fontWeight: "800",
       textTransform: "uppercase",
-      letterSpacing: 0.3,
+      letterSpacing: 0.5,
     },
     statValue: {
       color: colors.text,
-      fontSize: 22,
-      fontWeight: "800",
-      letterSpacing: -0.4,
-      marginBottom: 2,
+      fontSize: 24,
+      fontWeight: "900",
+      letterSpacing: -0.5,
+      marginBottom: 3,
     },
-    statLabel: { color: colors.textMuted, fontSize: 11, fontWeight: "600" },
+    statLabel: { color: colors.textMuted, fontSize: 11, fontWeight: "700" },
     statFooterRow: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      marginTop: 4,
+      marginTop: 6,
     },
     quickActionsContainer: {
       flexDirection: "row",
       justifyContent: "space-between",
       gap: 8,
-      marginBottom: 16,
+      marginBottom: 18,
     },
     quickActionBtn: {
       flex: 1,
@@ -1026,38 +1028,39 @@ function getStyles(colors: any) {
       borderWidth: 1,
       borderColor: colors.border,
       borderRadius: RADIUS.lg,
-      paddingVertical: 10,
+      paddingVertical: 12,
       alignItems: "center",
       justifyContent: "center",
       ...SHADOWS.card,
     },
     quickActionIconShell: {
-      width: 34,
-      height: 34,
-      borderRadius: RADIUS.sm,
+      width: 38,
+      height: 38,
+      borderRadius: RADIUS.md,
       alignItems: "center",
       justifyContent: "center",
       marginBottom: 6,
     },
     quickActionLabel: {
-      fontSize: 10,
-      fontWeight: "700",
+      fontSize: 11,
+      fontWeight: "800",
       color: colors.text,
       letterSpacing: 0.2,
     },
     chartCard: {
       padding: 16,
       marginBottom: 20,
-      borderRadius: RADIUS.lg,
+      borderRadius: RADIUS.card,
       borderWidth: 1,
       borderColor: colors.border,
+      ...SHADOWS.card,
     },
     chartFrame: { marginTop: 12 },
     chart: { marginLeft: -15 },
     routesGrid: {
       backgroundColor: colors.surface,
-      borderRadius: RADIUS.lg,
-      padding: 14,
+      borderRadius: RADIUS.card,
+      padding: 16,
       marginBottom: 20,
       borderWidth: 1,
       borderColor: colors.border,

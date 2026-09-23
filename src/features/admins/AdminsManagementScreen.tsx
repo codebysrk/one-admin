@@ -33,7 +33,7 @@ const ALL_PERMISSIONS: { key: AdminPermission; label: string; desc: string }[] =
 
 export const AdminsManagementScreen = () => {
   const { colors, isDark } = useTheme();
-  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
+  const styles = typeof getStyles === 'function' ? getStyles(colors, isDark) : {} as any;
   const [admins, setAdmins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -235,18 +235,24 @@ export const AdminsManagementScreen = () => {
       />
 
       <View style={styles.searchBoxContainer}>
-        <SearchField placeholder="Find an administrator..." value={searchQuery} onChangeText={setSearchQuery} />
+        <SearchField placeholder="Search by name or email..." value={searchQuery} onChangeText={setSearchQuery} />
       </View>
 
       {loading ? (
-        <LoadingState label="Verifying access..." />
+        <LoadingState label="Loading administrators..." />
       ) : (
         <FlashList
           data={admins.filter(a => a.email?.toLowerCase().includes(searchQuery.toLowerCase()) || a.name?.toLowerCase().includes(searchQuery.toLowerCase()))}
           keyExtractor={(item) => item.id}
           renderItem={renderAdminItem}
           contentContainerStyle={styles.list}
-          ListEmptyComponent={<EmptyState icon={<ShieldAlert size={30} color={colors.textSubtle} />} title="No admins found" message="Add a new administrator to help manage the system." />}
+          ListEmptyComponent={
+            <EmptyState 
+              icon={<ShieldAlert size={30} color={colors.textSubtle} />} 
+              title="No Administrators Found" 
+              message="No administrator matches your search. Tap + to add an admin." 
+            />
+          }
         />
       )}
 
@@ -276,7 +282,7 @@ export const AdminsManagementScreen = () => {
                 activeOpacity={0.7}
               >
                 <View style={styles.permIcon}>
-                  {hasPerm ? <CheckSquare size={20} color={isDark ? colors.text : colors.primary} /> : <Square size={20} color={colors.textSubtle} />}
+                  {hasPerm ? <CheckSquare size={20} color={isDark ? colors.accent : colors.primary} /> : <Square size={20} color={colors.textSubtle} />}
                 </View>
                 <View style={styles.permContent}>
                   <Text style={[styles.permLabel, hasPerm && styles.permLabelActive]}>{perm.label}</Text>
@@ -306,7 +312,7 @@ export const AdminsManagementScreen = () => {
           <View style={styles.inviteBox}>
             <Text style={styles.inputLabel}>USER EMAIL ADDRESS</Text>
             <SearchField 
-              placeholder="Search by email..." 
+              placeholder="e.g. user@gmail.com" 
               value={inviteEmail} 
               onChangeText={setInviteEmail} 
             />
@@ -330,39 +336,39 @@ export const AdminsManagementScreen = () => {
   );
 };
 
-const getStyles = (colors: any) => StyleSheet.create({
+const getStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   list: { padding: SPACING.xl, paddingBottom: 40 },
   searchBoxContainer: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg, marginBottom: 12 },
   adminCard: { 
     backgroundColor: colors.surface, 
-    borderRadius: RADIUS.lg, 
-    padding: 14, 
+    borderRadius: RADIUS.card, 
+    padding: 16, 
     marginBottom: 12, 
     borderWidth: 1, 
     borderColor: colors.border, 
     ...SHADOWS.card 
   },
-  adminHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 10 },
+  adminHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 12 },
   adminAvatar: { 
-    width: 36, 
-    height: 36, 
-    borderRadius: RADIUS.md, 
+    width: 40, 
+    height: 40, 
+    borderRadius: RADIUS.lg, 
     backgroundColor: colors.primarySoft, 
     borderWidth: 1,
-    borderColor: 'rgba(11, 18, 32, 0.15)',
+    borderColor: isDark ? colors.border : 'rgba(11, 18, 32, 0.12)',
     alignItems: 'center', 
     justifyContent: 'center',
   },
   adminInfo: { flex: 1, minWidth: 0 },
-  adminName: { fontSize: 14, fontWeight: '800', color: colors.text },
-  adminEmail: { fontSize: 11, color: colors.textMuted, marginTop: 1, fontWeight: '600' },
+  adminName: { fontSize: 15, fontWeight: '800', color: colors.text },
+  adminEmail: { fontSize: 12, color: colors.textMuted, marginTop: 1, fontWeight: '600' },
   deleteBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: RADIUS.md,
+    width: 38,
+    height: 38,
+    borderRadius: RADIUS.lg,
     backgroundColor: colors.errorSoft,
     borderWidth: 1,
-    borderColor: '#FECDD3',
+    borderColor: isDark ? colors.error + '44' : '#FECDD3',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -378,13 +384,13 @@ const getStyles = (colors: any) => StyleSheet.create({
   },
   rightBadge: { 
     backgroundColor: colors.surfaceMuted, 
-    paddingHorizontal: 8, 
+    paddingHorizontal: 10, 
     paddingVertical: 4, 
-    borderRadius: RADIUS.sm, 
+    borderRadius: RADIUS.pill, 
     borderWidth: 1, 
     borderColor: colors.border 
   },
-  rightBadgeText: { fontSize: 9, fontWeight: '800', color: colors.textMuted, textTransform: 'uppercase' },
+  rightBadgeText: { fontSize: 9, fontWeight: '800', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.4 },
   moreRights: { fontSize: 10, color: colors.accent, fontWeight: '700' },
   noRights: { fontSize: 11, color: colors.error, fontWeight: '600', fontStyle: 'italic' },
   cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -396,17 +402,18 @@ const getStyles = (colors: any) => StyleSheet.create({
   permIcon: { marginTop: 1 },
   permContent: { flex: 1 },
   permLabel: { fontSize: 14, fontWeight: '700', color: colors.text },
-  permLabelActive: { color: colors.background === '#000000' ? colors.text : colors.primary, fontWeight: '800' },
+  permLabelActive: { color: isDark ? colors.accent : colors.primary, fontWeight: '800' },
   permDesc: { fontSize: 11, color: colors.textMuted, marginTop: 2, lineHeight: 16 },
   saveBtn: { 
-    backgroundColor: colors.primary, 
-    height: 44, 
+    backgroundColor: isDark ? colors.accent : colors.primary, 
+    height: 48, 
     borderRadius: RADIUS.md, 
     alignItems: 'center', 
     justifyContent: 'center', 
     marginTop: 20, 
+    ...SHADOWS.card,
   },
-  saveBtnText: { color: colors.white, fontSize: 13, fontWeight: '800' },
+  saveBtnText: { color: colors.white, fontSize: 14, fontWeight: '800' },
 
   superAdminNotice: { 
     flexDirection: 'row', 

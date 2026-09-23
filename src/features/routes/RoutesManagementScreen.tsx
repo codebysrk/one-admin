@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Modal, TextInput, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, PanResponder, Animated, FlatList } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, TextInput, ScrollView, Platform, PanResponder, Animated, FlatList } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
+import { Swipeable } from 'react-native-gesture-handler';
 import { supabase } from '../../services/supabase';
 import { useTheme } from '../../core/ThemeContext';
-import { RADIUS, SHADOWS, SPACING  } from '../../core/theme';
+import { RADIUS, SHADOWS } from '../../core/theme';
 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -16,17 +17,13 @@ const Plus = IconWrapper('plus');
 const Trash2 = IconWrapper('trash-can-outline');
 const Bus = IconWrapper('bus');
 const X = IconWrapper('close');
-const MapPin = IconWrapper('map-marker');
 const ChevronRight = IconWrapper('chevron-right');
-const Navigation = IconWrapper('navigation');
-const Map = IconWrapper('map-outline');
-const Hash = IconWrapper('pound');
 const ArrowRightLeft = IconWrapper('swap-horizontal');
 const FileJson = IconWrapper('file-document-outline');
 const ContentPaste = IconWrapper('content-paste');
 const DragIcon = IconWrapper('drag-vertical');
 
-import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, ReasonModal, SearchField, AdminBottomSheet, ConfirmationModal } from '../../components/AdminUI';
+import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField, AdminBottomSheet } from '../../components/AdminUI';
 import { logActivity } from '../../services/logService';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as DocumentPicker from 'expo-document-picker';
@@ -189,7 +186,7 @@ const DraggableStopRow = React.memo(({
           style={styles.stopInput}
           value={stop}
           onChangeText={(text) => propsRef.current.onChangeText(propsRef.current.index, text)}
-          placeholder={`Stop #${index + 1}`}
+          placeholder={`Bus Stop #${index + 1}`}
           placeholderTextColor={colors.textSubtle}
         />
 
@@ -470,7 +467,7 @@ const StopSequenceEditor = ({ stops, onChangeStops, styles: propStyles }: StopSe
               style={styles.bulkModalInput}
               value={bulkText}
               onChangeText={setBulkText}
-              placeholder={"Example:\nStop A\nStop B\nStop C"}
+              placeholder={"Example:\nKashmere Gate ISBT\nRed Fort\nDelhi Gate\nITO\nPragati Maidan"}
               placeholderTextColor={colors.textSubtle}
               multiline
             />
@@ -513,16 +510,203 @@ const StopSequenceEditor = ({ stops, onChangeStops, styles: propStyles }: StopSe
   );
 };
 
+let activeRouteSwipeableRow: any = null;
+
+const RouteCard = React.memo(({ item, onEdit, onDelete, colors, styles }: any) => {
+  const swipeableRef = useRef<Swipeable>(null);
+  const pressScale = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = useCallback(() => {
+    Animated.spring(pressScale, {
+      toValue: 0.985,
+      speed: 60,
+      bounciness: 4,
+      useNativeDriver: true,
+    }).start();
+  }, [pressScale]);
+
+  const handlePressOut = useCallback(() => {
+    Animated.spring(pressScale, {
+      toValue: 1,
+      speed: 50,
+      bounciness: 4,
+      useNativeDriver: true,
+    }).start();
+  }, [pressScale]);
+
+  const handleSwipeableWillOpen = useCallback(() => {
+    if (activeRouteSwipeableRow && activeRouteSwipeableRow !== swipeableRef.current) {
+      try {
+        activeRouteSwipeableRow.close();
+      } catch {
+        // ignore
+      }
+    }
+    activeRouteSwipeableRow = swipeableRef.current;
+  }, []);
+
+  const handleSwipeableClose = useCallback(() => {
+    if (activeRouteSwipeableRow === swipeableRef.current) {
+      activeRouteSwipeableRow = null;
+    }
+  }, []);
+
+  const handleSwipeDelete = useCallback(() => {
+    swipeableRef.current?.close();
+    if (activeRouteSwipeableRow === swipeableRef.current) {
+      activeRouteSwipeableRow = null;
+    }
+    onDelete?.(item.id);
+  }, [onDelete, item.id]);
+
+  const renderRightActions = useCallback(
+    (_progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
+      const opacity = dragX.interpolate({
+        inputRange: [-80, -40],
+        outputRange: [1, 0],
+        extrapolate: 'clamp',
+      });
+      return (
+        <Animated.View style={[styles.routeSwipeDeleteAction, { opacity }]}>
+          <TouchableOpacity
+            style={styles.routeSwipeDeleteBtn}
+            onPress={handleSwipeDelete}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Delete route"
+          >
+            <Trash2 size={20} color={colors.white} />
+            <Text style={styles.routeSwipeDeleteText}>Delete</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      );
+    },
+    [styles, colors.white, handleSwipeDelete]
+  );
+
+  const upStopsCount = item.directions?.up?.totalStops || item.directions?.up?.stops?.length || 0;
+  const downStopsCount = item.directions?.down?.totalStops || item.directions?.down?.stops?.length || 0;
+  const isBidirectional = Boolean(upStopsCount > 0 && downStopsCount > 0);
+  const intermediateCount = Math.max(0, upStopsCount - 2);
+
+  const originName = item.directions?.up?.from || item.directions?.up?.stops?.[0] || 'Origin Terminal';
+  const destName = item.directions?.up?.to || item.directions?.up?.stops?.[item.directions?.up?.stops?.length - 1] || 'Destination Terminal';
+
+  return (
+    <Swipeable
+      ref={swipeableRef}
+      renderRightActions={renderRightActions}
+      rightThreshold={40}
+      friction={2}
+      overshootRight={false}
+      onSwipeableWillOpen={handleSwipeableWillOpen}
+      onSwipeableClose={handleSwipeableClose}
+    >
+      <Animated.View style={[styles.routeCardContainer, { transform: [{ scale: pressScale }] }]}>
+        <TouchableOpacity
+          style={styles.routeCard}
+          onPress={() => onEdit(item)}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          activeOpacity={0.9}
+        >
+          {/* Top Header Row */}
+          <View style={styles.routeCardHeader}>
+            <View style={styles.routeHeaderLeft}>
+              {/* Route Line Pill */}
+              <View style={styles.routePill}>
+                <Bus size={13} color={colors.white} />
+                <Text style={styles.routeNumberText}>{item.route}</Text>
+              </View>
+
+              {/* Way Mode Badge */}
+              <View style={[styles.routeModeBadge, isBidirectional ? styles.twoWayBadge : styles.oneWayBadge]}>
+                <ArrowRightLeft size={10} color={isBidirectional ? colors.accent : colors.textMuted} />
+                <Text style={[styles.routeModeText, { color: isBidirectional ? colors.accent : colors.textMuted }]}>
+                  {isBidirectional ? '2-WAY' : '1-WAY'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.routeHeaderRight}>
+              <View style={styles.stopsBadge}>
+                <Text style={styles.stopsBadgeText}>{upStopsCount} STOPS</Text>
+              </View>
+              <View style={styles.routeActionCircle}>
+                <ChevronRight size={14} color={colors.textMuted} />
+              </View>
+            </View>
+          </View>
+
+          {/* Transit Wayfinding Corridor */}
+          <View style={styles.routeCorridor}>
+            <View style={styles.corridorTrack}>
+              <View style={styles.corridorOriginDot} />
+              <View style={styles.corridorLine} />
+              <View style={styles.corridorDestDot} />
+            </View>
+
+            <View style={styles.corridorStops}>
+              {/* Origin Terminal */}
+              <View style={styles.corridorStopBlock}>
+                <Text style={styles.corridorCaption}>FROM</Text>
+                <Text style={styles.corridorStopName} numberOfLines={1}>
+                  {originName}
+                </Text>
+              </View>
+
+              {/* Intermediate via indicator */}
+              <View style={styles.corridorViaRow}>
+                <Text style={styles.corridorViaText}>
+                  {intermediateCount > 0 ? `via ${intermediateCount} intermediate stops` : 'Direct corridor'}
+                </Text>
+              </View>
+
+              {/* Destination Terminal */}
+              <View style={styles.corridorStopBlock}>
+                <Text style={styles.corridorCaption}>TO</Text>
+                <Text style={[styles.corridorStopName, styles.corridorDestName]} numberOfLines={1}>
+                  {destName}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Bottom Summary Bar */}
+          <View style={styles.routeCardFooter}>
+            <View style={styles.dirChipsContainer}>
+              <View style={styles.dirMiniChip}>
+                <Text style={styles.dirMiniChipLabel}>UP</Text>
+                <Text style={styles.dirMiniChipValue}>{upStopsCount} stops</Text>
+              </View>
+              <View style={styles.dirMiniChip}>
+                <Text style={styles.dirMiniChipLabel}>DN</Text>
+                <Text style={styles.dirMiniChipValue}>{downStopsCount} stops</Text>
+              </View>
+            </View>
+
+            <View style={styles.configureLink}>
+              <Text style={styles.configureLinkText}>Configure</Text>
+              <ChevronRight size={13} color={colors.accent} />
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    </Swipeable>
+  );
+});
+
 export const RoutesManagementScreen = () => {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => (typeof getStyles === 'function' ? getStyles(colors) : ({} as any)), [colors]);
   const [routes, setRoutes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [confirmModal, setConfirmModal] = useState({ visible: false, routeId: '' });
   const [searchQuery, setSearchQuery] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [editingRoute, setEditingRoute] = useState<any>(null);
-  const [reasonModal, setReasonModal] = useState({ visible: false, title: '', type: '', data: null as any });
+  const insets = useSafeAreaInsets();
+  const [toastVisible, setToastVisible] = useState(false);
+  const pendingDeleteRef = useRef<{ id: string; route: any; timer: ReturnType<typeof setTimeout> | null } | null>(null);
 
   // Form State
   const [routeNumber, setRouteNumber] = useState('');
@@ -645,15 +829,67 @@ export const RoutesManagementScreen = () => {
     }
   };
 
-  const handleConfirmedDelete = async (reason: string) => {
-    const id = reasonModal.data;
+  const commitPendingDelete = useCallback(async () => {
+    if (!pendingDeleteRef.current) return;
+    const { id } = pendingDeleteRef.current;
+    pendingDeleteRef.current = null;
+    setToastVisible(false);
+
     try {
       const { error } = await supabase.from('routes').delete().eq('id', id);
       if (error) throw error;
-      setReasonModal({ ...reasonModal, visible: false });
+      await logActivity({
+        type: 'ADMIN',
+        action: 'ROUTE_DELETED',
+        details: `Route ${id} was deleted.`,
+        targetId: id,
+        targetType: 'ROUTE',
+      });
+    } catch (error) {
       fetchRoutes();
-    } catch (err) { Alert.alert('Error', 'Deletion failed'); }
-  };
+      Alert.alert('Error', 'Deletion failed.');
+    }
+  }, [fetchRoutes]);
+
+  const handleDeleteRoute = useCallback((id: string) => {
+    if (pendingDeleteRef.current) {
+      if (pendingDeleteRef.current.timer) clearTimeout(pendingDeleteRef.current.timer);
+      commitPendingDelete();
+    }
+
+    const routeToDelete = routes.find((r) => r.id === id);
+    if (!routeToDelete) return;
+
+    // Optimistically remove from state immediately
+    setRoutes((prev) => prev.filter((r) => r.id !== id));
+    setToastVisible(true);
+
+    const timer = setTimeout(() => {
+      commitPendingDelete();
+    }, 4000);
+
+    pendingDeleteRef.current = { id, route: routeToDelete, timer };
+  }, [routes, commitPendingDelete]);
+
+  const handleUndo = useCallback(() => {
+    if (!pendingDeleteRef.current) return;
+    const { route, timer } = pendingDeleteRef.current;
+    if (timer) clearTimeout(timer);
+    pendingDeleteRef.current = null;
+    setToastVisible(false);
+
+    // Restore route back into list
+    setRoutes((prev) => [route, ...prev]);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (pendingDeleteRef.current) {
+        if (pendingDeleteRef.current.timer) clearTimeout(pendingDeleteRef.current.timer);
+        commitPendingDelete();
+      }
+    };
+  }, [commitPendingDelete]);
 
   const resetForm = () => {
     setRouteNumber('');
@@ -663,7 +899,7 @@ export const RoutesManagementScreen = () => {
     setActiveDirection('up');
   };
 
-  const startEdit = (route: any) => {
+  const startEdit = useCallback((route: any) => {
     setEditingRoute(route);
     setRouteNumber(route.route);
     setUpFrom(route.directions?.up?.from || '');
@@ -674,7 +910,7 @@ export const RoutesManagementScreen = () => {
     setDownStops(route.directions?.down?.stops || []);
     setActiveDirection('up');
     setModalVisible(true);
-  };
+  }, []);
 
   const filteredRoutes = useMemo(() => {
     if (!searchQuery.trim()) return routes;
@@ -684,42 +920,18 @@ export const RoutesManagementScreen = () => {
 
   const getStopCount = (arr: string[]) => arr.filter(s => s.trim().length > 0).length;
 
-  const renderRouteItem = useCallback(({ item }: any) => (
-    <TouchableOpacity style={styles.routeCard} onPress={() => startEdit(item)} activeOpacity={0.82}>
-      <View style={styles.cardHeader}>
-        <View style={styles.routeIconBox}>
-          <Bus size={22} color={colors.white} />
-        </View>
-        <View style={styles.routeMeta}>
-          <Text style={styles.routeTitle}>{item.route}</Text>
-          <Text style={styles.stopInfo}>{item.directions?.up?.totalStops || 0} stops • 2-way</Text>
-        </View>
-        <TouchableOpacity 
-          onPress={() => setConfirmModal({ visible: true, routeId: item.id })} 
-          style={styles.miniBtn}
-        >
-          <Trash2 size={16} color={colors.error} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.pathPreview}>
-        <View style={styles.pathNode}>
-           <MapPin size={12} color={colors.success} />
-           <Text style={styles.pathText} numberOfLines={1}>{item.directions?.up?.from || 'Origin'}</Text>
-        </View>
-        <View style={styles.pathConnector} />
-        <View style={styles.pathNode}>
-           <MapPin size={12} color={colors.error} />
-           <Text style={styles.pathText} numberOfLines={1}>{item.directions?.up?.to || 'Dest'}</Text>
-        </View>
-      </View>
-
-      <View style={styles.cardFooter}>
-         <Text style={styles.footerInfo}>Tap to configure network</Text>
-         <ChevronRight size={14} color={colors.accent} />
-      </View>
-    </TouchableOpacity>
-  ), [styles, colors]);
+  const renderRouteItem = useCallback(
+    ({ item }: any) => (
+      <RouteCard
+        item={item}
+        onEdit={startEdit}
+        onDelete={handleDeleteRoute}
+        colors={colors}
+        styles={styles}
+      />
+    ),
+    [startEdit, handleDeleteRoute, colors, styles]
+  );
 
   return (
     <AdminScreen>
@@ -746,18 +958,24 @@ export const RoutesManagementScreen = () => {
       />
 
       <View style={styles.searchBar}>
-        <SearchField placeholder="Find a route line..." value={searchQuery} onChangeText={setSearchQuery} />
+        <SearchField placeholder="Search by route number or terminal..." value={searchQuery} onChangeText={setSearchQuery} />
       </View>
 
       {loading ? (
-        <LoadingState label="Analyzing network..." />
+        <LoadingState label="Loading routes network..." />
       ) : (
         <FlashList
           data={filteredRoutes}
           keyExtractor={(item) => item.id}
           renderItem={renderRouteItem}
           contentContainerStyle={styles.list}
-          ListEmptyComponent={<EmptyState icon={<Bus size={30} color={colors.textSubtle} />} title="No routes found" message="Try a different route number or create one." />}
+          ListEmptyComponent={
+            <EmptyState 
+              icon={<Bus size={30} color={colors.textSubtle} />} 
+              title="No Routes Found" 
+              message="No route matches your search query. Tap + to add a route." 
+            />
+          }
         />
       )}
 
@@ -874,7 +1092,7 @@ export const RoutesManagementScreen = () => {
                 <View style={[styles.terminalIndicator, { backgroundColor: activeDirection === 'up' ? '#10B981' : '#EF4444' }]} />
                 <TextInput
                   style={styles.terminalInput}
-                  placeholder={activeDirection === 'up' ? 'Origin Stop (Up)' : 'Origin Stop (Down)'}
+                  placeholder={activeDirection === 'up' ? 'Origin Terminal (e.g. Anand Vihar ISBT)' : 'Origin Terminal (e.g. Uttam Nagar)'}
                   value={activeDirection === 'up' ? upFrom : downFrom}
                   onChangeText={activeDirection === 'up' ? setUpFrom : setDownFrom}
                   placeholderTextColor={colors.textSubtle}
@@ -903,7 +1121,7 @@ export const RoutesManagementScreen = () => {
                 <View style={[styles.terminalIndicator, { backgroundColor: colors.error }]} />
                 <TextInput
                   style={styles.terminalInput}
-                  placeholder={activeDirection === 'up' ? 'Destination Stop (Up)' : 'Destination Stop (Down)'}
+                  placeholder={activeDirection === 'up' ? 'Destination Terminal (e.g. Uttam Nagar)' : 'Destination Terminal (e.g. Anand Vihar ISBT)'}
                   value={activeDirection === 'up' ? upTo : downTo}
                   onChangeText={activeDirection === 'up' ? setUpTo : setDownTo}
                   placeholderTextColor={colors.textSubtle}
@@ -950,24 +1168,16 @@ export const RoutesManagementScreen = () => {
         </View>
       </AdminBottomSheet>
 
-      <ReasonModal
-        visible={reasonModal.visible}
-        onClose={() => setReasonModal({ ...reasonModal, visible: false })}
-        title={reasonModal.title}
-        onSubmit={handleConfirmedDelete}
-      />
-
-      <ConfirmationModal
-        visible={confirmModal.visible}
-        onClose={() => setConfirmModal({ visible: false, routeId: '' })}
-        onConfirm={() => {
-          const id = confirmModal.routeId;
-          setConfirmModal({ visible: false, routeId: '' });
-          setReasonModal({ visible: true, title: `Delete Route ${id}`, type: 'DELETE_ROUTE', data: id });
-        }}
-        title="Delete Bus Line?"
-        message={`This will permanently remove Route ${confirmModal.routeId} and all its stop configurations from the network.`}
-      />
+      {toastVisible && (
+        <View style={[styles.undoToast, { bottom: Math.max(insets.bottom, 16) + 12 }]}>
+          <View style={styles.undoToastCopy}>
+            <Text style={styles.undoToastMessage}>Route deleted</Text>
+          </View>
+          <TouchableOpacity onPress={handleUndo} style={styles.undoToastBtn}>
+            <Text style={styles.undoToastBtnText}>UNDO</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </AdminScreen>
   );
 };
@@ -975,19 +1185,202 @@ export const RoutesManagementScreen = () => {
 const getStyles = (colors: any) => StyleSheet.create({
   searchBar: { paddingHorizontal: 20, paddingTop: 16 },
   list: { padding: 20, paddingBottom: 40 },
-  routeCard: { backgroundColor: colors.surface, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: colors.border, ...SHADOWS.card },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  routeIconBox: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.accent, justifyContent: 'center', alignItems: 'center', ...SHADOWS.accent },
-  routeMeta: { flex: 1, marginLeft: 14 },
-  routeTitle: { fontSize: 18, fontWeight: '800', color: colors.text },
-  stopInfo: { fontSize: 12, color: colors.textMuted, fontWeight: '600', marginTop: 2 },
-  miniBtn: { padding: 8, backgroundColor: colors.errorSoft, borderRadius: 8 },
-  pathPreview: { backgroundColor: colors.surfaceMuted, padding: 12, borderRadius: 12, marginBottom: 16 },
-  pathNode: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  pathText: { fontSize: 12, fontWeight: '700', color: colors.text, flex: 1 },
-  pathConnector: { width: 1, height: 8, backgroundColor: colors.border, marginLeft: 5, marginVertical: 2 },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12 },
-  footerInfo: { fontSize: 11, fontWeight: '700', color: colors.accent },
+  routeCardContainer: {
+    marginBottom: 12,
+  },
+  routeCard: {
+    backgroundColor: colors.surface,
+    borderRadius: RADIUS.lg,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...SHADOWS.card,
+  },
+  routeCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  routeHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  routePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.accent,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: RADIUS.sm,
+    ...SHADOWS.accent,
+  },
+  routeNumberText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  routeModeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: RADIUS.sm,
+  },
+  twoWayBadge: {
+    backgroundColor: colors.accentSoft,
+  },
+  oneWayBadge: {
+    backgroundColor: colors.surfaceMuted,
+  },
+  routeModeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  routeHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  stopsBadge: {
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: RADIUS.sm,
+  },
+  stopsBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.textMuted,
+    letterSpacing: 0.5,
+  },
+  routeActionCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  routeCorridor: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: RADIUS.md,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  corridorTrack: {
+    width: 16,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 3,
+  },
+  corridorOriginDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.success,
+  },
+  corridorLine: {
+    flex: 1,
+    width: 2,
+    backgroundColor: colors.border,
+    marginVertical: 4,
+  },
+  corridorDestDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.error,
+  },
+  corridorStops: {
+    flex: 1,
+    marginLeft: 10,
+    justifyContent: 'space-between',
+    gap: 3,
+  },
+  corridorStopBlock: {
+    gap: 1,
+  },
+  corridorCaption: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: colors.textSubtle,
+    letterSpacing: 0.8,
+  },
+  corridorStopName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  corridorDestName: {
+    color: colors.text,
+  },
+  corridorViaRow: {
+    paddingVertical: 2,
+  },
+  corridorViaText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSubtle,
+    fontStyle: 'italic',
+  },
+  routeCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  dirChipsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dirMiniChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.surfaceMuted,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: RADIUS.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  dirMiniChipLabel: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: colors.accent,
+  },
+  dirMiniChipValue: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  configureLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  configureLinkText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.accent,
+  },
   
   modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.8)', justifyContent: 'center', alignItems: 'center' },
   sheetTitle: { fontSize: 22, fontWeight: '800', color: colors.text },
@@ -1327,4 +1720,62 @@ const getStyles = (colors: any) => StyleSheet.create({
   saveBtn: { borderRadius: 10, overflow: 'hidden', ...SHADOWS.card },
   saveGrad: { height: 46, alignItems: 'center', justifyContent: 'center' },
   saveText: { color: colors.white, fontSize: 14, fontWeight: '800' },
+
+  routeSwipeDeleteAction: {
+    width: 80,
+    marginBottom: 12,
+    borderRadius: RADIUS.lg,
+    overflow: 'hidden',
+    marginLeft: 8,
+  },
+  routeSwipeDeleteBtn: {
+    flex: 1,
+    backgroundColor: colors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: RADIUS.lg,
+  },
+  routeSwipeDeleteText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  undoToast: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    backgroundColor: '#18181B',
+    borderRadius: RADIUS.lg,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    ...SHADOWS.floating,
+    elevation: 8,
+    zIndex: 9999,
+  },
+  undoToastCopy: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  undoToastMessage: {
+    color: '#F4F4F5',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  undoToastBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderRadius: RADIUS.sm,
+  },
+  undoToastBtnText: {
+    color: '#60A5FA',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
 });
