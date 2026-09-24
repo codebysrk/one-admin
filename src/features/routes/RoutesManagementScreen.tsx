@@ -16,18 +16,21 @@ const IconWrapper = (name: any) => (props: any) => (
 const Plus = IconWrapper('plus');
 const Trash2 = IconWrapper('trash-can-outline');
 const Bus = IconWrapper('bus');
+const Cash = IconWrapper('cash-multiple');
 const X = IconWrapper('close');
 const ChevronRight = IconWrapper('chevron-right');
 const ArrowRightLeft = IconWrapper('swap-horizontal');
-const FileJson = IconWrapper('file-document-outline');
+const FileJson = IconWrapper('upload');
 const ContentPaste = IconWrapper('content-paste');
 const DragIcon = IconWrapper('drag-vertical');
 
-import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField, AdminBottomSheet } from '../../components/AdminUI';
+import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField, AdminBottomSheet, UndoToast } from '../../components/AdminUI';
 import { logActivity } from '../../services/logService';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import { FareConfigScreen } from '../fare/FareConfigScreen';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
 interface DraggableStopRowProps {
   stop: string;
@@ -696,9 +699,34 @@ const RouteCard = React.memo(({ item, onEdit, onDelete, colors, styles }: any) =
   );
 });
 
-export const RoutesManagementScreen = () => {
+export const RoutesManagementScreen = ({ route }: any) => {
+  const navigation = useNavigation<any>();
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => (typeof getStyles === 'function' ? getStyles(colors) : ({} as any)), [colors]);
+  const [activeSubTab, setActiveSubTab] = useState<'routes' | 'fare'>('routes');
+
+  // Reset to default 'routes' tab when leaving screen or pressing tab bar
+  useFocusEffect(
+    useCallback(() => {
+      if (route?.params?.tab === 'fare') {
+        setActiveSubTab('fare');
+        navigation.setParams({ tab: undefined });
+      }
+
+      return () => {
+        // Reset to default 'routes' tab when navigating away
+        setActiveSubTab('routes');
+      };
+    }, [route?.params?.tab, navigation])
+  );
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('tabPress', () => {
+      setActiveSubTab('routes');
+    });
+    return unsubscribe;
+  }, [navigation]);
+
   const [routes, setRoutes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -866,7 +894,7 @@ export const RoutesManagementScreen = () => {
 
     const timer = setTimeout(() => {
       commitPendingDelete();
-    }, 4000);
+    }, 10000);
 
     pendingDeleteRef.current = { id, route: routeToDelete, timer };
   }, [routes, commitPendingDelete]);
@@ -936,9 +964,9 @@ export const RoutesManagementScreen = () => {
   return (
     <AdminScreen>
       <AdminHeader
-        title="Route Hub"
-        subtitle={`${filteredRoutes.length} network lines active`}
-        action={(
+        title={activeSubTab === 'fare' ? 'Fare Slabs' : 'Route Hub'}
+        subtitle={activeSubTab === 'fare' ? 'Distance-based tariff structure' : `${filteredRoutes.length} network lines active`}
+        action={activeSubTab === 'fare' ? null : (
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <IconButton 
               tone="neutral"
@@ -957,26 +985,57 @@ export const RoutesManagementScreen = () => {
         )}
       />
 
-      <View style={styles.searchBar}>
-        <SearchField placeholder="Search by route number or terminal..." value={searchQuery} onChangeText={setSearchQuery} />
+      {/* Segmented Sub Tabs */}
+      <View style={styles.segmentContainer}>
+        <TouchableOpacity
+          style={[styles.segmentBtn, activeSubTab === 'routes' && styles.segmentBtnActive]}
+          onPress={() => setActiveSubTab('routes')}
+          activeOpacity={0.7}
+        >
+          <Bus size={15} color={activeSubTab === 'routes' ? colors.accent : colors.textMuted} />
+          <Text style={[styles.segmentText, activeSubTab === 'routes' && styles.segmentTextActive]}>
+            Routes
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.segmentBtn, activeSubTab === 'fare' && styles.segmentBtnActive]}
+          onPress={() => setActiveSubTab('fare')}
+          activeOpacity={0.7}
+        >
+          <Cash size={15} color={activeSubTab === 'fare' ? colors.accent : colors.textMuted} />
+          <Text style={[styles.segmentText, activeSubTab === 'fare' && styles.segmentTextActive]}>
+            Fare Slabs
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {loading ? (
-        <LoadingState label="Loading routes network..." />
+      {activeSubTab === 'fare' ? (
+        <FareConfigScreen hideHeader />
       ) : (
-        <FlashList
-          data={filteredRoutes}
-          keyExtractor={(item) => item.id}
-          renderItem={renderRouteItem}
-          contentContainerStyle={styles.list}
-          ListEmptyComponent={
-            <EmptyState 
-              icon={<Bus size={30} color={colors.textSubtle} />} 
-              title="No Routes Found" 
-              message="No route matches your search query. Tap + to add a route." 
+        <>
+          <View style={styles.searchBar}>
+            <SearchField placeholder="Search by route number or terminal..." value={searchQuery} onChangeText={setSearchQuery} />
+          </View>
+
+          {loading ? (
+            <LoadingState label="Loading routes network..." />
+          ) : (
+            <FlashList
+              data={filteredRoutes}
+              keyExtractor={(item) => item.id}
+              renderItem={renderRouteItem}
+              contentContainerStyle={styles.list}
+              ListEmptyComponent={
+                <EmptyState 
+                  icon={<Bus size={30} color={colors.textSubtle} />} 
+                  title="No Routes Found" 
+                  message="No route matches your search query. Tap + to add a route." 
+                />
+              }
             />
-          }
-        />
+          )}
+        </>
       )}
 
       <AdminBottomSheet
@@ -1168,21 +1227,52 @@ export const RoutesManagementScreen = () => {
         </View>
       </AdminBottomSheet>
 
-      {toastVisible && (
-        <View style={[styles.undoToast, { bottom: Math.max(insets.bottom, 16) + 12 }]}>
-          <View style={styles.undoToastCopy}>
-            <Text style={styles.undoToastMessage}>Route deleted</Text>
-          </View>
-          <TouchableOpacity onPress={handleUndo} style={styles.undoToastBtn}>
-            <Text style={styles.undoToastBtnText}>UNDO</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      <UndoToast
+        visible={toastVisible}
+        message="Route deleted"
+        onUndo={handleUndo}
+        duration={10}
+      />
     </AdminScreen>
   );
 };
 
 const getStyles = (colors: any) => StyleSheet.create({
+  segmentContainer: {
+    flexDirection: 'row',
+    backgroundColor: colors.surfaceMuted,
+    padding: 4,
+    marginHorizontal: 20,
+    marginTop: 12,
+    borderRadius: RADIUS.pill,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  segmentBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: RADIUS.pill,
+  },
+  segmentBtnActive: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...SHADOWS.card,
+  },
+  segmentText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  segmentTextActive: {
+    color: colors.accent,
+    fontWeight: '800',
+  },
   searchBar: { paddingHorizontal: 20, paddingTop: 16 },
   list: { padding: 20, paddingBottom: 40 },
   routeCardContainer: {
@@ -1740,42 +1830,5 @@ const getStyles = (colors: any) => StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     marginTop: 4,
-  },
-  undoToast: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    backgroundColor: '#18181B',
-    borderRadius: RADIUS.lg,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    ...SHADOWS.floating,
-    elevation: 8,
-    zIndex: 9999,
-  },
-  undoToastCopy: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  undoToastMessage: {
-    color: '#F4F4F5',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  undoToastBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    borderRadius: RADIUS.sm,
-  },
-  undoToastBtnText: {
-    color: '#60A5FA',
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.5,
   },
 });

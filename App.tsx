@@ -10,6 +10,8 @@ import { COLORS } from './src/core/theme';
 import { ThemeProvider } from './src/core/ThemeContext';
 import { AdminPressable } from './src/components/AdminUI';
 import { checkAppUpdate } from './src/services/updateService';
+import { OfflineNotice } from './src/components/OfflineNotice';
+import { StyledAlertModal } from './src/components/StyledAlert';
 
 type ErrorBoundaryProps = { children: ReactNode };
 type ErrorBoundaryState = { hasError: boolean; message?: string };
@@ -154,6 +156,8 @@ export default function App() {
           <SafeAreaProvider>
             <NavigationContainer ref={navigationRef}>
               <AppBody />
+              <OfflineNotice />
+              <StyledAlertModal />
             </NavigationContainer>
           </SafeAreaProvider>
         </GestureHandlerRootView>

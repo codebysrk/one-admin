@@ -22,6 +22,7 @@ const Eye = IconWrapper('eye');
 const EyeOff = IconWrapper('eye-off');
 const ArrowLeft = IconWrapper('arrow-left');
 const ShieldCheck = IconWrapper('shield-check');
+import { AdminHeader } from '../../components/AdminUI';
 
 export const AdminProfileScreen = () => {
   const { colors, isDark } = useTheme();
@@ -89,18 +90,18 @@ export const AdminProfileScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboard}>
-        <View style={styles.topBar}>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Back to dashboard" onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <ArrowLeft size={20} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.topBarTitle}>Profile Settings</Text>
+    <View style={styles.container}>
+      <AdminHeader
+        title="Profile Settings"
+        subtitle={admin?.email || "Account & security preferences"}
+        onBack={() => navigation.goBack()}
+        action={(
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Logout" onPress={logout} style={styles.miniLogout}>
             <LogOut size={16} color={colors.error} />
           </TouchableOpacity>
-        </View>
+        )}
+      />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboard}>
 
         <ScrollView style={styles.content} contentContainerStyle={styles.contentInner} keyboardShouldPersistTaps="handled">
           <View style={styles.headerCard}>
@@ -194,7 +195,7 @@ export const AdminProfileScreen = () => {
         </ScrollView>
         <SafeAreaView edges={['bottom']} style={{ backgroundColor: colors.background }} />
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 };
 

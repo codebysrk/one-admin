@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,15 +11,13 @@ import {
   Keyboard,
   Platform,
   Dimensions,
+  Animated,
+  PanResponder,
+  Vibration,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-const IconWrapper = (name: any) => (props: any) => (
-  <MaterialCommunityIcons name={name} {...props} />
-);
-
-const X = IconWrapper('close');
+// BottomSheet icon wrapper
 import { useTheme } from '../core/ThemeContext';
 import { SHADOWS } from '../core/theme';
 
@@ -53,6 +51,79 @@ export const AdminBottomSheet = ({
   const styles = getStyles(colors);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
+  const insets = useSafeAreaInsets();
+  const screenHeight = Dimensions.get('window').height;
+  const topSafeOffset = Math.max(insets.top, 24);
+  const maxSheetHeight = keyboardHeight > 0
+    ? Math.max(screenHeight - keyboardHeight - topSafeOffset, 200)
+    : Math.max(screenHeight - topSafeOffset - 20, 200);
+
+  const panY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      panY.setValue(0);
+    }
+  }, [visible, panY]);
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => false,
+        onMoveShouldSetPanResponder: (_, gestureState) => {
+          return (
+            gestureState.dy > 2 &&
+            Math.abs(gestureState.dy) > Math.abs(gestureState.dx)
+          );
+        },
+        onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+          return (
+            gestureState.dy > 4 &&
+            Math.abs(gestureState.dy) > Math.abs(gestureState.dx)
+          );
+        },
+        onPanResponderGrant: () => {
+          panY.stopAnimation();
+        },
+        onPanResponderMove: (_, gestureState) => {
+          if (gestureState.dy > 0) {
+            panY.setValue(gestureState.dy);
+          } else {
+            panY.setValue(0);
+          }
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          if (
+            gestureState.dy > 160 ||
+            (gestureState.dy > 50 && gestureState.vy > 0.5)
+          ) {
+            try {
+              if (Platform.OS === 'android') Vibration.vibrate(10);
+            } catch {}
+            Keyboard.dismiss();
+            Animated.timing(panY, {
+              toValue: screenHeight,
+              duration: 180,
+              useNativeDriver: true,
+            }).start(() => {
+              if (!loading) onClose();
+            });
+          } else {
+            Animated.spring(panY, {
+              toValue: 0,
+              bounciness: 4,
+              speed: 14,
+              useNativeDriver: true,
+            }).start();
+          }
+        },
+        onPanResponderTerminationRequest: () => false,
+        onShouldBlockNativeResponder: () => true,
+      }),
+    [loading, onClose, panY, screenHeight]
+  );
+
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
@@ -70,12 +141,13 @@ export const AdminBottomSheet = ({
     };
   }, []);
 
-  const insets = useSafeAreaInsets();
-  const screenHeight = Dimensions.get('window').height;
-  const topSafeOffset = Math.max(insets.top, 24);
-  const maxSheetHeight = keyboardHeight > 0
-    ? Math.max(screenHeight - keyboardHeight - topSafeOffset, 200)
-    : Math.max(screenHeight - topSafeOffset - 20, 200);
+  const animatedBackdropStyle = {
+    opacity: panY.interpolate({
+      inputRange: [0, 250],
+      outputRange: [1, 0],
+      extrapolate: 'clamp',
+    }),
+  };
 
   return (
     <Modal
@@ -88,33 +160,39 @@ export const AdminBottomSheet = ({
       }}
     >
       <View style={[styles.overlay, { paddingBottom: keyboardHeight }]}>
-        <TouchableOpacity
-          style={styles.backdrop}
-          activeOpacity={1}
-          onPress={() => {
-            Keyboard.dismiss();
-            if (!loading) onClose();
-          }}
-        />
-        <View style={[styles.sheet, { maxHeight: maxSheetHeight }, sheetStyle]}>
-          <View style={styles.handle} />
+        <Animated.View style={[styles.backdrop, animatedBackdropStyle]}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => {
+              Keyboard.dismiss();
+              if (!loading) onClose();
+            }}
+          />
+        </Animated.View>
 
-          <View style={styles.header}>
-            {headerIcon && <View style={styles.iconBox}>{headerIcon}</View>}
-            <View style={styles.titleWrapper}>
-              <Text style={styles.title}>{title}</Text>
-              {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        <Animated.View
+          style={[
+            styles.sheet,
+            {
+              maxHeight: maxSheetHeight,
+              transform: [{ translateY: panY }],
+            },
+            sheetStyle,
+          ]}
+        >
+          <View {...panResponder.panHandlers} collapsable={false} style={styles.dragZone}>
+            <View style={styles.handleContainer}>
+              <View style={styles.handle} />
             </View>
-            <TouchableOpacity
-              onPress={() => {
-                Keyboard.dismiss();
-                if (!loading) onClose();
-              }}
-              style={styles.closeBtn}
-              disabled={loading}
-            >
-              <X size={18} color={colors.textMuted} />
-            </TouchableOpacity>
+
+            <View style={styles.header}>
+              {headerIcon && <View style={styles.iconBox}>{headerIcon}</View>}
+              <View style={styles.titleWrapper}>
+                <Text style={styles.title}>{title}</Text>
+                {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+              </View>
+            </View>
           </View>
 
           <View style={[styles.body, contentStyle]}>
@@ -129,7 +207,7 @@ export const AdminBottomSheet = ({
           )}
           
           <SafeAreaView edges={['bottom']} />
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -148,16 +226,23 @@ const getStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
-    paddingTop: 12,
+    paddingTop: 8,
     ...SHADOWS.floating,
   },
+  dragZone: {
+    width: '100%',
+  },
+  handleContainer: {
+    width: '100%',
+    alignItems: 'center',
+    paddingTop: 6,
+    paddingBottom: 14,
+  },
   handle: {
-    width: 40,
+    width: 44,
     height: 4,
     borderRadius: 2,
     backgroundColor: colors.border,
-    alignSelf: 'center',
-    marginBottom: 20,
   },
   header: {
     flexDirection: 'row',
@@ -187,11 +272,6 @@ const getStyles = (colors: any) => StyleSheet.create({
     color: colors.textMuted,
     fontWeight: '600',
     marginTop: 2,
-  },
-  closeBtn: {
-    padding: 8,
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 10,
   },
   body: {
     paddingHorizontal: 24,

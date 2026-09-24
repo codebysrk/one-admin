@@ -7,15 +7,20 @@ const GITHUB_REPO = 'one-admin';
 
 export const checkAppUpdate = async () => {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
     const response = await fetch(
       `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`,
       {
+        signal: controller.signal,
         headers: {
           Accept: 'application/vnd.github.v3+json',
           'User-Agent': 'OneAdmin-App',
         },
       }
     );
+    clearTimeout(timeoutId);
     if (!response.ok) return;
     const data = await response.json();
 
@@ -41,7 +46,9 @@ export const checkAppUpdate = async () => {
       }
     }
   } catch (error) {
-    console.error('Update check failed:', error);
+    if (__DEV__) {
+      console.warn('Update check skipped (offline or network unavailable):', (error as any)?.message || error);
+    }
   }
 };
 

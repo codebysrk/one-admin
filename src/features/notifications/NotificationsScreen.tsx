@@ -18,8 +18,8 @@ const Megaphone = IconWrapper('bullhorn');
 const Info = IconWrapper('information-outline');
 const AlertTriangle = IconWrapper('alert');
 const Bus = IconWrapper('bus');
-const X = IconWrapper('close');
-import { AdminHeader, AdminScreen, EmptyState, LoadingState } from '../../components/AdminUI';
+const Send = IconWrapper('send');
+import { AdminBottomSheet, AdminHeader, AdminPressable, AdminScreen, EmptyState, LoadingState } from '../../components/AdminUI';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const NOTIFICATION_TYPES = [
@@ -43,24 +43,6 @@ export const NotificationsScreen = () => {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [type, setType] = useState('general');
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-
-  useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const showSub = Keyboard.addListener(showEvent, (e) => {
-      setKeyboardHeight(e.endCoordinates.height);
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      setKeyboardHeight(0);
-    });
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
 
   const fetchNotifications = React.useCallback(async () => {
     try {
@@ -153,18 +135,6 @@ export const NotificationsScreen = () => {
         keyExtractor={(item) => item.id}
         renderItem={renderNotification}
         contentContainerStyle={styles.listContent}
-        ListHeaderComponent={(
-          <TouchableOpacity style={styles.mainAction} onPress={() => setModalVisible(true)}>
-             <LinearGradient colors={['#4F46E5', '#6366F1']} style={styles.actionGrad}>
-                <Megaphone size={20} color={colors.white} />
-                <View style={styles.actionCopy}>
-                   <Text style={styles.actionTitle}>New Broadcast</Text>
-                   <Text style={styles.actionSub}>Global alert system</Text>
-                </View>
-                <Plus size={20} color={colors.white} />
-             </LinearGradient>
-          </TouchableOpacity>
-        )}
         ListEmptyComponent={
           loading ? (
             <LoadingState label="Loading broadcasts..." compact />
@@ -177,113 +147,223 @@ export const NotificationsScreen = () => {
         }
       />
 
-      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => { Keyboard.dismiss(); setModalVisible(false); }}>
-        <View style={[styles.overlay, { paddingBottom: keyboardHeight }]}>
-          <TouchableOpacity
-            style={StyleSheet.absoluteFillObject}
-            activeOpacity={1}
-            onPress={() => {
-              Keyboard.dismiss();
-              setModalVisible(false);
-            }}
-          />
-          <View style={[
-            styles.modalContent,
-            keyboardHeight > 0 
-              ? { maxHeight: Math.max(Dimensions.get('window').height - keyboardHeight - Math.max(insets.top, 24), 200) }
-              : { maxHeight: Math.max(Dimensions.get('window').height - Math.max(insets.top, 24) - 20, 200) }
-          ]}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>Dispatch Hub</Text>
-                <Text style={styles.modalSubtitle}>Configure system-wide announcement</Text>
-              </View>
-              <TouchableOpacity onPress={() => { Keyboard.dismiss(); setModalVisible(false); }} style={styles.closeBtn}>
-                <X size={20} color={colors.textMuted} />
-              </TouchableOpacity>
-            </View>
+      <AdminPressable
+        style={styles.fab}
+        onPress={() => setModalVisible(true)}
+        accessibilityLabel="New Broadcast"
+        accessibilityRole="button"
+      >
+        <LinearGradient
+          colors={['#4F46E5', '#6366F1']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.fabGrad}
+        >
+          <Megaphone size={24} color="#FFFFFF" />
+        </LinearGradient>
+      </AdminPressable>
 
-            <ScrollView 
-              style={{ flexShrink: 1 }}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={styles.formBody}
-            >
-                <Text style={styles.label}>Broadcast Category</Text>
-                <View style={styles.categoryGrid}>
-                   {NOTIFICATION_TYPES.map(t => {
-                     const isSelected = type === t.id;
-                     return (
-                       <TouchableOpacity 
-                         key={t.id} 
-                         style={[
-                           styles.catBtn, 
-                           isSelected && { 
-                             borderColor: t.tone, 
-                             backgroundColor: isDark ? t.tone + '25' : t.bg 
-                           }
-                         ]} 
-                         onPress={() => setType(t.id)}
-                       >
-                          <t.icon size={16} color={isSelected ? t.tone : colors.textMuted} />
-                          <Text style={[styles.catLabel, isSelected && { color: t.tone }]}>{t.label}</Text>
-                       </TouchableOpacity>
-                     );
-                   })}
-                </View>
-
-                <View style={styles.inputSection}>
-                  <TextInput 
-                    style={styles.input} 
-                    value={title} 
-                    onChangeText={setTitle} 
-                    placeholder="Announcement title (e.g. Route 419 Update)" 
-                    placeholderTextColor={colors.textSubtle} 
-                    maxLength={45} 
-                  />
-                  <TextInput 
-                    style={[styles.input, styles.area]} 
-                    value={message} 
-                    onChangeText={setMessage} 
-                    multiline 
-                    numberOfLines={3} 
-                    placeholder="Enter announcement details for passengers..." 
-                    placeholderTextColor={colors.textSubtle} 
-                  />
-                </View>
-
-                <View style={styles.previewCard}>
-                   <View style={styles.previewHeader}>
-                      <View style={[styles.previewIcon, { backgroundColor: isDark ? selectedType.tone + '25' : selectedType.bg }]}>
-                        <selectedType.icon size={12} color={selectedType.tone} />
-                      </View>
-                      <Text style={styles.previewType}>{selectedType.label} Announcement • Now</Text>
-                   </View>
-                   <Text style={styles.previewTitle} numberOfLines={1}>{title || 'Headline'}</Text>
-                   <Text style={styles.previewText} numberOfLines={1}>{message || 'Message content...'}</Text>
-                </View>
-
-                <TouchableOpacity style={styles.sendBtn} onPress={handleBroadcast} disabled={sending}>
-                   <LinearGradient colors={['#4F46E5', '#3730A3']} start={{x:0, y:0}} end={{x:1, y:0}} style={styles.sendGrad}>
-                      {sending ? <ActivityIndicator color="white" size="small" /> : <Text style={styles.sendText}>Dispatch to {totalUsers} Users</Text>}
-                   </LinearGradient>
-                </TouchableOpacity>
-            </ScrollView>
-            <SafeAreaView edges={['bottom']} />
+      <AdminBottomSheet
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        title="Dispatch Hub"
+        subtitle={`Instant push to ${totalUsers.toLocaleString('en-IN')} active users`}
+        headerIcon={
+          <View style={[styles.sheetIconBox, { backgroundColor: isDark ? colors.accent + '25' : colors.accentSoft }]}>
+            <Megaphone size={18} color={colors.accent} />
           </View>
-        </View>
-      </Modal>
+        }
+      >
+        <ScrollView 
+          style={{ flexShrink: 1 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.formBody}
+        >
+          {/* Live Channel Status Pill */}
+          <View style={styles.channelBanner}>
+            <View style={styles.liveDot} />
+            <Text style={styles.channelText}>
+              BROADCAST READY • {totalUsers.toLocaleString('en-IN')} RECIPIENTS TARGETED
+            </Text>
+          </View>
+
+          {/* Category Selector */}
+          <View>
+            <Text style={styles.sectionLabel}>BROADCAST CATEGORY</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryScroll}
+              keyboardShouldPersistTaps="handled"
+            >
+              {NOTIFICATION_TYPES.map((t) => {
+                const isSelected = type === t.id;
+                const IconComponent = t.icon;
+                return (
+                  <AdminPressable
+                    key={t.id}
+                    style={[
+                      styles.categoryChip,
+                      isSelected && {
+                        borderColor: t.tone,
+                        backgroundColor: isDark ? t.tone + '22' : t.bg,
+                      },
+                    ]}
+                    onPress={() => setType(t.id)}
+                  >
+                    <IconComponent
+                      size={15}
+                      color={isSelected ? t.tone : colors.textMuted}
+                    />
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        isSelected && { color: t.tone, fontWeight: '800' },
+                      ]}
+                    >
+                      {t.label}
+                    </Text>
+                  </AdminPressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Form Fields */}
+          <View style={styles.fieldGroup}>
+            <View style={styles.fieldHeader}>
+              <Text style={styles.sectionLabel}>ANNOUNCEMENT TITLE</Text>
+              <Text style={styles.charCount}>{title.length}/45</Text>
+            </View>
+            <TextInput
+              style={styles.textInput}
+              value={title}
+              onChangeText={setTitle}
+              placeholder="e.g. Route 419 Schedule Update"
+              placeholderTextColor={colors.textSubtle}
+              maxLength={45}
+            />
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <View style={styles.fieldHeader}>
+              <Text style={styles.sectionLabel}>ANNOUNCEMENT MESSAGE</Text>
+              <Text style={styles.charCount}>{message.length}/250</Text>
+            </View>
+            <TextInput
+              style={[styles.textInput, styles.textArea]}
+              value={message}
+              onChangeText={setMessage}
+              multiline
+              numberOfLines={3}
+              placeholder="Enter announcement details for passengers..."
+              placeholderTextColor={colors.textSubtle}
+              maxLength={250}
+            />
+          </View>
+
+          {/* Real-world Lockscreen Preview */}
+          <View style={styles.previewSection}>
+            <Text style={styles.sectionLabel}>LIVE NOTIFICATION PREVIEW</Text>
+            <View style={styles.lockscreenCard}>
+              <View style={styles.previewTopRow}>
+                <View style={styles.previewAppBadge}>
+                  <Bus size={12} color="#FFFFFF" />
+                </View>
+                <Text style={styles.previewAppName}>ONE DELHI</Text>
+                <Text style={styles.previewTimeDot}>•</Text>
+                <Text style={styles.previewTime}>Now</Text>
+
+                <View
+                  style={[
+                    styles.previewTypeTag,
+                    { backgroundColor: isDark ? selectedType.tone + '25' : selectedType.bg },
+                  ]}
+                >
+                  <Text style={[styles.previewTypeTagText, { color: selectedType.tone }]}>
+                    {selectedType.label.toUpperCase()}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.previewHeadline} numberOfLines={1}>
+                {title.trim() || 'Headline will appear here'}
+              </Text>
+              <Text style={styles.previewBody} numberOfLines={2}>
+                {message.trim() || 'Announcement details will be delivered live to passenger devices...'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Actions */}
+          <View style={styles.actionsRow}>
+            {(title.length > 0 || message.length > 0) && (
+              <AdminPressable
+                style={styles.clearBtn}
+                onPress={() => {
+                  setTitle('');
+                  setMessage('');
+                }}
+              >
+                <Text style={styles.clearBtnText}>Clear</Text>
+              </AdminPressable>
+            )}
+
+            <AdminPressable
+              style={[
+                styles.dispatchBtn,
+                (!title.trim() || !message.trim()) && { opacity: 0.5 },
+              ]}
+              disabled={sending || !title.trim() || !message.trim()}
+              onPress={handleBroadcast}
+            >
+              <LinearGradient
+                colors={['#4F46E5', '#6366F1']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.dispatchGrad}
+              >
+                {sending ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <View style={styles.dispatchInner}>
+                    <Send size={15} color="#FFFFFF" />
+                    <Text style={styles.dispatchText}>
+                      Dispatch to {totalUsers.toLocaleString('en-IN')} Users
+                    </Text>
+                  </View>
+                )}
+              </LinearGradient>
+            </AdminPressable>
+          </View>
+        </ScrollView>
+      </AdminBottomSheet>
     </AdminScreen>
   );
 };
 
 const getStyles = (colors: any, isDark: boolean) => StyleSheet.create({
-  listContent: { padding: 20, paddingBottom: 60 },
-  mainAction: { marginBottom: 16, borderRadius: RADIUS.card, overflow: 'hidden', ...SHADOWS.card },
-  actionGrad: { padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14 },
-  actionCopy: { flex: 1 },
-  actionTitle: { color: colors.white, fontSize: 17, fontWeight: '800' },
-  actionSub: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '600' },
+  listContent: { padding: 20, paddingBottom: 90 },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 24,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    ...SHADOWS.floating,
+    elevation: 6,
+    zIndex: 10,
+  },
+  fabGrad: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 29,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
   notifCard: { backgroundColor: colors.surface, borderRadius: RADIUS.card, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border, ...SHADOWS.card },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   typeInfo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -292,29 +372,36 @@ const getStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   deleteBtn: { padding: 6, backgroundColor: colors.errorSoft, borderRadius: RADIUS.sm },
   notifTitle: { fontSize: 15, fontWeight: '800', color: colors.text, marginBottom: 3 },
   notifMessage: { fontSize: 12, color: colors.textMuted, fontWeight: '600', lineHeight: 18 },
-  overlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'flex-end' },
-  keyboard: { width: '100%', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: colors.surface, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 24, paddingTop: 30, paddingBottom: 40, maxHeight: '98%' },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },
-  modalTitle: { fontSize: 22, fontWeight: '800', color: colors.text },
-  modalSubtitle: { fontSize: 13, color: colors.textMuted, fontWeight: '600', marginTop: 4 },
-  closeBtn: { padding: 6, backgroundColor: colors.surfaceMuted, borderRadius: 10 },
-  formBody: { gap: 14 },
-  label: { fontSize: 12, fontWeight: '800', color: colors.textMuted, textTransform: 'uppercase', marginBottom: 4 },
-  categoryGrid: { flexDirection: 'row', gap: 10 },
-  catBtn: { flex: 1, paddingVertical: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, alignItems: 'center', gap: 6 },
-  catLabel: { fontSize: 11, fontWeight: '800', color: colors.textMuted },
-  inputSection: { gap: 12 },
-  input: { backgroundColor: colors.surfaceMuted, borderRadius: 14, padding: 16, fontSize: 15, fontWeight: '700', color: colors.text, borderWidth: 1, borderColor: colors.border },
-  area: { height: 110, textAlignVertical: 'top' },
-  previewCard: { backgroundColor: isDark ? colors.surfaceElevated : colors.surface, borderRadius: 16, padding: 18, borderWidth: 1, borderColor: colors.border, ...SHADOWS.card },
-  previewHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10 },
-  previewIcon: { width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  previewType: { fontSize: 12, fontWeight: '800', color: colors.textMuted, flex: 1 },
-  previewTitle: { fontSize: 15, fontWeight: '800', color: colors.text, marginBottom: 6 },
-  previewText: { fontSize: 13, color: colors.textMuted, fontWeight: '500', lineHeight: 18 },
-  sendBtn: { borderRadius: 16, overflow: 'hidden', marginTop: 8, ...SHADOWS.accent },
-  sendGrad: { height: 56, alignItems: 'center', justifyContent: 'center' },
-  sendText: { color: colors.white, fontSize: 16, fontWeight: '800' },
-  bottomBleed: { position: 'absolute', bottom: -100, left: 0, right: 0, height: 120, backgroundColor: colors.surface, zIndex: -1 },
+  sheetIconBox: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  formBody: { gap: 14, paddingBottom: 16 },
+  channelBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.surfaceMuted, borderRadius: RADIUS.sm, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: colors.border },
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#10B981' },
+  channelText: { fontSize: 10, fontWeight: '800', color: colors.textMuted, letterSpacing: 0.5 },
+  sectionLabel: { fontSize: 11, fontWeight: '800', color: colors.textMuted, letterSpacing: 0.5 },
+  categoryScroll: { flexDirection: 'row', gap: 8, paddingTop: 8, paddingBottom: 2 },
+  categoryChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border },
+  categoryChipText: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
+  fieldGroup: { gap: 6 },
+  fieldHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  charCount: { fontSize: 11, fontWeight: '600', color: colors.textSubtle },
+  textInput: { backgroundColor: colors.surfaceMuted, borderRadius: RADIUS.md, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, fontWeight: '600', color: colors.text, borderWidth: 1, borderColor: colors.border },
+  textArea: { height: 85, textAlignVertical: 'top' },
+  previewSection: { gap: 8, marginTop: 2 },
+  lockscreenCard: { backgroundColor: isDark ? colors.surfaceElevated : '#FFFFFF', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: colors.border, ...SHADOWS.card },
+  previewTopRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  previewAppBadge: { width: 18, height: 18, borderRadius: 5, backgroundColor: '#2563EB', alignItems: 'center', justifyContent: 'center' },
+  previewAppName: { fontSize: 11, fontWeight: '800', color: colors.textMuted, letterSpacing: 0.5 },
+  previewTimeDot: { fontSize: 10, color: colors.textSubtle },
+  previewTime: { fontSize: 11, fontWeight: '600', color: colors.textSubtle, flex: 1 },
+  previewTypeTag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  previewTypeTagText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+  previewHeadline: { fontSize: 14, fontWeight: '800', color: colors.text, marginBottom: 3 },
+  previewBody: { fontSize: 12, color: colors.textMuted, lineHeight: 18, fontWeight: '500' },
+  actionsRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  clearBtn: { height: 48, paddingHorizontal: 16, borderRadius: RADIUS.md, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  clearBtnText: { fontSize: 13, fontWeight: '700', color: colors.textMuted },
+  dispatchBtn: { flex: 1, height: 48, borderRadius: RADIUS.md, overflow: 'hidden', ...SHADOWS.card },
+  dispatchGrad: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  dispatchInner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dispatchText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
 });

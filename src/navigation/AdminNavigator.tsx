@@ -14,9 +14,9 @@ const IconWrapper = (name: any) => (props: any) => (
 const LayoutDashboard = IconWrapper('view-dashboard');
 const Bus = IconWrapper('bus');
 const Users = IconWrapper('account-group');
+const Megaphone = IconWrapper('bullhorn');
 const Bell = IconWrapper('bell');
 const Ticket = IconWrapper('ticket');
-const Smartphone = IconWrapper('cellphone');
 const Activity = IconWrapper('pulse');
 const UserCircle = IconWrapper('account-circle');
 const ShieldCheck = IconWrapper('shield-check');
@@ -28,7 +28,6 @@ import { RoutesManagementScreen } from '../features/routes/RoutesManagementScree
 import { UsersListScreen } from '../features/users/UsersListScreen';
 import { NotificationsScreen } from '../features/notifications/NotificationsScreen';
 import { AllTicketsScreen } from '../features/dashboard/AllTicketsScreen';
-import { DevicesListScreen } from '../features/users/DevicesListScreen';
 import { LogsScreen } from '../features/dashboard/LogsScreen';
 import { AdminProfileScreen } from '../features/profile/AdminProfileScreen';
 import { FareConfigScreen } from '../features/fare/FareConfigScreen';
@@ -44,15 +43,13 @@ type TabConfig = {
 };
 
 const tabs: TabConfig[] = [
-  { key: 'Dashboard', label: 'Home', icon: LayoutDashboard, screen: DashboardScreen },
-  { key: 'Fare', label: 'Fare Slabs', icon: Cash, screen: FareConfigScreen, requiredPermission: 'MANAGE_ROUTES' },
+  { key: 'Dashboard', label: 'Dashboard', icon: LayoutDashboard, screen: DashboardScreen },
   { key: 'Routes', label: 'Routes', icon: Bus, screen: RoutesManagementScreen, requiredPermission: 'MANAGE_ROUTES' },
   { key: 'Users', label: 'Users', icon: Users, screen: UsersListScreen, requiredPermission: 'MANAGE_USERS' },
   { key: 'Tickets', label: 'Tickets', icon: Ticket, screen: AllTicketsScreen, requiredPermission: 'MANAGE_TICKETS' },
-  { key: 'Devices', label: 'Devices', icon: Smartphone, screen: DevicesListScreen, requiredPermission: 'MANAGE_USERS' },
-  { key: 'Logs', label: 'Logs', icon: Activity, screen: LogsScreen, requiredPermission: 'MANAGE_LOGS' },
-  { key: 'Admins', label: 'Admin Hub', icon: ShieldCheck, screen: AdminsManagementScreen, requiredPermission: 'MANAGE_ADMINS' },
-  { key: 'Alerts', label: 'Alerts', icon: Bell, screen: NotificationsScreen },
+  { key: 'Logs', label: 'Activity', icon: Activity, screen: LogsScreen, requiredPermission: 'MANAGE_LOGS' },
+  { key: 'Admins', label: 'Admins', icon: ShieldCheck, screen: AdminsManagementScreen, requiredPermission: 'MANAGE_ADMINS' },
+  { key: 'Alerts', label: 'Broadcast', icon: Megaphone, screen: NotificationsScreen },
   { key: 'Profile', label: 'Profile', icon: UserCircle, screen: AdminProfileScreen },
 ];
 
@@ -60,20 +57,16 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 const Tab = createBottomTabNavigator();
 
+const PRIMARY_TABS = ['Dashboard', 'Routes', 'Users', 'Tickets', 'Logs'];
+
 const CustomTabBar = React.memo(({ state, descriptors, navigation, visibleTabs }: any) => {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => getStyles(colors, insets), [colors, insets]);
-  const scrollViewRef = useRef<ScrollView>(null);
 
   return (
     <View style={styles.tabBarContainer}>
-      <ScrollView
-        ref={scrollViewRef}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tabBar}
-      >
+      <View style={styles.tabBar}>
         {visibleTabs.map((tab: any) => {
           const isActive = state.index === state.routes.findIndex((r: any) => r.name === tab.key);
           const IconComponent = tab.icon;
@@ -99,7 +92,7 @@ const CustomTabBar = React.memo(({ state, descriptors, navigation, visibleTabs }
               accessibilityLabel={`Open ${tab.label}`}
             >
               <View style={[styles.iconWrapper, isActive && styles.iconWrapperActive]}>
-                <IconComponent size={18} color={isActive ? colors.accent : colors.textSubtle} />
+                <IconComponent size={20} color={isActive ? colors.accent : colors.textSubtle} />
               </View>
               <Text
                 style={[
@@ -112,11 +105,10 @@ const CustomTabBar = React.memo(({ state, descriptors, navigation, visibleTabs }
               >
                 {tab.label}
               </Text>
-              {isActive && <View style={styles.activeIndicator} />}
             </AdminPressable>
           );
         })}
-      </ScrollView>
+      </View>
     </View>
   );
 });
@@ -126,7 +118,7 @@ export const AdminNavigator = () => {
 
   const visibleTabs = useMemo(() => {
     return tabs.filter((t) => {
-      if (t.key === 'Profile' || t.hidden) return false;
+      if (!PRIMARY_TABS.includes(t.key) || t.hidden) return false;
       if (admin?.email === 'admin@onedelhi.com') return true;
       const adminPermissions = admin?.permissions;
       if (!adminPermissions) return true;
@@ -140,23 +132,23 @@ export const AdminNavigator = () => {
 
   return (
     <Tab.Navigator
+      backBehavior="firstRoute"
       tabBar={(props) => <CustomTabBar {...props} visibleTabs={visibleTabs} />}
       screenOptions={{
         headerShown: false,
         lazy: true,
       }}
     >
-      {visibleTabs.map((tab) => (
+      {tabs.map((tab) => (
         <Tab.Screen 
           key={tab.key} 
           name={tab.key} 
           component={tab.screen} 
         />
       ))}
-      {/* Hidden tabs or tabs not in the scrollbar can still be added here if needed */}
       <Tab.Screen 
-        name="Profile" 
-        component={AdminProfileScreen} 
+        name="Fare" 
+        component={FareConfigScreen} 
       />
     </Tab.Navigator>
   );
@@ -177,29 +169,26 @@ function getStyles(colors: any, insets?: any) {
     },
     tabBar: {
       flexDirection: 'row',
-      paddingHorizontal: 12,
+      paddingHorizontal: 4,
       alignItems: 'center',
-      gap: 6,
-      flexGrow: 1,
+      justifyContent: 'space-around',
     },
     tabItem: {
-      paddingHorizontal: 14,
-      paddingVertical: 7,
+      flex: 1,
+      paddingVertical: 5,
+      paddingHorizontal: 2,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 3,
-      borderRadius: RADIUS.lg,
-      borderWidth: 1,
-      borderColor: 'transparent',
+      gap: 2,
+      borderRadius: RADIUS.md,
     },
     tabItemActive: {
       backgroundColor: colors.accentSoft,
-      borderColor: colors.accentMuted,
     },
     iconWrapper: {
       width: 28,
-      height: 28,
-      borderRadius: 14,
+      height: 26,
+      borderRadius: 13,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -208,18 +197,9 @@ function getStyles(colors: any, insets?: any) {
       ...SHADOWS.subtle,
     },
     tabLabel: {
-      fontSize: 11,
-      lineHeight: 14,
-      letterSpacing: 0.2,
-    },
-    activeIndicator: {
-      position: 'absolute',
-      top: 4,
-      right: 8,
-      width: 5,
-      height: 5,
-      borderRadius: 2.5,
-      backgroundColor: colors.accent,
+      fontSize: 10,
+      lineHeight: 13,
+      letterSpacing: 0.1,
     },
   });
 }

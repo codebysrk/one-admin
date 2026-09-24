@@ -15,68 +15,10 @@ const IconWrapper = (name: any) => (props: any) => (
 const Ticket = IconWrapper('ticket');
 const Download = IconWrapper('download-outline');
 import { exportToCSV } from '../../utils/csvHelper';
-import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField } from '../../components/AdminUI';
+import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField, UndoToast } from '../../components/AdminUI';
 import { logActivity } from '../../services/logService';
 import { TicketCard } from '../../components/TicketCard';
 import { EditTicketModal } from './EditTicketModal';
-
-// Floating Undo Toast Component (Option 3)
-const UndoToast = ({
-  visible,
-  message = 'Ticket deleted',
-  onUndo,
-}: {
-  visible: boolean;
-  message?: string;
-  onUndo: () => void;
-}) => {
-  const insets = useSafeAreaInsets();
-  const translateY = useRef(new Animated.Value(100)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.spring(translateY, { toValue: 0, friction: 8, tension: 80, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(translateY, { toValue: 100, duration: 180, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0, duration: 160, useNativeDriver: true }),
-      ]).start();
-    }
-  }, [visible, translateY, opacity]);
-
-  if (!visible) return null;
-
-  return (
-    <Animated.View
-      style={[
-        styles.undoToast,
-        {
-          bottom: Math.max(insets.bottom, 16) + 12,
-          transform: [{ translateY }],
-          opacity,
-        },
-      ]}
-    >
-      <View style={styles.undoToastCopy}>
-        <MaterialCommunityIcons name="check-circle" size={18} color="#10B981" />
-        <Text style={styles.undoToastMessage}>{message}</Text>
-      </View>
-      <TouchableOpacity
-        onPress={onUndo}
-        activeOpacity={0.7}
-        style={styles.undoToastBtn}
-        accessibilityRole="button"
-        accessibilityLabel="Undo delete"
-      >
-        <Text style={styles.undoToastBtnText}>UNDO</Text>
-      </TouchableOpacity>
-    </Animated.View>
-  );
-};
 
 export const AllTicketsScreen = () => {
   const { colors } = useTheme();
@@ -213,7 +155,7 @@ export const AllTicketsScreen = () => {
 
     const timer = setTimeout(() => {
       commitPendingDelete();
-    }, 4000);
+    }, 10000);
 
     pendingDeleteRef.current = { id, ticket: ticketToDelete, timer };
   }, [tickets, commitPendingDelete]);
@@ -294,6 +236,8 @@ export const AllTicketsScreen = () => {
           contentContainerStyle={styles.list}
           refreshing={refreshing}
           onRefresh={handleRefresh}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
             <EmptyState
               icon={<Ticket size={30} color={colors.textSubtle} />}
@@ -325,41 +269,4 @@ export const AllTicketsScreen = () => {
 const styles = StyleSheet.create({
   searchWrap: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg },
   list: { padding: SPACING.xl, paddingBottom: 60 },
-  undoToast: {
-    position: 'absolute',
-    left: SPACING.xl,
-    right: SPACING.xl,
-    backgroundColor: '#18181B',
-    borderRadius: RADIUS.lg,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    ...SHADOWS.floating,
-    elevation: 8,
-    zIndex: 9999,
-  },
-  undoToastCopy: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  undoToastMessage: {
-    color: '#F4F4F5',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  undoToastBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    borderRadius: RADIUS.sm,
-  },
-  undoToastBtnText: {
-    color: '#60A5FA',
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
 });

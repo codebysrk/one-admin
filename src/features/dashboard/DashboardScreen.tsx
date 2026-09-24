@@ -18,6 +18,7 @@ const IconWrapper = (name: any) => (props: any) => (
 );
 
 const Bell = IconWrapper("bell");
+const Megaphone = IconWrapper("bullhorn");
 const Bus = IconWrapper("bus");
 const ChevronRight = IconWrapper("chevron-right");
 const Smartphone = IconWrapper("cellphone");
@@ -30,11 +31,13 @@ const MapPin = IconWrapper("map-marker");
 const ArrowUpRight = IconWrapper("arrow-top-right");
 const Cash = IconWrapper("cash-multiple");
 const Activity = IconWrapper("pulse");
+const ShieldCheck = IconWrapper("shield-check");
 import { useAdminStore } from "../../store/useAdminStore";
 import { useTheme } from "../../core/ThemeContext";
 import { RADIUS, SHADOWS, SPACING } from "../../core/theme";
 import { supabase } from "../../services/supabase";
 import {
+  AdminHeader,
   AdminPressable,
   Card,
   SectionHeader,
@@ -59,36 +62,7 @@ const formatLogTime = (timestamp: any) => {
     : `${date.toLocaleDateString([], { day: "2-digit", month: "short" })}, ${timeStr}`;
 };
 
-const CompactHeader = React.memo(({ admin, onProfilePress }: any) => {
-  const { colors, isDark } = useTheme();
-  const styles =
-    typeof getStyles === "function" ? getStyles(colors) : ({} as any);
-  return (
-    <View style={styles.headerShell}>
-      <SafeAreaView edges={["top"]}>
-        <View style={styles.header}>
-          <View style={styles.headerCopy}>
-            <View style={styles.statusIndicatorRow}>
-              <View style={styles.statusDot} />
-              <Text style={styles.greeting}>ONE DELHI • COMMAND CENTER</Text>
-            </View>
-            <Text style={styles.adminName} numberOfLines={1}>
-              {admin?.name || "Administrator"}
-            </Text>
-          </View>
-          <AdminPressable
-            accessibilityRole="button"
-            accessibilityLabel="Open profile settings"
-            onPress={onProfilePress}
-            style={styles.profileBtn}
-          >
-            <UserCircle size={22} color={colors.text} />
-          </AdminPressable>
-        </View>
-      </SafeAreaView>
-    </View>
-  );
-});
+
 
 const StatsGrid = React.memo(
   ({ stats, weeklyRevenue, loading, navigation }: any) => {
@@ -178,66 +152,6 @@ const StatsGrid = React.memo(
     );
   },
 );
-
-const QuickActions = React.memo(({ navigation }: any) => {
-  const { colors } = useTheme();
-  const styles =
-    typeof getStyles === "function" ? getStyles(colors) : ({} as any);
-  const actions = [
-    {
-      label: "Routes",
-      icon: Bus,
-      route: "Routes",
-      color: colors.accent,
-      bg: colors.accentSoft,
-    },
-    {
-      label: "Fare Slabs",
-      icon: Cash,
-      route: "Fare",
-      color: colors.success,
-      bg: colors.successSoft,
-    },
-    {
-      label: "Users",
-      icon: Users,
-      route: "Users",
-      color: colors.info,
-      bg: colors.infoSoft,
-    },
-    {
-      label: "Logs",
-      icon: Activity,
-      route: "Logs",
-      color: colors.warning,
-      bg: colors.warningSoft,
-    },
-  ];
-
-  return (
-    <View style={styles.quickActionsContainer}>
-      {actions.map((act) => {
-        const Icon = act.icon;
-        return (
-          <AdminPressable
-            key={act.label}
-            style={styles.quickActionBtn}
-            onPress={() => navigation.navigate(act.route)}
-          >
-            <View
-              style={[styles.quickActionIconShell, { backgroundColor: act.bg }]}
-            >
-              <Icon size={18} color={act.color} />
-            </View>
-            <Text style={styles.quickActionLabel} numberOfLines={1}>
-              {act.label}
-            </Text>
-          </AdminPressable>
-        );
-      })}
-    </View>
-  );
-});
 
 const RevenueChart = React.memo(
   ({ loading, chartWidth, revenueData, chartConfig }: any) => {
@@ -569,12 +483,45 @@ export const DashboardScreen = () => {
 
   const chartWidth = Math.max(260, width - 64);
 
+  const isSuperAdmin = admin?.email === 'admin@onedelhi.com' || admin?.permissions?.includes('FULL_ACCESS');
+  const canManageAdmins = isSuperAdmin || admin?.permissions?.includes('MANAGE_ADMINS');
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <CompactHeader
-        admin={admin}
-        onProfilePress={() => navigation.navigate("Profile")}
+      <AdminHeader
+        eyebrow="ONE DELHI • COMMAND CENTER"
+        title={admin?.name || "Administrator"}
+        subtitle="Real-time transit command & fleet overview"
+        action={(
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <AdminPressable
+              accessibilityRole="button"
+              accessibilityLabel="Open broadcast alerts"
+              onPress={() => navigation.navigate("Alerts")}
+              style={styles.profileBtn}
+            >
+              <Megaphone size={18} color={colors.text} />
+            </AdminPressable>
+            {canManageAdmins && (
+              <AdminPressable
+                accessibilityRole="button"
+                accessibilityLabel="Open admin team management"
+                onPress={() => navigation.navigate("Admins")}
+                style={styles.profileBtn}
+              >
+                <ShieldCheck size={18} color={colors.text} />
+              </AdminPressable>
+            )}
+            <AdminPressable
+              accessibilityRole="button"
+              accessibilityLabel="Open profile settings"
+              onPress={() => navigation.navigate("Profile")}
+              style={styles.profileBtn}
+            >
+              <UserCircle size={20} color={colors.text} />
+            </AdminPressable>
+          </View>
+        )}
       />
 
       <ScrollView
@@ -596,7 +543,6 @@ export const DashboardScreen = () => {
           loading={loading}
           navigation={navigation}
         />
-        <QuickActions navigation={navigation} />
         <RevenueChart
           loading={loading}
           chartWidth={chartWidth}
@@ -1015,37 +961,6 @@ function getStyles(colors: any) {
       alignItems: "center",
       justifyContent: "space-between",
       marginTop: 6,
-    },
-    quickActionsContainer: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      gap: 8,
-      marginBottom: 18,
-    },
-    quickActionBtn: {
-      flex: 1,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: RADIUS.lg,
-      paddingVertical: 12,
-      alignItems: "center",
-      justifyContent: "center",
-      ...SHADOWS.card,
-    },
-    quickActionIconShell: {
-      width: 38,
-      height: 38,
-      borderRadius: RADIUS.md,
-      alignItems: "center",
-      justifyContent: "center",
-      marginBottom: 6,
-    },
-    quickActionLabel: {
-      fontSize: 11,
-      fontWeight: "800",
-      color: colors.text,
-      letterSpacing: 0.2,
     },
     chartCard: {
       padding: 16,

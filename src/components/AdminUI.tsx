@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  Platform,
   Pressable,
   PressableProps,
   StatusBar,
@@ -11,6 +12,7 @@ import {
   TextInput,
   TextInputProps,
   TouchableOpacity,
+  Vibration,
   View,
   ViewStyle,
 } from "react-native";
@@ -23,11 +25,13 @@ const IconWrapper = (name: any) => (props: any) => (
 
 const Search = IconWrapper("magnify");
 const X = IconWrapper("close");
+const ArrowLeft = IconWrapper("arrow-left");
 const MessageSquare = IconWrapper("message-reply-text");
 import { Modal } from "react-native";
 import { useTheme } from "../core/ThemeContext";
 import { COLORS, RADIUS, SHADOWS, SPACING, TYPOGRAPHY } from "../core/theme";
-export { AdminBottomSheet } from "./BottomSheet";
+import { AdminBottomSheet } from "./BottomSheet";
+export { AdminBottomSheet };
 export { ConfirmationModal } from "./ConfirmationModal";
 
 type ScreenProps = {
@@ -40,6 +44,8 @@ type HeaderProps = {
   subtitle?: string;
   action?: React.ReactNode;
   compact?: boolean;
+  onBack?: () => void;
+  eyebrow?: string;
 };
 
 type SearchFieldProps = TextInputProps & {
@@ -54,8 +60,21 @@ type EmptyStateProps = {
   action?: React.ReactNode;
 };
 
+export const triggerHaptic = (duration = 10) => {
+  try {
+    if (Platform.OS === "android") {
+      Vibration.vibrate(duration);
+    }
+  } catch {
+    // Ignore unsupported environments
+  }
+};
+
 type AdminPressableProps = Omit<PressableProps, "style"> & {
-  style?: StyleProp<ViewStyle>;
+  style?:
+    | StyleProp<ViewStyle>
+    | ((state: { pressed: boolean }) => StyleProp<ViewStyle>);
+  haptic?: boolean;
 };
 
 type ButtonProps = Omit<PressableProps, "style"> & {
@@ -118,20 +137,47 @@ export const AdminPressable = ({
   children,
   style,
   disabled,
+  haptic = true,
+  android_ripple,
+  onPress,
   ...props
-}: AdminPressableProps) => (
-  <Pressable
-    {...props}
-    disabled={disabled}
-    style={({ pressed }) => [
-      style,
-      pressed && !disabled ? styles.pressed : null,
-      disabled ? styles.disabled : null,
-    ]}
-  >
-    {children}
-  </Pressable>
-);
+}: AdminPressableProps) => {
+  const { isDark } = useTheme();
+
+  const handlePress = useCallback(
+    (e: any) => {
+      if (!disabled && haptic) {
+        triggerHaptic();
+      }
+      onPress?.(e);
+    },
+    [disabled, haptic, onPress]
+  );
+
+  const defaultRipple = useMemo(
+    () => ({
+      color: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)",
+      borderless: false,
+    }),
+    [isDark]
+  );
+
+  return (
+    <Pressable
+      {...props}
+      disabled={disabled}
+      onPress={handlePress}
+      android_ripple={android_ripple !== undefined ? android_ripple : defaultRipple}
+      style={({ pressed }) => [
+        typeof style === "function" ? style({ pressed }) : style,
+        pressed && !disabled ? styles.pressed : null,
+        disabled ? styles.disabled : null,
+      ]}
+    >
+      {children}
+    </Pressable>
+  );
+};
 
 export const AdminScreen = ({ children, style }: ScreenProps) => {
   const { colors } = useTheme();
@@ -147,6 +193,8 @@ export const AdminHeader = ({
   subtitle,
   action,
   compact,
+  onBack,
+  eyebrow = "ONE DELHI ADMIN",
 }: HeaderProps) => {
   const { colors, isDark } = useTheme();
   const s = useAdminUIStyles();
@@ -155,20 +203,36 @@ export const AdminHeader = ({
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       <SafeAreaView edges={["top"]}>
         <View style={[s.header, compact && s.headerCompact]}>
-          <View style={s.headerCopy}>
-            <View style={s.eyebrowRow}>
-              <View style={s.eyebrowDot} />
-              <Text style={s.eyebrow}>ONE DELHI ADMIN</Text>
-            </View>
-            <Text style={s.headerTitle} numberOfLines={1}>
-              {title}
-            </Text>
-            {subtitle ? (
-              <Text style={s.headerSubtitle} numberOfLines={2}>
-                {subtitle}
+          <View style={s.headerLeftGroup}>
+            {onBack && (
+              <AdminPressable
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
+                onPress={onBack}
+                style={s.headerBackBtn}
+              >
+                <ArrowLeft size={18} color={colors.text} />
+              </AdminPressable>
+            )}
+
+            <View style={s.headerCopy}>
+              <View style={s.eyebrowRow}>
+                <View style={s.eyebrowDot} />
+                <Text style={s.eyebrow} numberOfLines={1}>
+                  {eyebrow}
+                </Text>
+              </View>
+              <Text style={s.headerTitle} numberOfLines={1}>
+                {title}
               </Text>
-            ) : null}
+              {subtitle ? (
+                <Text style={s.headerSubtitle} numberOfLines={1}>
+                  {subtitle}
+                </Text>
+              ) : null}
+            </View>
           </View>
+
           {action ? <View style={s.headerAction}>{action}</View> : null}
         </View>
       </SafeAreaView>
@@ -531,107 +595,95 @@ export const ReasonModal = ({
     setError(false);
   };
 
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
+
   return (
-    <Modal
+    <AdminBottomSheet
       visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={() => {
-        reset();
-        onClose();
-      }}
+      onClose={handleClose}
+      title={title}
+      headerIcon={<MessageSquare size={20} color={colors.primary} />}
     >
-      <View style={styles.modalOverlay}>
-        <View style={s.modalCard}>
-          <View style={s.modalHeader}>
-            <View style={s.modalIconBox}>
-              <MessageSquare size={20} color={colors.primary} />
-            </View>
-            <Text style={s.modalTitle}>{title}</Text>
-          </View>
-
-          <View style={s.modalBody}>
-            <Text style={s.modalLabel}>Select Reason</Text>
-            <View style={s.chipGrid}>
-              {PRESET_REASONS.map((preset) => (
-                <TouchableOpacity
-                  key={preset}
-                  onPress={() => {
-                    setSelectedPreset(preset);
-                    setError(false);
-                  }}
-                  style={[
-                    s.reasonChip,
-                    selectedPreset === preset && s.reasonChipActive,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      s.reasonChipText,
-                      selectedPreset === preset && s.reasonChipTextActive,
-                    ]}
-                  >
-                    {preset}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {selectedPreset === "Other" && (
-              <View style={{ marginTop: 16 }}>
-                <Text style={s.modalLabel}>Details</Text>
-                <TextInput
-                  style={[s.modalInput, error && s.modalInputError]}
-                  placeholder={placeholder}
-                  placeholderTextColor={colors.textSubtle}
-                  multiline
-                  numberOfLines={3}
-                  value={reason}
-                  onChangeText={(txt) => {
-                    setReason(txt);
-                    setError(false);
-                  }}
-                />
-              </View>
-            )}
-
-            {error && (
-              <Text style={s.modalError}>
-                Please select or provide a reason.
-              </Text>
-            )}
-          </View>
-
-          <View style={s.modalActions}>
-            <TouchableOpacity
-              style={s.modalCancel}
+      <View style={s.modalBody}>
+        <Text style={s.modalLabel}>Select Reason</Text>
+        <View style={s.chipGrid}>
+          {PRESET_REASONS.map((preset) => (
+            <AdminPressable
+              key={preset}
               onPress={() => {
-                reset();
-                onClose();
+                setSelectedPreset(preset);
+                setError(false);
               }}
-            >
-              <Text style={s.modalCancelText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
               style={[
-                s.modalConfirm,
-                (!selectedPreset ||
-                  (selectedPreset === "Other" && !reason.trim())) && {
-                  opacity: 0.5,
-                },
+                s.reasonChip,
+                selectedPreset === preset && s.reasonChipActive,
               ]}
-              onPress={handleConfirm}
-              disabled={
-                !selectedPreset ||
-                (selectedPreset === "Other" && !reason.trim())
-              }
             >
-              <Text style={s.modalConfirmText}>Confirm Action</Text>
-            </TouchableOpacity>
-          </View>
+              <Text
+                style={[
+                  s.reasonChipText,
+                  selectedPreset === preset && s.reasonChipTextActive,
+                ]}
+              >
+                {preset}
+              </Text>
+            </AdminPressable>
+          ))}
         </View>
+
+        {selectedPreset === "Other" && (
+          <View style={{ marginTop: 16 }}>
+            <Text style={s.modalLabel}>Details</Text>
+            <TextInput
+              style={[s.modalInput, error && s.modalInputError]}
+              placeholder={placeholder}
+              placeholderTextColor={colors.textSubtle}
+              multiline
+              numberOfLines={3}
+              value={reason}
+              onChangeText={(txt) => {
+                setReason(txt);
+                setError(false);
+              }}
+            />
+          </View>
+        )}
+
+        {error && (
+          <Text style={s.modalError}>
+            Please select or provide a reason.
+          </Text>
+        )}
       </View>
-    </Modal>
+
+      <View style={s.modalActions}>
+        <AdminPressable
+          style={s.modalCancel}
+          onPress={handleClose}
+        >
+          <Text style={s.modalCancelText}>Cancel</Text>
+        </AdminPressable>
+        <AdminPressable
+          style={[
+            s.modalConfirm,
+            (!selectedPreset ||
+              (selectedPreset === "Other" && !reason.trim())) && {
+              opacity: 0.5,
+            },
+          ]}
+          onPress={handleConfirm}
+          disabled={
+            !selectedPreset ||
+            (selectedPreset === "Other" && !reason.trim())
+          }
+        >
+          <Text style={s.modalConfirmText}>Confirm Action</Text>
+        </AdminPressable>
+      </View>
+    </AdminBottomSheet>
   );
 };
 
@@ -650,28 +702,44 @@ function useAdminUIStyles() {
           ...SHADOWS.subtle,
         },
         header: {
-          minHeight: 70,
-          paddingHorizontal: SPACING.xl,
-          paddingTop: SPACING.xs,
-          paddingBottom: SPACING.sm,
+          minHeight: 62,
+          paddingHorizontal: 18,
+          paddingTop: 4,
+          paddingBottom: 10,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: SPACING.md,
+          gap: 12,
         },
-        headerCompact: { minHeight: 56, paddingBottom: SPACING.xs },
-        headerCopy: { flex: 1, minWidth: 0 },
+        headerCompact: { minHeight: 52, paddingVertical: 4 },
+        headerLeftGroup: {
+          flex: 1,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+        },
+        headerBackBtn: {
+          width: 38,
+          height: 38,
+          borderRadius: 12,
+          backgroundColor: colors.surfaceMuted,
+          borderWidth: 1,
+          borderColor: colors.border,
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        headerCopy: { flex: 1, minWidth: 0, justifyContent: "center" },
         eyebrowRow: {
           flexDirection: "row",
           alignItems: "center",
           gap: 6,
-          marginBottom: 3,
+          marginBottom: 2,
         },
         eyebrowDot: {
-          width: 5,
-          height: 5,
-          borderRadius: 2.5,
-          backgroundColor: colors.accent,
+          width: 6,
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: "#10B981",
         },
         eyebrowPill: {
           display: "none",
@@ -679,26 +747,30 @@ function useAdminUIStyles() {
         eyebrow: {
           color: colors.textSubtle,
           fontSize: 10,
-          fontWeight: "700",
+          fontWeight: "800",
           textTransform: "uppercase",
-          letterSpacing: 1.2,
+          letterSpacing: 0.8,
         },
         headerTitle: {
           color: colors.text,
-          fontSize: 20,
-          lineHeight: 26,
+          fontSize: 19,
+          lineHeight: 24,
           fontWeight: "800",
-          letterSpacing: -0.4,
+          letterSpacing: -0.3,
         },
         headerSubtitle: {
-          color: colors.textSubtle,
+          color: colors.textMuted,
           fontSize: 12,
           lineHeight: 16,
           fontWeight: "500",
-          marginTop: 2,
-          letterSpacing: 0.1,
+          marginTop: 1,
         },
-        headerAction: { flexShrink: 0 },
+        headerAction: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          flexShrink: 0,
+        },
         searchBox: {
           minHeight: 46,
           flexDirection: "row",
@@ -1576,3 +1648,5 @@ export const styles = StyleSheet.create({
   reasonChipText: { fontSize: 12, fontWeight: "700", color: COLORS.textMuted },
   reasonChipTextActive: { color: COLORS.primary },
 });
+
+export { UndoToast, UndoToastProps } from './UndoToast';

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useTransition } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, BackHandler } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import { supabase } from '../../services/supabase';
@@ -7,7 +7,8 @@ import { useTheme } from '../../core/ThemeContext';
 import { RADIUS, SHADOWS, SPACING  } from '../../core/theme';
 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, ReasonModal, SearchField, StatusBadge } from '../../components/AdminUI';
+import { LinearGradient } from 'expo-linear-gradient';
+import { AdminHeader, AdminPressable, AdminScreen, ConfirmationModal, EmptyState, LoadingState, SearchField, StatusBadge } from '../../components/AdminUI';
 import { UserTicketsScreen } from './UserTicketsScreen';
 import { CreateUserModal } from './CreateUserModal';
 import { logActivity } from '../../services/logService';
@@ -26,6 +27,7 @@ const Ticket = IconWrapper('ticket');
 const ShieldCheck = IconWrapper('shield-check');
 const IndianRupee = IconWrapper('currency-inr');
 const Star = IconWrapper('star');
+const Smartphone = IconWrapper('cellphone');
 
 const UserCard = React.memo(({ item, userRevenue, initiateDelete, initiateStatusToggle, setSelectedUser }: any) => {
   const { colors, isDark } = useTheme();
@@ -57,15 +59,14 @@ const UserCard = React.memo(({ item, userRevenue, initiateDelete, initiateStatus
             {isAdmin && <StatusBadge label="ADMIN" tone="info" />}
           </View>
         </View>
-        <TouchableOpacity 
+        <AdminPressable 
           accessibilityRole="button" 
           accessibilityLabel={`Delete ${item.name}`} 
           onPress={() => initiateDelete(item)} 
           style={styles.deleteBtn} 
-          activeOpacity={0.7}
         >
           <Trash2 size={15} color={colors.error} />
-        </TouchableOpacity>
+        </AdminPressable>
       </View>
 
       <View style={styles.cardMetricsRow}>
@@ -77,25 +78,31 @@ const UserCard = React.memo(({ item, userRevenue, initiateDelete, initiateStatus
       </View>
 
       <View style={styles.cardActions}>
-        <TouchableOpacity 
+        <AdminPressable 
           style={[styles.actionBtn, banned ? styles.unbanBtn : styles.banBtn]} 
           onPress={() => initiateStatusToggle(item)} 
-          activeOpacity={0.7}
         >
           {item.status === 'ACTIVE' || !item.status ? <XCircle size={14} color={colors.error} /> : <BadgeCheck size={14} color={colors.success} />}
           <Text style={[styles.actionBtnText, { color: (item.status === 'ACTIVE' || !item.status) ? colors.error : colors.success }]}>
-            {item.status === 'ACTIVE' || !item.status ? 'Ban User' : 'Unban'}
+            {item.status === 'ACTIVE' || !item.status ? 'Ban' : 'Unban'}
           </Text>
-        </TouchableOpacity>
+        </AdminPressable>
 
-        <TouchableOpacity 
+        <AdminPressable 
           style={[styles.actionBtn, styles.viewTicketsBtn]} 
-          onPress={() => setSelectedUser(item)} 
-          activeOpacity={0.7}
+          onPress={() => setSelectedUser({ user: item, initialTab: 'tickets' })} 
         >
           <Ticket size={14} color={colors.accent} />
-          <Text style={[styles.actionBtnText, { color: colors.accent }]}>View Tickets</Text>
-        </TouchableOpacity>
+          <Text style={[styles.actionBtnText, { color: colors.accent }]}>Tickets</Text>
+        </AdminPressable>
+
+        <AdminPressable 
+          style={[styles.actionBtn, styles.viewDevicesBtn]} 
+          onPress={() => setSelectedUser({ user: item, initialTab: 'devices' })} 
+        >
+          <Smartphone size={14} color={colors.primary} />
+          <Text style={[styles.actionBtnText, { color: colors.primary }]}>Devices</Text>
+        </AdminPressable>
       </View>
     </View>
   );
@@ -115,9 +122,32 @@ export const UsersListScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
   const [selectedUser, setSelectedUser] = useState<any>(null);
+
+  useEffect(() => {
+    if (!selectedUser) return;
+    const onBackPress = () => {
+      setSelectedUser(null);
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [selectedUser]);
   
-  const [reasonModal, setReasonModal] = useState({ visible: false, title: '', type: '', data: null as any });
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    type?: 'danger' | 'info';
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
 
   const fetchAll = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -172,56 +202,59 @@ export const UsersListScreen = () => {
     };
   }, [fetchAll]);
 
+  const toggleUserStatus = useCallback(async (user: any) => {
+    const newStatus = user.status === 'ACTIVE' || !user.status ? 'BANNED' : 'ACTIVE';
+    try {
+      await supabase.from('users').update({ status: newStatus }).eq('id', user.id);
+      await logActivity({
+        type: 'ADMIN',
+        action: newStatus === 'BANNED' ? 'USER_BANNED' : 'USER_UNBANNED',
+        details: `${user.name}'s access status was changed to ${newStatus}.`,
+        targetId: user.id,
+        targetType: 'USER',
+        oldValue: user.status || 'ACTIVE',
+        newValue: newStatus,
+      });
+      fetchAll();
+      Alert.alert('Status Updated', `${user.name} is now ${newStatus}`);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update status');
+    }
+  }, [fetchAll]);
+
   const initiateStatusToggle = useCallback((user: any) => {
-    const action = user.status === 'ACTIVE' || !user.status ? 'Ban User' : 'Unban User';
-    setReasonModal({ visible: true, title: `${action}: ${user.name}`, type: 'TOGGLE_STATUS', data: user });
-  }, []);
+    toggleUserStatus(user);
+  }, [toggleUserStatus]);
+
+  const deleteUser = useCallback(async (user: any) => {
+    try {
+      const { id: uid, email, name } = user;
+      await supabase.from('users').delete().eq('id', uid);
+      await logActivity({
+        type: 'ADMIN',
+        action: 'USER_DELETED',
+        details: `User ${name} (${email}) was removed.`,
+        targetId: uid,
+        targetType: 'USER',
+      });
+      fetchAll();
+      Alert.alert('Success', 'User has been removed.');
+    } catch (err) {
+      Alert.alert('Error', 'Deletion failed');
+    }
+  }, [fetchAll]);
 
   const initiateDelete = useCallback((user: any) => {
-    setReasonModal({ visible: true, title: `Remove User: ${user.name}`, type: 'DELETE_USER', data: user });
-  }, []);
-
-  const handleActionWithReason = async (reason: string) => {
-    const { type, data: user } = reasonModal;
-
-    if (type === 'TOGGLE_STATUS') {
-      const newStatus = user.status === 'ACTIVE' || !user.status ? 'BANNED' : 'ACTIVE';
-      try {
-        await supabase.from('users').update({ status: newStatus }).eq('id', user.id);
-        await logActivity({
-          type: 'ADMIN',
-          action: newStatus === 'BANNED' ? 'USER_BANNED' : 'USER_UNBANNED',
-          details: `${user.name}'s access status was changed to ${newStatus}.`,
-          targetId: user.id,
-          targetType: 'USER',
-          oldValue: user.status || 'ACTIVE',
-          newValue: newStatus,
-          notes: reason
-        });
-        fetchAll();
-        Alert.alert('Status Updated', `${user.name} is now ${newStatus}`);
-      } catch (error) {
-        Alert.alert('Error', 'Failed to update status');
-      }
-    } else if (type === 'DELETE_USER') {
-      try {
-        const { id: uid, email, name } = user;
-        await supabase.from('users').delete().eq('id', uid);
-        await logActivity({
-          type: 'ADMIN',
-          action: 'USER_DELETED',
-          details: `User ${name} (${email}) was removed.`,
-          targetId: uid,
-          targetType: 'USER',
-          notes: reason
-        });
-        fetchAll();
-        Alert.alert('Success', 'User and their devices have been removed.');
-      } catch (err) {
-        Alert.alert('Error', 'Deletion failed');
-      }
-    }
-  };
+    setConfirmModal({
+      visible: true,
+      title: 'Delete User?',
+      message: `Are you sure you want to permanently delete ${user.name}? This will remove all their data.`,
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      type: 'danger',
+      onConfirm: () => deleteUser(user),
+    });
+  }, [deleteUser]);
 
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
@@ -258,10 +291,12 @@ export const UsersListScreen = () => {
   );
 
   if (selectedUser) {
+    const targetUser = selectedUser?.user || selectedUser;
+    const initialTab = selectedUser?.initialTab || 'tickets';
     return (
       <UserTicketsScreen
         navigation={{ goBack: () => setSelectedUser(null) }}
-        route={{ params: { userId: selectedUser.id, userName: selectedUser.name } }}
+        route={{ params: { userId: targetUser.id, userName: targetUser.name, initialTab } }}
       />
     );
   }
@@ -271,15 +306,6 @@ export const UsersListScreen = () => {
       <AdminHeader 
         title="Identity & Access" 
         subtitle={`${filteredUsers.length} ${activeFilter.toLowerCase()} records indexed`} 
-        action={
-          <IconButton
-            accessibilityLabel="Add New User"
-            onPress={() => setShowCreateModal(true)}
-            tone="primary"
-          >
-            <UserPlus size={18} color="#ffffff" />
-          </IconButton>
-        }
       />
       
       <View style={styles.controls}>
@@ -289,9 +315,15 @@ export const UsersListScreen = () => {
           onChangeText={setSearchQuery}
         />
         
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterBar}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          contentContainerStyle={styles.filterBar}
+          keyboardShouldPersistTaps="handled"
+          overScrollMode="never"
+        >
           {(['ALL', 'ACTIVE', 'BANNED', 'ADMINS'] as FilterType[]).map((f) => (
-            <TouchableOpacity 
+            <AdminPressable 
               key={f} 
               onPress={() => {
                 setActiveFilter(f);
@@ -299,7 +331,7 @@ export const UsersListScreen = () => {
               style={[styles.filterTab, activeFilter === f && styles.filterTabActive]}
             >
               <Text style={[styles.filterText, activeFilter === f && styles.filterTextActive]}>{f}</Text>
-            </TouchableOpacity>
+            </AdminPressable>
           ))}
         </ScrollView>
       </View>
@@ -314,6 +346,8 @@ export const UsersListScreen = () => {
           contentContainerStyle={styles.list}
           refreshing={refreshing}
           onRefresh={() => fetchAll(true)}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
             <EmptyState 
               icon={<Search size={30} color={colors.textSubtle} />} 
@@ -324,11 +358,32 @@ export const UsersListScreen = () => {
         />
       )}
 
-      <ReasonModal
-        visible={reasonModal.visible}
-        onClose={() => setReasonModal({ ...reasonModal, visible: false })}
-        title={reasonModal.title}
-        onSubmit={handleActionWithReason}
+      <AdminPressable
+        style={styles.fab}
+        onPress={() => setShowCreateModal(true)}
+        accessibilityLabel="Add New User"
+        accessibilityRole="button"
+      >
+        <LinearGradient
+          colors={['#2563EB', '#3B82F6']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.fabGrad}
+        >
+          <UserPlus size={24} color="#FFFFFF" />
+        </LinearGradient>
+      </AdminPressable>
+
+
+      <ConfirmationModal
+        visible={confirmModal.visible}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, visible: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmLabel={confirmModal.confirmLabel}
+        cancelLabel={confirmModal.cancelLabel}
+        type={confirmModal.type}
       />
 
       <CreateUserModal
@@ -364,7 +419,26 @@ function getStyles(colors: any, isDark: boolean) {
   filterText: { fontSize: 11, fontWeight: '800', color: colors.textMuted },
   filterTextActive: { color: colors.white },
   
-  list: { padding: SPACING.xl, paddingBottom: 40 },
+  list: { padding: SPACING.xl, paddingBottom: 90 },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 24,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    ...SHADOWS.floating,
+    elevation: 6,
+    zIndex: 10,
+  },
+  fabGrad: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 29,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
   userCard: { 
     backgroundColor: colors.surface, 
     borderRadius: RADIUS.card, 
@@ -482,6 +556,10 @@ function getStyles(colors: any, isDark: boolean) {
   viewTicketsBtn: {
     backgroundColor: colors.accentSoft,
     borderColor: colors.accent + '33',
+  },
+  viewDevicesBtn: {
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
   },
   });
 }

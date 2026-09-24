@@ -67,7 +67,11 @@ const DEFAULT_FARE_CONFIG = {
   ],
 };
 
-export const FareConfigScreen = () => {
+interface FareConfigScreenProps {
+  hideHeader?: boolean;
+}
+
+export const FareConfigScreen = ({ hideHeader }: FareConfigScreenProps = {}) => {
   const { colors, isDark } = useTheme();
   const styles = typeof getStyles === 'function' ? getStyles(colors, isDark) : {} as any;
   const [activeTab, setActiveTab] = useState<"delhi" | "interstate">("delhi");
@@ -284,12 +288,15 @@ export const FareConfigScreen = () => {
 
   const activeSlabs = activeTab === "delhi" ? delhiSlabs : interstateSlabs;
 
-  return (
-    <AdminScreen>
-      <AdminHeader
-        title="Fare Slabs"
-        subtitle="Manage route distances, tolls, and slab fares"
-        action={
+  const content = (
+    <>
+      {/* Tabs */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: SPACING.xl, marginTop: hideHeader ? SPACING.md : SPACING.lg, gap: 10 }}>
+        <View style={[styles.tabContainer, { flex: 1, marginHorizontal: 0, marginTop: 0 }]}>
+          {renderTabButton("delhi", "Delhi Slabs")}
+          {renderTabButton("interstate", "Interstate Slabs")}
+        </View>
+        {hideHeader && (
           <IconButton
             tone="neutral"
             accessibilityLabel="Reset to defaults"
@@ -297,13 +304,7 @@ export const FareConfigScreen = () => {
           >
             <Undo size={18} color={colors.text} />
           </IconButton>
-        }
-      />
-
-      {/* Tabs */}
-      <View style={styles.tabContainer}>
-        {renderTabButton("delhi", "Delhi Slabs")}
-        {renderTabButton("interstate", "Interstate Slabs")}
+        )}
       </View>
 
       {loading ? (
@@ -462,6 +463,29 @@ export const FareConfigScreen = () => {
           </View>
         </View>
       </Modal>
+    </>
+  );
+
+  if (hideHeader) {
+    return <View style={{ flex: 1 }}>{content}</View>;
+  }
+
+  return (
+    <AdminScreen>
+      <AdminHeader
+        title="Fare Slabs"
+        subtitle="Manage route distances, tolls, and slab fares"
+        action={
+          <IconButton
+            tone="neutral"
+            accessibilityLabel="Reset to defaults"
+            onPress={handleResetToDefaults}
+          >
+            <Undo size={18} color={colors.text} />
+          </IconButton>
+        }
+      />
+      {content}
     </AdminScreen>
   );
 };
