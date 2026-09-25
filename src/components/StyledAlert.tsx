@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -57,7 +57,7 @@ RNAlert.alert = (title: string, message?: string, buttons?: any[], options?: any
 
 export const StyledAlertModal = () => {
   const { colors, isDark } = useTheme();
-  const styles = getStyles(colors);
+  const styles = useMemo(() => getStyles(colors), [colors]);
 
   const [alert, setAlert] = useState<AlertPayload>({
     visible: false,

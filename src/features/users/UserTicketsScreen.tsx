@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Animated, Alert, PanResponder } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, PanResponder } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
-const AnyFlashList = FlashList as any;
 import { supabase } from '../../services/supabase';
 import { useTheme } from '../../core/ThemeContext';
 import { RADIUS, SPACING, SHADOWS } from '../../core/theme';
@@ -29,7 +28,10 @@ import { EditTicketModal } from '../dashboard/EditTicketModal';
 
 export const UserTicketsScreen = ({ navigation, route }: any) => {
   const { colors, isDark } = useTheme();
-  const localStyles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
+  const localStyles = useMemo(
+    () => (typeof getStyles === 'function' ? getStyles(colors) : {} as any),
+    [colors]
+  );
   const { userId, userName, initialTab = 'tickets' } = route.params;
   const [activeTab, setActiveTab] = useState<'tickets' | 'devices'>(initialTab);
   const [tickets, setTickets] = useState<any[]>([]);
@@ -202,14 +204,17 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
     }
   }, [userName]);
 
-  // Instant Delete with 4s Undo window (Option 3)
+  const ticketsRef = useRef(tickets);
+  ticketsRef.current = tickets;
+
+  // Instant Delete with 10s Undo window (Option 3)
   const handleDelete = useCallback((id: string) => {
     if (pendingDeleteRef.current) {
       if (pendingDeleteRef.current.timer) clearTimeout(pendingDeleteRef.current.timer);
       commitPendingDelete();
     }
 
-    const ticketToDelete = tickets.find((t) => t.id === id);
+    const ticketToDelete = ticketsRef.current.find((t) => t.id === id);
     if (!ticketToDelete) return;
 
     // Optimistically remove from state immediately
@@ -221,7 +226,7 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
     }, 10000);
 
     pendingDeleteRef.current = { id, ticket: ticketToDelete, timer };
-  }, [tickets, commitPendingDelete]);
+  }, [commitPendingDelete]);
 
   // Undo single ticket delete
   const handleUndo = useCallback(() => {
@@ -415,10 +420,9 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
         loading ? (
           <LoadingState label="Loading tickets..." />
         ) : (
-          <AnyFlashList
+          <FlashList
             data={tickets}
             extraData={expandedTicketId}
-            estimatedItemSize={150}
             keyExtractor={(item: any) => item.id}
             renderItem={renderTicket}
             contentContainerStyle={localStyles.listContent}
@@ -439,9 +443,8 @@ export const UserTicketsScreen = ({ navigation, route }: any) => {
         devicesLoading ? (
           <LoadingState label="Loading devices..." />
         ) : (
-          <AnyFlashList
+          <FlashList
             data={devices}
-            estimatedItemSize={140}
             keyExtractor={(item: any) => item.id}
             renderItem={renderDeviceItem}
             contentContainerStyle={localStyles.listContent}

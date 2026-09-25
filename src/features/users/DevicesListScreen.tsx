@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { supabase } from '../../services/supabase';
@@ -22,7 +22,10 @@ const Apple = IconWrapper('apple');
 
 export const DevicesListScreen = () => {
   const { colors } = useTheme();
-  const styles = typeof getStyles === 'function' ? getStyles(colors) : {} as any;
+  const styles = useMemo(
+    () => (typeof getStyles === 'function' ? getStyles(colors) : {} as any),
+    [colors]
+  );
   const [devices, setDevices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -154,7 +157,7 @@ export const DevicesListScreen = () => {
 
   return (
     <AdminScreen>
-      <AdminHeader title="Device Management" subtitle={`${devices.length} registered devices`} />
+      <AdminHeader title="Device Management" subtitle={`${devices.length} authorized client ${devices.length === 1 ? 'device' : 'devices'}`} />
 
       {loading ? (
         <LoadingState label="Loading devices..." />

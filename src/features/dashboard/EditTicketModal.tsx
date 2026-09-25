@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -40,7 +40,7 @@ export const EditTicketModal: React.FC<EditTicketModalProps> = ({
   onTicketUpdated,
 }) => {
   const { colors, isDark } = useTheme();
-  const styles = getStyles(colors, isDark);
+  const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
 
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -130,6 +130,32 @@ export const EditTicketModal: React.FC<EditTicketModalProps> = ({
       onClose={handleClose}
       title="Edit Ticket Details"
       subtitle={ticket ? `Route ${ticket.route || ''} • Ticket #${ticket.id?.slice(0, 8)}...` : undefined}
+      footer={
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={handleClose}
+            disabled={loading}
+          >
+            <Text style={styles.cancelBtnText}>Cancel</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.saveBtn, loading && styles.saveBtnDisabled]}
+            onPress={handleSave}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color={colors.white} size="small" />
+            ) : (
+              <>
+                <Pencil size={18} color={colors.white} style={{ marginRight: 6 }} />
+                <Text style={styles.saveBtnText}>Save Changes</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      }
     >
       <ScrollView
         style={{ flexShrink: 1 }}
@@ -223,32 +249,6 @@ export const EditTicketModal: React.FC<EditTicketModalProps> = ({
               </TouchableOpacity>
             );
           })}
-        </View>
-
-        {/* Action Buttons */}
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={styles.cancelBtn}
-            onPress={handleClose}
-            disabled={loading}
-          >
-            <Text style={styles.cancelBtnText}>Cancel</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.saveBtn, loading && styles.saveBtnDisabled]}
-            onPress={handleSave}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color={colors.white} size="small" />
-            ) : (
-              <>
-                <Pencil size={18} color={colors.white} style={{ marginRight: 6 }} />
-                <Text style={styles.saveBtnText}>Save Changes</Text>
-              </>
-            )}
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </AdminBottomSheet>

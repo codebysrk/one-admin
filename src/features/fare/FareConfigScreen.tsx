@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,9 @@ import {
   Keyboard,
   Platform,
   Dimensions,
+  KeyboardAvoidingView,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { supabase } from "../../services/supabase";
 import { useTheme } from '../../core/ThemeContext';
 import { SPACING, RADIUS, SHADOWS } from "../../core/theme";
@@ -73,7 +75,10 @@ interface FareConfigScreenProps {
 
 export const FareConfigScreen = ({ hideHeader }: FareConfigScreenProps = {}) => {
   const { colors, isDark } = useTheme();
-  const styles = typeof getStyles === 'function' ? getStyles(colors, isDark) : {} as any;
+  const styles = useMemo(
+    () => (typeof getStyles === 'function' ? getStyles(colors, isDark) : {} as any),
+    [colors, isDark]
+  );
   const [activeTab, setActiveTab] = useState<"delhi" | "interstate">("delhi");
   const [delhiSlabs, setDelhiSlabs] = useState<FareSlab[]>([]);
   const [interstateSlabs, setInterstateSlabs] = useState<FareSlab[]>([]);
@@ -87,24 +92,7 @@ export const FareConfigScreen = ({ hideHeader }: FareConfigScreenProps = {}) => 
   const [maxKm, setMaxKm] = useState("");
   const [nonACFare, setNonACFare] = useState("");
   const [acFare, setAcFare] = useState("");
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-  useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const showSub = Keyboard.addListener(showEvent, (e) => {
-      setKeyboardHeight(e.endCoordinates.height);
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      setKeyboardHeight(0);
-    });
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
 
   const loadConfig = useCallback(async () => {
     setLoading(true);
@@ -310,13 +298,11 @@ export const FareConfigScreen = ({ hideHeader }: FareConfigScreenProps = {}) => 
       {loading ? (
         <LoadingState label="Loading Slabs Configuration..." />
       ) : (
-        <ScrollView
-          style={styles.container}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {activeSlabs.map((slab, index) => (
-            <Card key={index} style={styles.slabCard}>
+        <FlashList
+          data={activeSlabs}
+          keyExtractor={(_, index) => String(index)}
+          renderItem={({ item: slab, index }: any) => (
+            <Card style={styles.slabCard}>
               <View style={styles.slabInfo}>
                 <View style={styles.distanceBlock}>
                   <Text style={styles.slabLabel}>Distance Range</Text>
@@ -354,16 +340,19 @@ export const FareConfigScreen = ({ hideHeader }: FareConfigScreenProps = {}) => 
                 </TouchableOpacity>
               </View>
             </Card>
-          ))}
-
-          <Button
-            title="Add New Slab"
-            tone="accent"
-            icon={<Plus size={18} color={colors.white} />}
-            onPress={() => openEditModal(null, null)}
-            style={styles.addButton}
-          />
-        </ScrollView>
+          )}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          ListFooterComponent={
+            <Button
+              title="Add New Slab"
+              tone="accent"
+              icon={<Plus size={18} color={colors.white} />}
+              onPress={() => openEditModal(null, null)}
+              style={styles.addButton}
+            />
+          }
+        />
       )}
 
       {/* Fixed bottom controls */}
@@ -390,7 +379,10 @@ export const FareConfigScreen = ({ hideHeader }: FareConfigScreenProps = {}) => 
           setModalVisible(false);
         }}
       >
-        <View style={[styles.modalOverlay, { paddingBottom: keyboardHeight }]}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <TouchableOpacity
             style={StyleSheet.absoluteFillObject}
             activeOpacity={1}
@@ -401,7 +393,7 @@ export const FareConfigScreen = ({ hideHeader }: FareConfigScreenProps = {}) => 
           />
           <View style={[
             styles.modalContent,
-            keyboardHeight > 0 && { maxHeight: Math.max(Dimensions.get('window').height - keyboardHeight - 50, 200) }
+            { maxHeight: Math.max(Dimensions.get('window').height - 80, 200) }
           ]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
@@ -461,7 +453,7 @@ export const FareConfigScreen = ({ hideHeader }: FareConfigScreenProps = {}) => 
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );

@@ -14,6 +14,7 @@ import {
   Animated,
   PanResponder,
   Vibration,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -28,6 +29,7 @@ interface BottomSheetProps {
   title: string;
   subtitle?: string;
   children: React.ReactNode;
+  footer?: React.ReactNode;
   loading?: boolean;
   loadingText?: string;
   headerIcon?: React.ReactNode;
@@ -41,6 +43,7 @@ export const AdminBottomSheet = ({
   title,
   subtitle,
   children,
+  footer,
   loading,
   loadingText = 'Processing...',
   headerIcon,
@@ -48,21 +51,42 @@ export const AdminBottomSheet = ({
   sheetStyle,
 }: BottomSheetProps) => {
   const { colors } = useTheme();
-  const styles = getStyles(colors);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const styles = useMemo(() => getStyles(colors), [colors]);
 
   const insets = useSafeAreaInsets();
   const screenHeight = Dimensions.get('window').height;
   const topSafeOffset = Math.max(insets.top, 24);
-  const maxSheetHeight = keyboardHeight > 0
-    ? Math.max(screenHeight - keyboardHeight - topSafeOffset, 200)
-    : Math.max(screenHeight - topSafeOffset - 20, 200);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const maxSheetHeight = Math.max(
+    screenHeight - topSafeOffset - 20 - keyboardHeight,
+    200
+  );
 
   const panY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
       panY.setValue(0);
+    } else {
+      setKeyboardHeight(0);
     }
   }, [visible, panY]);
 
@@ -124,23 +148,6 @@ export const AdminBottomSheet = ({
     [loading, onClose, panY, screenHeight]
   );
 
-  useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const showSub = Keyboard.addListener(showEvent, (e) => {
-      setKeyboardHeight(e.endCoordinates.height);
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      setKeyboardHeight(0);
-    });
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
   const animatedBackdropStyle = {
     opacity: panY.interpolate({
       inputRange: [0, 250],
@@ -159,7 +166,15 @@ export const AdminBottomSheet = ({
         if (!loading) onClose();
       }}
     >
-      <View style={[styles.overlay, { paddingBottom: keyboardHeight }]}>
+      <KeyboardAvoidingView
+        style={[
+          styles.overlay,
+          Platform.OS === 'android' && keyboardHeight > 0
+            ? { paddingBottom: keyboardHeight }
+            : null,
+        ]}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <Animated.View style={[styles.backdrop, animatedBackdropStyle]}>
           <TouchableOpacity
             style={StyleSheet.absoluteFillObject}
@@ -199,6 +214,12 @@ export const AdminBottomSheet = ({
             {children}
           </View>
 
+          {footer ? (
+            <View style={styles.stickyFooter}>
+              {footer}
+            </View>
+          ) : null}
+
           {loading && (
             <View style={styles.loadingOverlay}>
               <ActivityIndicator size="small" color={colors.primary} />
@@ -206,9 +227,9 @@ export const AdminBottomSheet = ({
             </View>
           )}
           
-          <SafeAreaView edges={['bottom']} />
+          <SafeAreaView edges={keyboardHeight > 0 ? [] : ['bottom']} />
         </Animated.View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -289,5 +310,13 @@ const getStyles = (colors: any) => StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: colors.primary,
+  },
+  stickyFooter: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
   },
 });

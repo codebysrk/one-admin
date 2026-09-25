@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../services/supabase';
 import { FlashList } from '@shopify/flash-list';
 import { useTheme } from '../../core/ThemeContext';
@@ -9,6 +10,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField, AdminBottomSheet, ConfirmationModal } from '../../components/AdminUI';
 import { AdminPermission } from '../../services/authService';
 import { logActivity } from '../../services/logService';
+import { useDebounce } from '../../utils/useDebounce';
 
 const IconWrapper = (name: any) => (props: any) => (
   <MaterialCommunityIcons name={name} {...props} />
@@ -33,14 +35,26 @@ const ALL_PERMISSIONS: { key: AdminPermission; label: string; desc: string }[] =
 
 export const AdminsManagementScreen = () => {
   const { colors, isDark } = useTheme();
-  const styles = typeof getStyles === 'function' ? getStyles(colors, isDark) : {} as any;
+  const styles = useMemo(
+    () => (typeof getStyles === 'function' ? getStyles(colors, isDark) : {} as any),
+    [colors, isDark]
+  );
   const [admins, setAdmins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [editingAdmin, setEditingAdmin] = useState<any>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [confirmModal, setConfirmModal] = useState({ visible: false, adminId: '', action: '' as 'REMOVE' | 'UPDATE' });
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setSearchQuery('');
+      };
+    }, [])
+  );
 
   const fetchAdmins = React.useCallback(async () => {
     try {
@@ -242,7 +256,11 @@ export const AdminsManagementScreen = () => {
         <LoadingState label="Loading administrators..." />
       ) : (
         <FlashList
-          data={admins.filter(a => a.email?.toLowerCase().includes(searchQuery.toLowerCase()) || a.name?.toLowerCase().includes(searchQuery.toLowerCase()))}
+          data={admins.filter(a => {
+            const q = debouncedSearchQuery.trim().toLowerCase();
+            if (!q) return true;
+            return a.email?.toLowerCase().includes(q) || a.name?.toLowerCase().includes(q);
+          })}
           keyExtractor={(item) => item.id}
           renderItem={renderAdminItem}
           contentContainerStyle={styles.list}

@@ -5,7 +5,6 @@ import {
   Platform,
   Pressable,
   PressableProps,
-  StatusBar,
   StyleProp,
   StyleSheet,
   Text,
@@ -16,6 +15,7 @@ import {
   View,
   ViewStyle,
 } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
@@ -200,7 +200,7 @@ export const AdminHeader = ({
   const s = useAdminUIStyles();
   return (
     <View style={s.headerShell}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+      <StatusBar style={isDark ? "light" : "dark"} />
       <SafeAreaView edges={["top"]}>
         <View style={[s.header, compact && s.headerCompact]}>
           <View style={s.headerLeftGroup}>

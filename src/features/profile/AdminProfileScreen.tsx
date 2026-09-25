@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../services/supabase';
@@ -92,7 +92,7 @@ export const AdminProfileScreen = () => {
   return (
     <View style={styles.container}>
       <AdminHeader
-        title="Profile Settings"
+        title="Admin Profile"
         subtitle={admin?.email || "Account & security preferences"}
         onBack={() => navigation.goBack()}
         action={(
@@ -152,7 +152,7 @@ export const AdminProfileScreen = () => {
                   </View>
                 </View>
                 <TouchableOpacity style={styles.mainBtn} onPress={handleUpdateProfile} disabled={loading} activeOpacity={0.86}>
-                  {loading ? <ActivityIndicator color={colors.white} /> : <><Save size={16} color={colors.white} /><Text style={styles.btnText}>Save Changes</Text></>}
+                  {loading ? <ActivityIndicator color={colors.white} /> : <><Save size={16} color={colors.white} /><Text style={styles.btnText}>Save</Text></>}
                 </TouchableOpacity>
               </>
             ) : (

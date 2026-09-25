@@ -1,5 +1,6 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 import { useColorScheme } from 'react-native';
+import * as SystemUI from 'expo-system-ui';
 import { lightColors, darkColors, SPACING, RADIUS, TYPOGRAPHY, SHADOWS } from './theme';
 
 type Colors = typeof lightColors;
@@ -25,6 +26,10 @@ const ThemeContext = createContext<ThemeContextType>({
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
+
+  useEffect(() => {
+    SystemUI.setBackgroundColorAsync(isDark ? darkColors.background : lightColors.background).catch(() => {});
+  }, [isDark]);
 
   const value: ThemeContextType = {
     colors: isDark ? darkColors : lightColors,

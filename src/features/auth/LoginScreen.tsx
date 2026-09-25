@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, StatusBar, KeyboardAvoidingView, Platform, Image, Dimensions, Modal, Keyboard, Pressable } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Dimensions, Modal, Keyboard, Pressable } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../services/supabase';
 import { loginAdmin } from '../../services/authService';
@@ -235,7 +236,7 @@ export const LoginScreen = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       
       <LinearGradient 
         colors={isDark ? [colors.background, colors.backgroundAlt] : ['#FFFFFF', '#F6F8FB']} 

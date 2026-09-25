@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, TextInput, ScrollView, Platform, PanResponder, Animated, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Pressable, Alert, TextInput, ScrollView, Platform, PanResponder, Animated, Keyboard, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { Swipeable } from 'react-native-gesture-handler';
@@ -18,6 +18,7 @@ const Trash2 = IconWrapper('trash-can-outline');
 const Bus = IconWrapper('bus');
 const Cash = IconWrapper('cash-multiple');
 const X = IconWrapper('close');
+const Check = IconWrapper('check');
 const ChevronRight = IconWrapper('chevron-right');
 const ArrowRightLeft = IconWrapper('swap-horizontal');
 const FileJson = IconWrapper('upload');
@@ -29,8 +30,13 @@ import { logActivity } from '../../services/logService';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Clipboard from 'expo-clipboard';
 import { FareConfigScreen } from '../fare/FareConfigScreen';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useDebounce } from '../../utils/useDebounce';
+
+const FormatList = IconWrapper('format-list-bulleted');
+const ClipboardIcon = IconWrapper('clipboard-text-outline');
 
 interface DraggableStopRowProps {
   stop: string;
@@ -48,6 +54,8 @@ interface DraggableStopRowProps {
   dragY: Animated.Value;
   styles?: any;
 }
+
+let activeStopRowCloser: (() => void) | null = null;
 
 const DraggableStopRow = React.memo(({
   stop,
@@ -67,76 +75,152 @@ const DraggableStopRow = React.memo(({
 }: DraggableStopRowProps) => {
   const { colors, isDark } = useTheme();
   const styles = propStyles || (typeof getStyles === 'function' ? getStyles(colors) : ({} as any));
+  const [isFocused, setIsFocused] = useState(false);
 
   const translateX = useRef(new Animated.Value(0)).current;
+  const isOpenRef = useRef(false);
+  const DELETE_WIDTH = 72;
 
   // Use propsRef to avoid stale closures in PanResponder callbacks
   const propsRef = useRef({ onDragStart, onDragMove, onDragEnd, onDelete, onChangeText, onLayout, index, isAnyDragging });
   propsRef.current = { onDragStart, onDragMove, onDragEnd, onDelete, onChangeText, onLayout, index, isAnyDragging };
 
-  const verticalDragPanResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        const { onDragStart, index } = propsRef.current;
-        onDragStart(index);
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        const { onDragMove, index } = propsRef.current;
-        onDragMove(index, gestureState.dy);
-      },
-      onPanResponderRelease: (evt, gestureState) => {
-        const { onDragEnd, index } = propsRef.current;
-        onDragEnd(index, gestureState.dy);
-      },
-      onPanResponderTerminate: () => {
-        const { onDragEnd, index } = propsRef.current;
-        onDragEnd(index, 0);
-      },
-    })
-  ).current;
+  const closeRow = useCallback(() => {
+    if (isOpenRef.current) {
+      isOpenRef.current = false;
+      Animated.spring(translateX, {
+        toValue: 0,
+        bounciness: 4,
+        speed: 16,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [translateX]);
 
-  const swipePanResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (evt, gestureState) => {
-        if (propsRef.current.isAnyDragging) return false;
-        return Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        if (gestureState.dx < 0) {
-          translateX.setValue(gestureState.dx);
-        } else {
-          translateX.setValue(0);
-        }
-      },
-      onPanResponderRelease: (evt, gestureState) => {
-        const threshold = -120;
-        if (gestureState.dx < threshold) {
-          Animated.timing(translateX, {
-            toValue: -500,
-            duration: 200,
-            useNativeDriver: true,
-          }).start(() => {
-            propsRef.current.onDelete(propsRef.current.index);
+  useEffect(() => {
+    return () => {
+      if (activeStopRowCloser === closeRow) {
+        activeStopRowCloser = null;
+      }
+    };
+  }, [closeRow]);
+
+  const handleDeletePress = useCallback(() => {
+    if (activeStopRowCloser === closeRow) {
+      activeStopRowCloser = null;
+    }
+    Animated.timing(translateX, {
+      toValue: -400,
+      duration: 160,
+      useNativeDriver: true,
+    }).start(() => {
+      isOpenRef.current = false;
+      translateX.setValue(0);
+      propsRef.current.onDelete(propsRef.current.index);
+    });
+  }, [closeRow, translateX]);
+
+  const verticalDragPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: () => {
+          const { onDragStart, index } = propsRef.current;
+          onDragStart(index);
+        },
+        onPanResponderMove: (evt, gestureState) => {
+          const { onDragMove, index } = propsRef.current;
+          onDragMove(index, gestureState.dy);
+        },
+        onPanResponderRelease: (evt, gestureState) => {
+          const { onDragEnd, index } = propsRef.current;
+          onDragEnd(index, gestureState.dy);
+        },
+        onPanResponderTerminate: () => {
+          const { onDragEnd, index } = propsRef.current;
+          onDragEnd(index, 0);
+        },
+      }),
+    []
+  );
+
+  const swipePanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (evt, gestureState) => {
+          if (propsRef.current.isAnyDragging) return false;
+          return Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+        },
+        onPanResponderGrant: () => {
+          // If another stop row is open, close it immediately
+          if (activeStopRowCloser && activeStopRowCloser !== closeRow) {
+            activeStopRowCloser();
+            activeStopRowCloser = null;
+          }
+        },
+        onPanResponderMove: (evt, gestureState) => {
+          const base = isOpenRef.current ? -DELETE_WIDTH : 0;
+          const newX = base + gestureState.dx;
+          if (newX <= 0 && newX >= -DELETE_WIDTH - 20) {
+            translateX.setValue(newX);
+          } else if (newX > 0) {
             translateX.setValue(0);
-          });
-        } else {
+          }
+        },
+        onPanResponderRelease: (evt, gestureState) => {
+          if (isOpenRef.current) {
+            if (gestureState.dx > 15) {
+              isOpenRef.current = false;
+              if (activeStopRowCloser === closeRow) activeStopRowCloser = null;
+              Animated.spring(translateX, {
+                toValue: 0,
+                bounciness: 4,
+                speed: 16,
+                useNativeDriver: true,
+              }).start();
+            } else {
+              Animated.spring(translateX, {
+                toValue: -DELETE_WIDTH,
+                bounciness: 4,
+                speed: 16,
+                useNativeDriver: true,
+              }).start();
+            }
+          } else {
+            if (gestureState.dx < -30) {
+              // Close any currently open stop row before opening this one
+              if (activeStopRowCloser && activeStopRowCloser !== closeRow) {
+                activeStopRowCloser();
+              }
+              activeStopRowCloser = closeRow;
+              isOpenRef.current = true;
+              Animated.spring(translateX, {
+                toValue: -DELETE_WIDTH,
+                bounciness: 4,
+                speed: 16,
+                useNativeDriver: true,
+              }).start();
+            } else {
+              Animated.spring(translateX, {
+                toValue: 0,
+                bounciness: 4,
+                speed: 16,
+                useNativeDriver: true,
+              }).start();
+            }
+          }
+        },
+        onPanResponderTerminate: () => {
           Animated.spring(translateX, {
-            toValue: 0,
+            toValue: isOpenRef.current ? -DELETE_WIDTH : 0,
             useNativeDriver: true,
           }).start();
-        }
-      },
-      onPanResponderTerminate: () => {
-        Animated.spring(translateX, {
-          toValue: 0,
-          useNativeDriver: true,
-        }).start();
-      },
-    })
-  ).current;
+        },
+      }),
+    [closeRow, translateX]
+  );
 
   return (
     <View 
@@ -151,8 +235,16 @@ const DraggableStopRow = React.memo(({
       {/* Swipe to Delete Underlay Background */}
       {!isDragging && (
         <View style={styles.swipeDeleteBg}>
-          <Trash2 size={18} color={colors.error} />
-          <Text style={styles.swipeDeleteText}>Delete</Text>
+          <TouchableOpacity
+            style={styles.swipeDeleteBtn}
+            onPress={handleDeletePress}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Delete stop"
+          >
+            <Trash2 size={16} color={colors.white} />
+            <Text style={styles.swipeDeleteText}>Delete</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -189,17 +281,14 @@ const DraggableStopRow = React.memo(({
           style={styles.stopInput}
           value={stop}
           onChangeText={(text) => propsRef.current.onChangeText(propsRef.current.index, text)}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          selection={isFocused ? undefined : { start: 0, end: 0 }}
           placeholder={`Bus Stop #${index + 1}`}
           placeholderTextColor={colors.textSubtle}
+          textAlign="left"
+          textAlignVertical="center"
         />
-
-        <TouchableOpacity
-          style={styles.stopDeleteBtn}
-          onPress={() => propsRef.current.onDelete(propsRef.current.index)}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <X size={15} color={colors.textSubtle} />
-        </TouchableOpacity>
 
         <View 
           {...verticalDragPanResponder.panHandlers} 
@@ -223,12 +312,28 @@ interface StopSequenceEditorProps {
 const StopSequenceEditor = ({ stops, onChangeStops, styles: propStyles }: StopSequenceEditorProps) => {
   const { colors, isDark } = useTheme();
   const styles = propStyles || (typeof getStyles === 'function' ? getStyles(colors) : ({} as any));
-  const [isBulkOpen, setIsBulkOpen] = useState(false);
+  const [editorMode, setEditorMode] = useState<'list' | 'bulk'>('list');
   const [bulkText, setBulkText] = useState('');
+  const [isBulkFocused, setIsBulkFocused] = useState(false);
   
   // Drag and drop states
   const [activeDragIndex, setActiveDragIndex] = useState<number | null>(null);
   const [targetDropIndex, setTargetDropIndex] = useState<number | null>(null);
+
+  // Progressive rendering to allow instant modal appearance
+  const [renderedCount, setRenderedCount] = useState(15);
+  useEffect(() => {
+    if (renderedCount < stops.length) {
+      const handle = requestAnimationFrame(() => {
+        setRenderedCount(stops.length);
+      });
+      return () => cancelAnimationFrame(handle);
+    }
+  }, [stops.length, renderedCount]);
+
+  const visibleStops = useMemo(() => {
+    return stops.slice(0, renderedCount);
+  }, [stops, renderedCount]);
   
   // Refs to prevent stale closures inside PanResponders
   const activeDragIndexRef = useRef<number | null>(null);
@@ -329,6 +434,15 @@ const StopSequenceEditor = ({ stops, onChangeStops, styles: propStyles }: StopSe
     return text.split(/[\n,]+/).map(s => s.trim()).filter(Boolean).length;
   };
 
+  const handlePasteFromClipboard = async () => {
+    try {
+      const text = await Clipboard.getStringAsync();
+      if (text) {
+        setBulkText((prev) => (prev ? `${prev}\n${text.trim()}` : text.trim()));
+      }
+    } catch {}
+  };
+
   const handleBulkImport = (append: boolean) => {
     const parsed = bulkText
       .split(/[\n,]+/)
@@ -346,7 +460,7 @@ const StopSequenceEditor = ({ stops, onChangeStops, styles: propStyles }: StopSe
       onChangeStops(parsed);
     }
     setBulkText('');
-    setIsBulkOpen(false);
+    setEditorMode('list');
   };
 
   const renderStopRow = useCallback(({ item: stop, index }: { item: string; index: number }) => {
@@ -384,126 +498,147 @@ const StopSequenceEditor = ({ stops, onChangeStops, styles: propStyles }: StopSe
           </Text>
         </View>
 
-        <View style={styles.sequenceHeaderActions}>
-          <TouchableOpacity style={styles.sequenceActionChip} onPress={handleAddStop} activeOpacity={0.8}>
-            <Plus size={13} color={colors.accent} />
-            <Text style={styles.sequenceActionChipTextAccent}>Add</Text>
+        {/* Mode Switcher Segment Tabs */}
+        <View style={styles.sequenceModeSegment}>
+          <TouchableOpacity
+            style={[styles.modeTab, editorMode === 'list' && styles.modeTabActive]}
+            onPress={() => setEditorMode('list')}
+            activeOpacity={0.8}
+          >
+            <FormatList size={13} color={editorMode === 'list' ? colors.accent : colors.textMuted} />
+            <Text style={[styles.modeTabText, editorMode === 'list' && styles.modeTabTextActive]}>
+              List
+            </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={styles.sequenceActionChip} 
+          <TouchableOpacity
+            style={[styles.modeTab, editorMode === 'bulk' && styles.modeTabActive]}
             onPress={() => {
               setBulkText(stops.join('\n'));
-              setIsBulkOpen(true);
+              setIsBulkFocused(false);
+              setEditorMode('bulk');
             }}
             activeOpacity={0.8}
           >
-            <ContentPaste size={13} color={colors.textMuted} />
-            <Text style={styles.sequenceActionChipText}>Bulk</Text>
+            <ContentPaste size={13} color={editorMode === 'bulk' ? colors.accent : colors.textMuted} />
+            <Text style={[styles.modeTabText, editorMode === 'bulk' && styles.modeTabTextActive]}>
+              Bulk
+            </Text>
           </TouchableOpacity>
-
-          {stops.length > 0 && (
-            <TouchableOpacity 
-              onPress={() => {
-                Alert.alert(
-                  'Clear Sequence',
-                  'Are you sure you want to remove all stops from this journey?',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Clear', style: 'destructive', onPress: () => onChangeStops([]) }
-                  ]
-                );
-              }}
-              style={[styles.sequenceActionChip, styles.sequenceActionChipDanger]}
-              activeOpacity={0.8}
-            >
-              <Trash2 size={13} color={colors.error} />
-            </TouchableOpacity>
-          )}
         </View>
       </View>
 
-      <FlatList
-        data={stops}
-        keyExtractor={(_item, index) => String(index)}
-        scrollEnabled={false}
-        initialNumToRender={10}
-        maxToRenderPerBatch={10}
-        windowSize={5}
-        renderItem={renderStopRow}
-        ListEmptyComponent={
-          stops.length === 0 ? (
-            <View style={styles.emptyStopsBox}>
-              <Bus size={22} color={colors.textSubtle} />
-              <Text style={styles.emptyStopsText}>
-                No stops added yet in this sequence.
-              </Text>
-              <TouchableOpacity style={styles.addFirstStopBtn} onPress={handleAddStop}>
-                <Plus size={13} color={colors.accent} />
-                <Text style={styles.addFirstStopText}>Add First Stop</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null
-        }
-      />
+      {editorMode === 'list' ? (
+        <>
+          {/* List Quick Actions Sub-bar */}
+          <View style={styles.listSubBar}>
+            <TouchableOpacity style={styles.addStopChip} onPress={handleAddStop} activeOpacity={0.8}>
+              <Plus size={13} color={colors.accent} />
+              <Text style={styles.addStopChipText}>Add Stop</Text>
+            </TouchableOpacity>
 
-      {isBulkOpen && (
-        <View style={[styles.bulkModalCard, { width: '100%', marginTop: 12 }]}>
-          <View style={styles.bulkModalHeader}>
-            <View style={styles.bulkModalIconBox}>
-              <ContentPaste size={20} color={isDark ? colors.text : colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.bulkModalTitle}>Bulk Edit Sequence</Text>
-              <Text style={styles.bulkModalSub}>Write one stop per line or separate by commas</Text>
-            </View>
+            {stops.length > 0 && (
+              <TouchableOpacity 
+                onPress={() => {
+                  Alert.alert(
+                    'Clear Sequence',
+                    'Are you sure you want to remove all stops from this journey?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Clear All', style: 'destructive', onPress: () => onChangeStops([]) }
+                    ]
+                  );
+                }}
+                style={styles.clearAllChip}
+                activeOpacity={0.8}
+              >
+                <Trash2 size={13} color={colors.error} />
+                <Text style={styles.clearAllChipText}>Clear All</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <FlashList
+            data={visibleStops}
+            keyExtractor={(_item, index) => String(index)}
+            renderItem={renderStopRow}
+            ListEmptyComponent={
+              stops.length === 0 ? (
+                <View style={styles.emptyStopsBox}>
+                  <Bus size={22} color={colors.textSubtle} />
+                  <Text style={styles.emptyStopsText}>
+                    No stops added yet in this sequence.
+                  </Text>
+                  <TouchableOpacity style={styles.addFirstStopBtn} onPress={handleAddStop}>
+                    <Plus size={13} color={colors.accent} />
+                    <Text style={styles.addFirstStopText}>Add First Stop</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null
+            }
+          />
+        </>
+      ) : (
+        /* Full Tab Bulk Editor Mode */
+        <View style={styles.bulkTextContainer}>
+          <View style={styles.bulkHelperRow}>
+            <Text style={styles.bulkHelperText}>
+              Write 1 stop per line or separate with commas
+            </Text>
             <TouchableOpacity 
-              style={styles.bulkModalCloseBtn}
-              onPress={() => setIsBulkOpen(false)}
+              style={styles.pasteClipboardBtn}
+              onPress={handlePasteFromClipboard}
+              activeOpacity={0.7}
             >
-              <X size={18} color={colors.textMuted} />
+              <ClipboardIcon size={13} color={colors.accent} />
+              <Text style={styles.pasteClipboardText}>Paste</Text>
             </TouchableOpacity>
           </View>
 
-          <View style={styles.bulkModalBody}>
-            <TextInput
-              style={styles.bulkModalInput}
-              value={bulkText}
-              onChangeText={setBulkText}
-              placeholder={"Example:\nKashmere Gate ISBT\nRed Fort\nDelhi Gate\nITO\nPragati Maidan"}
-              placeholderTextColor={colors.textSubtle}
-              multiline
-            />
+          <TextInput
+            style={styles.bulkFullInput}
+            value={bulkText}
+            onChangeText={setBulkText}
+            onFocus={() => setIsBulkFocused(true)}
+            onBlur={() => setIsBulkFocused(false)}
+            selection={isBulkFocused ? undefined : { start: 0, end: 0 }}
+            placeholder={"Example:\nKashmere Gate ISBT\nRed Fort\nDelhi Gate\nITO\nPragati Maidan"}
+            placeholderTextColor={colors.textSubtle}
+            multiline
+            textAlignVertical="top"
+          />
 
+          <View style={styles.bulkFooterBar}>
             <View style={styles.detectedBadge}>
               <View style={styles.detectedDot} />
               <Text style={styles.detectedText}>
                 {getDetectedCount(bulkText)} stops detected
               </Text>
             </View>
-          </View>
 
-          <View style={styles.bulkModalActions}>
-            <TouchableOpacity 
-              style={[styles.bulkBtn, styles.bulkBtnSecondary]} 
-              onPress={() => setIsBulkOpen(false)}
-            >
-              <Text style={styles.bulkBtnTextSecondary}>Cancel</Text>
-            </TouchableOpacity>
-            
-            <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={styles.bulkActionButtons}>
               <TouchableOpacity 
-                style={[styles.bulkBtn, styles.bulkBtnSecondary]} 
-                onPress={() => handleBulkImport(true)}
+                style={styles.bulkCancelBtn} 
+                onPress={() => setEditorMode('list')}
+                activeOpacity={0.8}
               >
-                <Text style={styles.bulkBtnTextSecondary}>Append</Text>
+                <Text style={styles.bulkCancelText}>Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
-                style={[styles.bulkBtn, styles.bulkBtnPrimary]} 
-                onPress={() => handleBulkImport(false)}
+                style={styles.bulkAppendBtn} 
+                onPress={() => handleBulkImport(true)}
+                activeOpacity={0.8}
               >
-                <Text style={styles.bulkBtnTextPrimary}>Overwrite</Text>
+                <Text style={styles.bulkAppendText}>Append</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.bulkApplyBtn} 
+                onPress={() => handleBulkImport(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.bulkApplyText}>Overwrite All</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -562,6 +697,31 @@ const RouteCard = React.memo(({ item, onEdit, onDelete, colors, styles }: any) =
     onDelete?.(item.id);
   }, [onDelete, item.id]);
 
+  const isNavigatingRef = useRef(false);
+  const handleCardPress = useCallback(() => {
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
+    setTimeout(() => {
+      isNavigatingRef.current = false;
+    }, 400);
+
+    if (activeRouteSwipeableRow) {
+      try {
+        activeRouteSwipeableRow.close();
+      } catch {}
+      activeRouteSwipeableRow = null;
+    }
+    onEdit?.(item);
+  }, [onEdit, item]);
+
+  useEffect(() => {
+    return () => {
+      if (activeRouteSwipeableRow === swipeableRef.current) {
+        activeRouteSwipeableRow = null;
+      }
+    };
+  }, []);
+
   const renderRightActions = useCallback(
     (_progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
       const opacity = dragX.interpolate({
@@ -604,14 +764,16 @@ const RouteCard = React.memo(({ item, onEdit, onDelete, colors, styles }: any) =
       overshootRight={false}
       onSwipeableWillOpen={handleSwipeableWillOpen}
       onSwipeableClose={handleSwipeableClose}
+      cancelsTouchesInView={false}
     >
       <Animated.View style={[styles.routeCardContainer, { transform: [{ scale: pressScale }] }]}>
-        <TouchableOpacity
+        <Pressable
           style={styles.routeCard}
-          onPress={() => onEdit(item)}
+          onPress={handleCardPress}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
-          activeOpacity={0.9}
+          accessibilityRole="button"
+          accessibilityLabel={`Route ${item.route}`}
         >
           {/* Top Header Row */}
           <View style={styles.routeCardHeader}>
@@ -688,12 +850,17 @@ const RouteCard = React.memo(({ item, onEdit, onDelete, colors, styles }: any) =
               </View>
             </View>
 
-            <View style={styles.configureLink}>
+            <TouchableOpacity
+              style={styles.configureLink}
+              onPress={handleCardPress}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
               <Text style={styles.configureLinkText}>Configure</Text>
               <ChevronRight size={13} color={colors.accent} />
-            </View>
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        </Pressable>
       </Animated.View>
     </Swipeable>
   );
@@ -704,8 +871,10 @@ export const RoutesManagementScreen = ({ route }: any) => {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => (typeof getStyles === 'function' ? getStyles(colors) : ({} as any)), [colors]);
   const [activeSubTab, setActiveSubTab] = useState<'routes' | 'fare'>('routes');
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  // Reset to default 'routes' tab when leaving screen or pressing tab bar
+  // Reset to default 'routes' tab and clear search when leaving screen or pressing tab bar
   useFocusEffect(
     useCallback(() => {
       if (route?.params?.tab === 'fare') {
@@ -714,8 +883,9 @@ export const RoutesManagementScreen = ({ route }: any) => {
       }
 
       return () => {
-        // Reset to default 'routes' tab when navigating away
+        // Reset to default 'routes' tab and clear search when navigating away
         setActiveSubTab('routes');
+        setSearchQuery('');
       };
     }, [route?.params?.tab, navigation])
   );
@@ -723,14 +893,15 @@ export const RoutesManagementScreen = ({ route }: any) => {
   useEffect(() => {
     const unsubscribe = navigation.addListener('tabPress', () => {
       setActiveSubTab('routes');
+      setSearchQuery('');
     });
     return unsubscribe;
   }, [navigation]);
 
   const [routes, setRoutes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [editingRoute, setEditingRoute] = useState<any>(null);
   const insets = useSafeAreaInsets();
   const [toastVisible, setToastVisible] = useState(false);
@@ -745,6 +916,8 @@ export const RoutesManagementScreen = ({ route }: any) => {
   const [downFrom, setDownFrom] = useState('');
   const [downTo, setDownTo] = useState('');
   const [downStops, setDownStops] = useState<string[]>([]);
+  const [originFocused, setOriginFocused] = useState(false);
+  const [destFocused, setDestFocused] = useState(false);
 
   const fetchRoutes = React.useCallback(async () => {
     try {
@@ -777,6 +950,7 @@ export const RoutesManagementScreen = ({ route }: any) => {
   }, [fetchRoutes]);
 
   const handleSave = async () => {
+    Keyboard.dismiss();
     if (!routeNumber.trim()) {
       Alert.alert('Error', 'Route number is required');
       return;
@@ -794,6 +968,7 @@ export const RoutesManagementScreen = ({ route }: any) => {
       updated_at: new Date().toISOString(),
     };
 
+    setSaving(true);
     try {
       const { error } = await supabase.from('routes').upsert(payload);
       if (error) throw error;
@@ -809,6 +984,8 @@ export const RoutesManagementScreen = ({ route }: any) => {
       fetchRoutes();
     } catch (error) {
       Alert.alert('Error', 'Could not save route');
+    } finally {
+      setSaving(false);
     }
   };
   
@@ -925,6 +1102,8 @@ export const RoutesManagementScreen = ({ route }: any) => {
     setDownFrom(''); setDownTo(''); setDownStops([]);
     setEditingRoute(null);
     setActiveDirection('up');
+    setOriginFocused(false);
+    setDestFocused(false);
   };
 
   const startEdit = useCallback((route: any) => {
@@ -941,10 +1120,10 @@ export const RoutesManagementScreen = ({ route }: any) => {
   }, []);
 
   const filteredRoutes = useMemo(() => {
-    if (!searchQuery.trim()) return routes;
-    const query = searchQuery.toLowerCase();
+    if (!debouncedSearchQuery.trim()) return routes;
+    const query = debouncedSearchQuery.toLowerCase();
     return routes.filter(r => r.route?.toLowerCase().includes(query));
-  }, [routes, searchQuery]);
+  }, [routes, debouncedSearchQuery]);
 
   const getStopCount = (arr: string[]) => arr.filter(s => s.trim().length > 0).length;
 
@@ -965,7 +1144,7 @@ export const RoutesManagementScreen = ({ route }: any) => {
     <AdminScreen>
       <AdminHeader
         title={activeSubTab === 'fare' ? 'Fare Slabs' : 'Route Hub'}
-        subtitle={activeSubTab === 'fare' ? 'Distance-based tariff structure' : `${filteredRoutes.length} network lines active`}
+        subtitle={activeSubTab === 'fare' ? 'Distance-based fare structure' : searchQuery ? `${filteredRoutes.length} matching routes` : `${routes.length} active bus routes`}
         action={activeSubTab === 'fare' ? null : (
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <IconButton 
@@ -1015,7 +1194,7 @@ export const RoutesManagementScreen = ({ route }: any) => {
       ) : (
         <>
           <View style={styles.searchBar}>
-            <SearchField placeholder="Search by route number or terminal..." value={searchQuery} onChangeText={setSearchQuery} />
+            <SearchField placeholder="Search by route" value={searchQuery} onChangeText={setSearchQuery} />
           </View>
 
           {loading ? (
@@ -1040,14 +1219,57 @@ export const RoutesManagementScreen = ({ route }: any) => {
 
       <AdminBottomSheet
         visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-        title={editingRoute ? `Edit Line ${routeNumber}` : 'Create Line'}
+        onClose={() => {
+          Keyboard.dismiss();
+          setModalVisible(false);
+        }}
+        title={editingRoute ? `Route ${routeNumber}` : 'Create Route'}
         subtitle={editingRoute ? 'Configure directions & stops sequence' : 'Define route number and sequence of stops'}
         contentStyle={{ paddingHorizontal: 0, flex: 1 }}
         sheetStyle={{ height: '88%' }}
+        footer={
+          <View style={styles.sheetFooterRow}>
+            <TouchableOpacity
+              style={styles.sheetCancelBtn}
+              onPress={() => {
+                Keyboard.dismiss();
+                setModalVisible(false);
+              }}
+              activeOpacity={0.7}
+              disabled={saving}
+            >
+              <X size={15} color={colors.textMuted} />
+              <Text style={styles.sheetCancelText}>Cancel</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.sheetSaveBtn, saving && styles.btnDisabled]}
+              onPress={handleSave}
+              activeOpacity={0.88}
+              disabled={saving}
+            >
+              <LinearGradient
+                colors={['#2563EB', '#1D4ED8']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.sheetSaveGrad}
+              >
+                {saving ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <>
+                    <Check size={16} color={colors.white} />
+                    <Text style={styles.sheetSaveText}>
+                      {editingRoute ? 'Update' : 'Save'}
+                    </Text>
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        }
       >
-        <View style={{ flex: 1 }}>
-          <ScrollView
+        <ScrollView
             style={{ flex: 1 }}
             contentContainerStyle={styles.compactFormScroll}
             keyboardShouldPersistTaps="handled"
@@ -1148,13 +1370,18 @@ export const RoutesManagementScreen = ({ route }: any) => {
             {/* Compact Origin-Destination Terminals Card */}
             <View style={styles.terminalsCard}>
               <View style={styles.terminalRow}>
-                <View style={[styles.terminalIndicator, { backgroundColor: activeDirection === 'up' ? '#10B981' : '#EF4444' }]} />
+                <View style={[styles.terminalIndicator, { backgroundColor: '#10B981' }]} />
                 <TextInput
                   style={styles.terminalInput}
-                  placeholder={activeDirection === 'up' ? 'Origin Terminal (e.g. Anand Vihar ISBT)' : 'Origin Terminal (e.g. Uttam Nagar)'}
+                  placeholder={activeDirection === 'up' ? 'Source' : 'Destination'}
                   value={activeDirection === 'up' ? upFrom : downFrom}
                   onChangeText={activeDirection === 'up' ? setUpFrom : setDownFrom}
+                  onFocus={() => setOriginFocused(true)}
+                  onBlur={() => setOriginFocused(false)}
+                  selection={originFocused ? undefined : { start: 0, end: 0 }}
                   placeholderTextColor={colors.textSubtle}
+                  textAlign="left"
+                  textAlignVertical="center"
                 />
               </View>
 
@@ -1180,10 +1407,15 @@ export const RoutesManagementScreen = ({ route }: any) => {
                 <View style={[styles.terminalIndicator, { backgroundColor: colors.error }]} />
                 <TextInput
                   style={styles.terminalInput}
-                  placeholder={activeDirection === 'up' ? 'Destination Terminal (e.g. Uttam Nagar)' : 'Destination Terminal (e.g. Anand Vihar ISBT)'}
+                  placeholder={activeDirection === 'up' ? 'Destination' : 'Destination'}
                   value={activeDirection === 'up' ? upTo : downTo}
                   onChangeText={activeDirection === 'up' ? setUpTo : setDownTo}
+                  onFocus={() => setDestFocused(true)}
+                  onBlur={() => setDestFocused(false)}
+                  selection={destFocused ? undefined : { start: 0, end: 0 }}
                   placeholderTextColor={colors.textSubtle}
+                  textAlign="left"
+                  textAlignVertical="center"
                 />
               </View>
             </View>
@@ -1214,17 +1446,6 @@ export const RoutesManagementScreen = ({ route }: any) => {
               styles={styles}
             />
           </ScrollView>
-
-          {/* Sticky Bottom Save Action */}
-          <View style={styles.compactSheetFooter}>
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.88}>
-              <LinearGradient colors={[colors.accent, '#3730A3']} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.saveGrad}>
-                <Bus size={15} color={colors.white} />
-                <Text style={styles.saveText}>Save Configuration</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </View>
       </AdminBottomSheet>
 
       <UndoToast
@@ -1650,21 +1871,24 @@ const getStyles = (colors: any) => StyleSheet.create({
   },
   swipeDeleteBg: {
     position: 'absolute',
-    left: 0,
     right: 0,
     top: 0,
     bottom: 6,
-    backgroundColor: colors.errorSoft,
-    borderWidth: 1,
-    borderColor: colors.error + '44',
-    borderRadius: RADIUS.sm,
-    flexDirection: 'row',
+    width: 72,
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingRight: 16,
-    gap: 6,
+    justifyContent: 'center',
   },
-  swipeDeleteText: { color: colors.error, fontSize: 12, fontWeight: '800' },
+  swipeDeleteBtn: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.error,
+    borderRadius: RADIUS.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'column',
+    gap: 2,
+  },
+  swipeDeleteText: { color: colors.white, fontSize: 11, fontWeight: '800' },
 
   emptyStopsBox: { paddingVertical: 20, alignItems: 'center', justifyContent: 'center', gap: 6 },
   emptyStopsText: { fontSize: 12, color: colors.textSubtle, fontWeight: '600' },
@@ -1688,60 +1912,162 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderTopColor: colors.border,
     backgroundColor: colors.surface,
   },
-  bulkModalCard: {
-    width: '90%',
-    backgroundColor: colors.surface,
-    borderRadius: 24,
-    padding: 20,
-    ...SHADOWS.floating,
+  sequenceModeSegment: {
+    flexDirection: 'row',
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: RADIUS.sm,
+    padding: 3,
     borderWidth: 1,
     borderColor: colors.border,
+    gap: 2,
   },
-  bulkModalHeader: {
+  modeTab: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    gap: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: RADIUS.xs,
+    gap: 5,
   },
-  bulkModalIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.accentSoft,
-    justifyContent: 'center',
-    alignItems: 'center',
+  modeTabActive: {
+    backgroundColor: colors.surface,
+    ...SHADOWS.card,
   },
-  bulkModalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  bulkModalSub: {
+  modeTabText: {
     fontSize: 11,
+    fontWeight: '700',
     color: colors.textMuted,
-    fontWeight: '600',
-    marginTop: 2,
   },
-  bulkModalCloseBtn: {
-    padding: 6,
+  modeTabTextActive: {
+    color: colors.accent,
+    fontWeight: '800',
+  },
+  listSubBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    paddingHorizontal: 2,
+  },
+  addStopChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.accentSoft,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: RADIUS.sm,
+  },
+  addStopChipText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.accent,
+  },
+  clearAllChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.errorSoft,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: RADIUS.sm,
+  },
+  clearAllChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.error,
+  },
+  bulkTextContainer: {
     backgroundColor: colors.surfaceMuted,
-    borderRadius: 8,
-  },
-  bulkModalBody: {
-    marginBottom: 16,
-  },
-  bulkModalInput: {
-    height: 180,
-    backgroundColor: colors.surfaceMuted,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 16,
-    padding: 14,
-    fontSize: 14,
+    padding: 12,
+    marginBottom: 10,
+  },
+  bulkHelperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  bulkHelperText: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textMuted,
+    marginRight: 8,
+  },
+  pasteClipboardBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.accentSoft,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: RADIUS.xs,
+  },
+  pasteClipboardText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.accent,
+  },
+  bulkFullInput: {
+    height: 190,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: RADIUS.sm,
+    padding: 12,
+    fontSize: 13,
     fontWeight: '600',
     color: colors.text,
     textAlignVertical: 'top',
-    lineHeight: 20,
+    lineHeight: 19,
+  },
+  bulkFooterBar: {
+    marginTop: 12,
+    gap: 12,
+  },
+  bulkActionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 8,
+  },
+  bulkCancelBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: RADIUS.xs,
+  },
+  bulkCancelText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  bulkAppendBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: RADIUS.xs,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  bulkAppendText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  bulkApplyBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: RADIUS.xs,
+    backgroundColor: colors.accent,
+  },
+  bulkApplyText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.white,
   },
   detectedBadge: {
     alignSelf: 'flex-start',
@@ -1751,7 +2077,6 @@ const getStyles = (colors: any) => StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
-    marginTop: 10,
     gap: 6,
     borderWidth: 1,
     borderColor: colors.accentMuted,
@@ -1767,49 +2092,53 @@ const getStyles = (colors: any) => StyleSheet.create({
     fontWeight: '800',
     color: colors.accent,
   },
-  bulkModalActions: {
+
+  sheetFooterRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 16,
+    gap: 10,
   },
-  bulkActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-  },
-  bulkBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  bulkBtnPrimary: {
-    backgroundColor: colors.accent,
-  },
-  bulkBtnSecondary: {
+  sheetCancelBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: RADIUS.md,
     backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
     borderColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
-  bulkBtnTextPrimary: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: colors.white,
-  },
-  bulkBtnTextSecondary: {
-    fontSize: 12,
+  sheetCancelText: {
+    fontSize: 14,
     fontWeight: '700',
     color: colors.textMuted,
   },
-
-  sheetFooter: { padding: 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface, paddingBottom: Platform.OS === 'ios' ? 30 : 12 },
-  saveBtn: { borderRadius: 10, overflow: 'hidden', ...SHADOWS.card },
-  saveGrad: { height: 46, alignItems: 'center', justifyContent: 'center' },
-  saveText: { color: colors.white, fontSize: 14, fontWeight: '800' },
+  sheetSaveBtn: {
+    flex: 2,
+    height: 48,
+    borderRadius: RADIUS.md,
+    overflow: 'hidden',
+    ...SHADOWS.card,
+  },
+  sheetSaveGrad: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+  },
+  sheetSaveText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  btnDisabled: {
+    opacity: 0.6,
+  },
 
   routeSwipeDeleteAction: {
     width: 80,

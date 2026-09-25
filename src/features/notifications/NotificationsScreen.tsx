@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Modal, TextInput, Platform, ActivityIndicator, ScrollView, Keyboard, Dimensions } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Modal, TextInput, Platform, ActivityIndicator, ScrollView, Keyboard, Dimensions } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../services/supabase';
 import { useTheme } from '../../core/ThemeContext';
@@ -33,7 +34,10 @@ const NOTIFICATION_TYPES = [
 export const NotificationsScreen = () => {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const styles = typeof getStyles === 'function' ? getStyles(colors, isDark) : {} as any;
+  const styles = useMemo(
+    () => (typeof getStyles === 'function' ? getStyles(colors, isDark) : {} as any),
+    [colors, isDark]
+  );
   const [notifications, setNotifications] = useState<any[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -102,7 +106,7 @@ export const NotificationsScreen = () => {
     }
   };
 
-  const renderNotification = ({ item }: any) => {
+  const renderNotification = useCallback(({ item }: any) => {
     const typeInfo = NOTIFICATION_TYPES.find(t => t.id === item.type) || NOTIFICATION_TYPES[0];
     const dateVal = item.created_at || item.timestamp;
     return (
@@ -122,15 +126,15 @@ export const NotificationsScreen = () => {
         <Text style={styles.notifMessage} numberOfLines={1}>{item.message}</Text>
       </View>
     );
-  };
+  }, [styles, colors.error, fetchNotifications]);
 
   const selectedType = NOTIFICATION_TYPES.find(t => t.id === type) || NOTIFICATION_TYPES[0];
 
   return (
     <AdminScreen>
-      <AdminHeader title="Broadcast" subtitle={`${totalUsers} active users`} />
+      <AdminHeader title="Broadcast" subtitle={`Send broadcast alerts to ${totalUsers} active users`} />
 
-      <FlatList
+      <FlashList
         data={notifications}
         keyExtractor={(item) => item.id}
         renderItem={renderNotification}

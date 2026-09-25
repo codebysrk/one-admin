@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -42,7 +42,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   onUserCreated,
 }) => {
   const { colors, isDark } = useTheme();
-  const styles = getStyles(colors, isDark);
+  const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -159,11 +159,30 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
     <AdminBottomSheet
       visible={visible}
       onClose={handleClose}
-      title={createdUser ? 'Account Created' : 'Create User Account'}
+      title={createdUser ? 'Account Created' : 'Add new user'}
       subtitle={
         createdUser
           ? 'Share these login credentials with the user'
-          : 'Generate credentials for a new client user'
+          : 'Generate credentials for a new user'
+      }
+      footer={
+        !createdUser ? (
+          <TouchableOpacity
+            style={[styles.createSubmitBtn, loading && styles.btnDisabled]}
+            onPress={handleCreate}
+            disabled={loading}
+            activeOpacity={0.8}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <>
+                <UserPlus size={18} color="#ffffff" />
+                <Text style={styles.createSubmitBtnText}>Add</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        ) : undefined
       }
     >
       {createdUser ? (
@@ -243,7 +262,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
             <Text style={styles.label}>FULL NAME</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. Rahul Sharma"
+              placeholder="Enter full name"
               placeholderTextColor={colors.textSubtle}
               value={fullName}
               onChangeText={setFullName}
@@ -255,7 +274,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
             <Text style={styles.label}>EMAIL ADDRESS</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. rahul@example.com"
+              placeholder="Enter email address"
               placeholderTextColor={colors.textSubtle}
               value={email}
               onChangeText={setEmail}
@@ -270,7 +289,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
             <Text style={styles.label}>MOBILE NUMBER</Text>
             <TextInput
               style={styles.input}
-              placeholder="10-digit mobile number (e.g. 9876543210)"
+              placeholder="Enter mobile number"
               placeholderTextColor={colors.textSubtle}
               value={phone}
               onChangeText={setPhone}
@@ -318,22 +337,6 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
               </TouchableOpacity>
             </View>
           </View>
-
-          <TouchableOpacity
-            style={[styles.createSubmitBtn, loading && styles.btnDisabled]}
-            onPress={handleCreate}
-            disabled={loading}
-            activeOpacity={0.8}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <>
-                <UserPlus size={18} color="#ffffff" />
-                <Text style={styles.createSubmitBtnText}>Create User Account</Text>
-              </>
-            )}
-          </TouchableOpacity>
         </ScrollView>
       )}
     </AdminBottomSheet>

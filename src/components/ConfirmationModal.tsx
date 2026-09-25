@@ -49,7 +49,7 @@ export const ConfirmationModal = ({
 }: ConfirmationModalProps) => {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const styles = getStyles(colors, insets);
+  const styles = useMemo(() => getStyles(colors, insets), [colors, insets]);
   const screenHeight = Dimensions.get('window').height;
 
   const panY = useRef(new Animated.Value(0)).current;

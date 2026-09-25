@@ -12,6 +12,7 @@ import { AdminHeader, AdminPressable, AdminScreen, ConfirmationModal, EmptyState
 import { UserTicketsScreen } from './UserTicketsScreen';
 import { CreateUserModal } from './CreateUserModal';
 import { logActivity } from '../../services/logService';
+import { useDebounce } from '../../utils/useDebounce';
 
 const IconWrapper = (name: any) => (props: any) => (
   <MaterialCommunityIcons name={name} {...props} />
@@ -29,12 +30,11 @@ const IndianRupee = IconWrapper('currency-inr');
 const Star = IconWrapper('star');
 const Smartphone = IconWrapper('cellphone');
 
-const UserCard = React.memo(({ item, userRevenue, initiateDelete, initiateStatusToggle, setSelectedUser }: any) => {
+const UserCard = React.memo(({ item, revenue = 0, initiateDelete, initiateStatusToggle, setSelectedUser, styles: propStyles }: any) => {
   const { colors, isDark } = useTheme();
-  const styles = typeof getStyles === 'function' ? getStyles(colors, isDark) : {} as any;
+  const styles = propStyles || (typeof getStyles === 'function' ? getStyles(colors, isDark) : {} as any);
   const banned = item.status === 'BANNED';
   const isAdmin = item.role === 'admin';
-  const revenue = userRevenue[item.id] || 0;
   const isVIP = revenue >= 1000;
 
   return (
@@ -112,7 +112,10 @@ type FilterType = 'ALL' | 'ACTIVE' | 'BANNED' | 'ADMINS';
 
 export const UsersListScreen = () => {
   const { colors, isDark } = useTheme();
-  const styles = typeof getStyles === 'function' ? getStyles(colors, isDark) : {} as any;
+  const styles = useMemo(
+    () => (typeof getStyles === 'function' ? getStyles(colors, isDark) : ({} as any)),
+    [colors, isDark]
+  );
   const [, startTransition] = useTransition();
   const [users, setUsers] = useState<any[]>([]);
   const [userRevenue, setUserRevenue] = useState<Record<string, number>>({});
@@ -120,8 +123,17 @@ export const UsersListScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
   const [selectedUser, setSelectedUser] = useState<any>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setSearchQuery('');
+      };
+    }, [])
+  );
 
   useEffect(() => {
     if (!selectedUser) return;
@@ -257,10 +269,12 @@ export const UsersListScreen = () => {
   }, [deleteUser]);
 
   const filteredUsers = useMemo(() => {
+    const query = debouncedSearchQuery.trim().toLowerCase();
     return users.filter((u) => {
       const matchesSearch =
-        u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.email?.toLowerCase().includes(searchQuery.toLowerCase());
+        !query ||
+        u.name?.toLowerCase().includes(query) ||
+        u.email?.toLowerCase().includes(query);
 
       if (!matchesSearch) return false;
 
@@ -275,19 +289,20 @@ export const UsersListScreen = () => {
           return true;
       }
     });
-  }, [users, searchQuery, activeFilter]);
+  }, [users, debouncedSearchQuery, activeFilter]);
 
   const renderUser = useCallback(
     ({ item }: any) => (
       <UserCard
         item={item}
-        userRevenue={userRevenue}
+        revenue={userRevenue[item.id] || 0}
         initiateDelete={initiateDelete}
         initiateStatusToggle={initiateStatusToggle}
         setSelectedUser={setSelectedUser}
+        styles={styles}
       />
     ),
-    [userRevenue, initiateDelete, initiateStatusToggle]
+    [userRevenue, initiateDelete, initiateStatusToggle, styles]
   );
 
   if (selectedUser) {
@@ -305,12 +320,12 @@ export const UsersListScreen = () => {
     <AdminScreen>
       <AdminHeader 
         title="Identity & Access" 
-        subtitle={`${filteredUsers.length} ${activeFilter.toLowerCase()} records indexed`} 
+        subtitle={searchQuery ? `${filteredUsers.length} matching accounts` : activeFilter === 'ALL' ? `${users.length} registered user accounts` : `${filteredUsers.length} ${activeFilter.toLowerCase()} users`} 
       />
       
       <View style={styles.controls}>
         <SearchField
-          placeholder="Search by name, email, or mobile..."
+          placeholder="Search by name, email, or mobile"
           value={searchQuery}
           onChangeText={setSearchQuery}
         />

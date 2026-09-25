@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-const AnyFlashList = FlashList as any;
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../services/supabase';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../core/theme';
 import { useTheme } from '../../core/ThemeContext';
@@ -19,6 +19,7 @@ import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchF
 import { logActivity } from '../../services/logService';
 import { TicketCard } from '../../components/TicketCard';
 import { EditTicketModal } from './EditTicketModal';
+import { useDebounce } from '../../utils/useDebounce';
 
 export const AllTicketsScreen = () => {
   const { colors } = useTheme();
@@ -26,8 +27,17 @@ export const AllTicketsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [editModal, setEditModal] = useState<{ visible: boolean; ticket: any | null }>({ visible: false, ticket: null });
   const [expandedTicketId, setExpandedTicketId] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setSearchQuery('');
+      };
+    }, [])
+  );
 
   // Undo Toast & Deletion Queue Refs
   const [toastVisible, setToastVisible] = useState(false);
@@ -107,7 +117,7 @@ export const AllTicketsScreen = () => {
   }, [fetchTickets]);
 
   const filteredTickets = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = debouncedSearchQuery.trim().toLowerCase();
     if (!q) return tickets;
     return tickets.filter(
       (t) =>
@@ -115,7 +125,7 @@ export const AllTicketsScreen = () => {
         t.route?.toLowerCase().includes(q) ||
         t.id?.toLowerCase().includes(q)
     );
-  }, [tickets, searchQuery]);
+  }, [tickets, debouncedSearchQuery]);
 
   // Commit pending delete to DB
   const commitPendingDelete = useCallback(async () => {
@@ -139,14 +149,17 @@ export const AllTicketsScreen = () => {
     }
   }, []);
 
-  // Instant Delete with 4s Undo window (Option 3)
+  const ticketsRef = useRef(tickets);
+  ticketsRef.current = tickets;
+
+  // Instant Delete with 10s Undo window (Option 3)
   const handleDelete = useCallback((id: string) => {
     if (pendingDeleteRef.current) {
       if (pendingDeleteRef.current.timer) clearTimeout(pendingDeleteRef.current.timer);
       commitPendingDelete();
     }
 
-    const ticketToDelete = tickets.find((t) => t.id === id);
+    const ticketToDelete = ticketsRef.current.find((t) => t.id === id);
     if (!ticketToDelete) return;
 
     // Optimistically remove from state immediately
@@ -158,7 +171,7 @@ export const AllTicketsScreen = () => {
     }, 10000);
 
     pendingDeleteRef.current = { id, ticket: ticketToDelete, timer };
-  }, [tickets, commitPendingDelete]);
+  }, [commitPendingDelete]);
 
   // Undo deletion
   const handleUndo = useCallback(() => {
@@ -204,7 +217,7 @@ export const AllTicketsScreen = () => {
     <AdminScreen>
       <AdminHeader
         title="Booking History"
-        subtitle={`${filteredTickets.length} tickets visible`}
+        subtitle={searchQuery ? `${filteredTickets.length} matching bookings` : `${tickets.length} total passenger bookings`}
         action={(
           <IconButton
             tone="success"
@@ -227,10 +240,9 @@ export const AllTicketsScreen = () => {
       {loading ? (
         <LoadingState label="Loading tickets..." />
       ) : (
-        <AnyFlashList
+        <FlashList
           data={filteredTickets}
           extraData={expandedTicketId}
-          estimatedItemSize={150}
           keyExtractor={(item: any) => item.id}
           renderItem={renderTicket}
           contentContainerStyle={styles.list}

@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   useWindowDimensions,
-  StatusBar,
   RefreshControl,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -67,8 +66,10 @@ const formatLogTime = (timestamp: any) => {
 const StatsGrid = React.memo(
   ({ stats, weeklyRevenue, loading, navigation }: any) => {
     const { colors, isDark } = useTheme();
-    const styles =
-      typeof getStyles === "function" ? getStyles(colors) : ({} as any);
+    const styles = useMemo(
+      () => (typeof getStyles === "function" ? getStyles(colors) : ({} as any)),
+      [colors]
+    );
     const cards = [
       {
         key: "weekly",
@@ -156,8 +157,10 @@ const StatsGrid = React.memo(
 const RevenueChart = React.memo(
   ({ loading, chartWidth, revenueData, chartConfig }: any) => {
     const { colors, isDark } = useTheme();
-    const styles =
-      typeof getStyles === "function" ? getStyles(colors) : ({} as any);
+    const styles = useMemo(
+      () => (typeof getStyles === "function" ? getStyles(colors) : ({} as any)),
+      [colors]
+    );
     const total7Day = useMemo(
       () =>
         revenueData.reduce(
@@ -216,8 +219,10 @@ const RevenueChart = React.memo(
 
 const ActivityItem = React.memo(({ log, isLast }: any) => {
   const { colors, isDark } = useTheme();
-  const styles =
-    typeof getStyles === "function" ? getStyles(colors) : ({} as any);
+  const styles = useMemo(
+    () => (typeof getStyles === "function" ? getStyles(colors) : ({} as any)),
+    [colors]
+  );
   const isSecurity =
     log.action &&
     (log.action.includes("BAN") ||
@@ -247,8 +252,10 @@ const ActivityItem = React.memo(({ log, isLast }: any) => {
 
 const TicketItem = React.memo(({ ticket, isLast, onPress }: any) => {
   const { colors, isDark } = useTheme();
-  const styles =
-    typeof getStyles === "function" ? getStyles(colors) : ({} as any);
+  const styles = useMemo(
+    () => (typeof getStyles === "function" ? getStyles(colors) : ({} as any)),
+    [colors]
+  );
   const isAC =
     String(ticket.busType || ticket.bus_type || "").toUpperCase() === "AC" ||
     (ticket.route && String(ticket.route).toLowerCase().includes("ac"));
@@ -489,7 +496,7 @@ export const DashboardScreen = () => {
   return (
     <View style={styles.container}>
       <AdminHeader
-        eyebrow="ONE DELHI • COMMAND CENTER"
+        eyebrow="ONE DELHI • ADMIN PANEL"
         title={admin?.name || "Administrator"}
         subtitle="Real-time transit command & fleet overview"
         action={(

@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-const AnyFlashList = FlashList as any;
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../services/supabase';
 import { useTheme } from '../../core/ThemeContext';
 import { RADIUS, SHADOWS, SPACING  } from '../../core/theme';
@@ -26,6 +25,7 @@ const Settings = IconWrapper('cog-outline');
 const AlertTriangle = IconWrapper('alert');
 import { exportToCSV } from '../../utils/csvHelper';
 import { AdminHeader, AdminScreen, EmptyState, IconButton, LoadingState, SearchField, AdminBottomSheet, ConfirmationModal } from '../../components/AdminUI';
+import { useDebounce } from '../../utils/useDebounce';
 
 const formatFullTimestamp = (timestamp: any) => {
   if (!timestamp) return 'Pending';
@@ -43,16 +43,28 @@ const formatFullTimestamp = (timestamp: any) => {
 
 export const LogsScreen = () => {
   const { colors, isDark } = useTheme();
-  const styles = typeof getStyles === 'function' ? getStyles(colors, isDark) : {} as any;
+  const styles = useMemo(
+    () => (typeof getStyles === 'function' ? getStyles(colors, isDark) : {} as any),
+    [colors, isDark]
+  );
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'ADMIN' | 'USER'>('ALL');
   const [dateFilter, setDateFilter] = useState<'RECENT' | 'TODAY' | 'WEEK'>('RECENT');
   const [showCleanupModal, setShowCleanupModal] = useState(false);
   const [cleaning, setCleaning] = useState(false);
   const [confirmModal, setConfirmModal] = useState({ visible: false, days: 0 as number | 'ALL' });
   const navigation = useNavigation<any>();
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setSearchQuery('');
+      };
+    }, [])
+  );
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -113,9 +125,10 @@ export const LogsScreen = () => {
   }, [fetchLogs]);
 
   const filteredLogs = useMemo(() => {
-    const q = searchQuery.toLowerCase();
+    const q = debouncedSearchQuery.toLowerCase();
     return logs.filter((log) => {
       const matchesSearch =
+        !q ||
         log.userName?.toLowerCase().includes(q) ||
         log.action?.toLowerCase().includes(q) ||
         log.details?.toLowerCase().includes(q) ||
@@ -124,7 +137,7 @@ export const LogsScreen = () => {
       if (activeFilter === 'ALL') return matchesSearch;
       return matchesSearch && log.type === activeFilter;
     });
-  }, [logs, searchQuery, activeFilter]);
+  }, [logs, debouncedSearchQuery, activeFilter]);
 
   const getLogStyle = useCallback((action: string) => {
     const act = action?.toUpperCase() || '';
@@ -374,11 +387,10 @@ export const LogsScreen = () => {
       {loading ? (
         <LoadingState label="Decrypting logs..." />
       ) : (
-        <AnyFlashList
+        <FlashList
           data={filteredLogs}
           keyExtractor={(item: any) => item.id}
           renderItem={renderLogItem}
-          estimatedItemSize={220}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
